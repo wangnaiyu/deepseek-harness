@@ -1,7 +1,7 @@
 /**
  * The workspace/session browsing region filling the sidebar shell's
- * `sidebar.workspaces` hole: section header (title + view options + add
- * workspace), search, the grouped tree or flat list, and the workspace
+ * `sidebar.workspaces` hole: section header (title + new session + search +
+ * view options + add workspace), the grouped tree or flat list, and the workspace
  * dialogs. Wide state renders the full browser; rail state renders the two
  * region icons (search / add workspace) as 36px controls on the shell's shared
  * rail entry path, each requesting expansion through the owner share. Adding
@@ -9,10 +9,10 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconCloseFill14, IconPersonalizationOutline16,
+  Button, IconCloseFill14, IconNewChatOutline16, IconPersonalizationOutline16,
   IconProjectAddOutline16, IconSearchOutline16, Menu, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
@@ -37,6 +37,9 @@ const SEARCH_DEBOUNCE_MS = 250
 const SEARCH_QUERY_MAX_CODE_UNITS = 500
 /** Session rows visible per Workspace before the local overflow control. */
 const COLLAPSED_SESSION_LIMIT = 5
+
+const BROWSER_VIEWS = ['sessions', 'runHistory'] as const
+type BrowserView = typeof BROWSER_VIEWS[number]
 
 /** Keep controlled input and RPC payload inside the session.search wire contract. */
 function sanitizeSearchQuery(value: string): string {
@@ -765,6 +768,9 @@ export function WorkspaceBrowser({
   renderSlot,
   t,
 }: WorkspaceBrowserProps) {
+  const tabsId = useId()
+  const [activeView, setActiveView] = useState<BrowserView>('sessions')
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const home = useHostDescription(description => description?.home)
   const workspaces = useWorkspaces(state => state.items)
   const workspacePhase = useWorkspaces(state => state.phase)
@@ -828,6 +834,12 @@ export function WorkspaceBrowser({
   const [wsPickerOpen, setWsPickerOpen] = useState(false)
   const wsPlusRef = useRef<HTMLButtonElement>(null)
   const composingRef = useRef(false)
+  const selectView = (view: BrowserView): void => {
+    setActiveView(view)
+    setQuery('')
+    setSearchExpanded(false)
+    setWsPickerOpen(false)
+  }
 
   // Rail search = expand + land in the search box: the flag arms before the
   // expand request; once the shell flips wide the input mounts and takes focus.
@@ -865,7 +877,7 @@ export function WorkspaceBrowser({
   }, [normalizedQuery, wide, searchExpanded, searchOnExpand])
 
   useEffect(() => {
-    if (normalizedQuery === '') {
+    if (activeView !== 'sessions' || normalizedQuery === '') {
       setRemoteSearch({ query: '', status: 'idle', items: [], hasMore: false })
       return
     }
@@ -899,7 +911,7 @@ export function WorkspaceBrowser({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [normalizedQuery, searchSessions])
+  }, [activeView, normalizedQuery, searchSessions])
 
   // Rename dialog (browser-owned so it outlives row unmounts during collapse).
   const [renameTarget, setRenameTarget] = useState<{ workspaceId: WorkspaceId; currentTitle: string } | null>(null)
@@ -1009,14 +1021,70 @@ export function WorkspaceBrowser({
 
   return (
     <div className={clsx(css.root, !wide && css.rail)}>
+      {wide && (
+        <div className={clsx(css.browserTabs, css.wide)} role="tablist" aria-label={t('tabs.aria')}>
+          {BROWSER_VIEWS.map((view, index) => {
+            const selected = activeView === view
+            return (
+              <button
+                key={view}
+                ref={(element) => { tabRefs.current[index] = element }}
+                id={`${tabsId}-tab-${view}`}
+                type="button"
+                role="tab"
+                className={clsx(css.browserTab, selected && css.browserTabActive)}
+                aria-selected={selected}
+                aria-controls={`${tabsId}-panel-${view}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => { selectView(view) }}
+                onKeyDown={(event) => {
+                  let nextIndex: number
+                  switch (event.key) {
+                    case 'ArrowRight': nextIndex = (index + 1) % BROWSER_VIEWS.length; break
+                    case 'ArrowLeft': nextIndex = (index - 1 + BROWSER_VIEWS.length) % BROWSER_VIEWS.length; break
+                    case 'Home': nextIndex = 0; break
+                    case 'End': nextIndex = BROWSER_VIEWS.length - 1; break
+                    default: return
+                  }
+                  event.preventDefault()
+                  selectView(BROWSER_VIEWS[nextIndex] as BrowserView)
+                  tabRefs.current[nextIndex]?.focus()
+                }}
+              >
+                {t(view === 'sessions' ? 'tabs.sessions' : 'tabs.runHistory')}
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className={css.sectionHeader}>
         {wide && (
           <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
-            {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
+            {activeView === 'runHistory'
+              ? t('tabs.runHistory')
+              : groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
           </span>
         )}
         {wide && (
-          <div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
+          <div className={clsx(
+            css.searchSlot,
+            activeView === 'runHistory' && css.historySearchSlot,
+            searchExpanded && css.searchSlotExpanded,
+          )}>
+            {activeView === 'sessions' && (
+              <div className={clsx(css.headerActions, css.leadingAction, searchExpanded && css.headerActionsHidden)}>
+                <Tooltip label={t('session.new')} side="bottom" delayMs={500}>
+                  <button
+                    type="button"
+                    className={css.iconButton}
+                    aria-label={t('session.new')}
+                    onClick={() => { startSession() }}
+                  >
+                    <IconNewChatOutline16 size={14} />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
             <div
               ref={searchRoot}
               className={clsx(css.search, searchExpanded && css.searchExpanded)}
@@ -1030,7 +1098,7 @@ export function WorkspaceBrowser({
                 <button
                   type="button"
                   className={css.searchButton}
-                  aria-label={t('search.sessions.aria')}
+                  aria-label={t(activeView === 'sessions' ? 'search.sessions.aria' : 'search.runHistory.aria')}
                   aria-expanded={searchExpanded}
                   onClick={() => {
                     setWsPickerOpen(false)
@@ -1044,7 +1112,7 @@ export function WorkspaceBrowser({
                 ref={searchInput}
                 className={css.searchInput}
                 type="text"
-                placeholder={t('search.placeholder')}
+                placeholder={t(activeView === 'sessions' ? 'search.placeholder' : 'search.runHistory.placeholder')}
                 maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
                 value={query}
                 tabIndex={searchExpanded ? 0 : -1}
@@ -1073,7 +1141,7 @@ export function WorkspaceBrowser({
           </div>
         )}
         <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
-          {wide && (
+          {wide && activeView === 'sessions' && (
             <ViewOptionsMenu
               groupBy={groupBy}
               orderBy={orderBy}
@@ -1085,7 +1153,7 @@ export function WorkspaceBrowser({
           {/* Adding is the button's one action, so a composition with no
               picking affordance has nothing to offer here: the region hides the
               button rather than leaving a dead one in the header. */}
-          {directoryFlowAvailable && (
+          {activeView === 'sessions' && directoryFlowAvailable && (
             <Tooltip label={t('workspace.add')} side="bottom" delayMs={500}>
               <button
                 ref={wsPlusRef}
@@ -1104,7 +1172,7 @@ export function WorkspaceBrowser({
         {/* Add flow + its error dialog (same package — direct composition). */}
         <WorkspacePickFlow
           t={t}
-          open={wsPickerOpen}
+          open={activeView === 'sessions' && wsPickerOpen}
           anchorRef={wsPlusRef}
           useWorkspaces={useWorkspaces}
           createWorkspace={createWorkspace}
@@ -1140,8 +1208,13 @@ export function WorkspaceBrowser({
 
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
-      <div className={css.listArea}>
-        {wide && (normalizedQuery !== ''
+      <div
+        id={`${tabsId}-panel-${activeView}`}
+        className={css.listArea}
+        role={wide ? 'tabpanel' : undefined}
+        aria-labelledby={wide ? `${tabsId}-tab-${activeView}` : undefined}
+      >
+        {wide && activeView === 'sessions' && (normalizedQuery !== ''
           ? (
             <SearchResults
               useSessions={useSessions}
