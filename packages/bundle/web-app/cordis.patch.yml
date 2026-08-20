@@ -217,6 +217,11 @@
     - id: ui-brand-official
       name: '@deepseek-ai/dsh-client-ui-brand-official'
 
+    # PTO Agent 工作台 workbench brand occupants (this fork's brand; the
+    # official plugin stays inert outside its `official` build profile).
+    - id: ui-brand-pto
+      name: '@deepseek-ai/dsh-client-ui-brand-pto'
+
     - id: ui-attachment
       name: '@deepseek-ai/dsh-client-ui-attachment'
 
