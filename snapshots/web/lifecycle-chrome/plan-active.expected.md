@@ -1,17 +1,30 @@
 - button "New session"
-- button "Collapse sidebar"
-- button "New session": New Session
+- button "Collapse sidebar":
+  - img
 - navigation "Global panels":
   - button "Plugins"
+- tablist "Sidebar view":
+  - tab "Sessions" [selected]
+  - tab "Run History"
 - text: Workspaces
-- button "Search sessions"
-- textbox "Search session names"
-- button "View options"
-- button "Add workspace"
-- tree "Sessions":
-  - treeitem "workspace" [expanded]
-  - treeitem "New Session" [selected]
-- button "Settings"
+- button "New Session":
+  - img
+- button "Search sessions":
+  - img
+- textbox "Search sessions..."
+- button "View options":
+  - img
+- button "Add workspace":
+  - img
+- tabpanel "Sessions":
+  - tree "Sessions":
+    - treeitem "workspace" [expanded]:
+      - img
+      - text: workspace
+    - treeitem "New Session" [selected]
+- button "Settings":
+  - img
+  - text: Settings
 - banner:
   - button "Open right sidebar"
 - text: Into the Unknown Preview

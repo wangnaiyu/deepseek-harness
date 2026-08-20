@@ -8,6 +8,7 @@
  * same top-down order) on one fade that ends with the slide. The bottom-pinned
  * settings control only fades. The workspace/session browsing region between
  * global panel rows and the foot is the `sidebar.workspaces` registrant's,
+ * including its expanded navigation tabs,
  * and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
  * hands them the wide flag (plus an expand request callback for the browser).
  *
@@ -250,22 +251,20 @@ export function SidebarRoot({
         {!darwinDesktop && toggle}
       </div>
 
-      {/* Expanded, the button carries its own label — tooltip only on the rail. */}
-      <Tooltip label={t('session.new.label')} delayMs={500} disabled={wide} side={captionTooltipSide}>
-        <button
-          type="button"
-          className={css.newSession}
-          aria-label={t('session.new.label')}
-          onClick={() => { startSession() }}
-        >
-          {/* The rail draws Regular: Medium's 1.3px stroke scaled to the rail's
-              larger glyph reads visibly heavier than the neighboring 1px icons. */}
-          {wide
-            ? <IconNewChatOutlineMedium size={14} />
-            : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
-          {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
-        </button>
-      </Tooltip>
+      {/* Expanded navigation lives in the workspace region. The rail keeps a
+          direct New Session shortcut because tabs cannot fit its geometry. */}
+      {!wide && (
+        <Tooltip label={t('session.new.label')} delayMs={500} side={captionTooltipSide}>
+          <button
+            type="button"
+            className={css.newSession}
+            aria-label={t('session.new.label')}
+            onClick={() => { startSession() }}
+          >
+            <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />
+          </button>
+        </Tooltip>
+      )}
 
       {panels.length > 0 && (
         <nav className={css.panelList} aria-label={t('panels.label')}>
