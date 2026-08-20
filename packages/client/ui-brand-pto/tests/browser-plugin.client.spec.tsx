@@ -59,9 +59,10 @@ describe('pto browser-brand plugin', () => {
 
   it('renders the PTO name independently from both requested mark sizes', () => {
     const name = render(<PtoBrandName />)
-    expect(name.container.querySelector('svg')?.getAttribute('viewBox')).toBe('26 0 156 24')
-    expect(name.container.querySelector('text')?.textContent).toBe('PTO Agent 工作台')
-    expect(name.container.querySelector('text:last-of-type')?.textContent).toBe('DSH')
+    const root = name.getByText('PTO Agent 工作台').parentElement
+    expect(root?.tagName).toBe('SPAN')
+    expect(root?.children).toHaveLength(2)
+    expect(name.getByText('DSH').parentElement).toBe(root?.lastElementChild)
     name.unmount()
 
     const mark = render(<PtoBrandMark size={34} className="hero-mark" />)
