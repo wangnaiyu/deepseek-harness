@@ -1,12 +1,14 @@
 - button "New session"
 - button "Collapse sidebar":
   - img
-- button "New session":
-  - img
-  - text: New Session
 - navigation "Global panels":
   - button "Plugins"
+- tablist "Sidebar view":
+  - tab "Sessions" [selected]
+  - tab "Run History"
 - text: Workspaces
+- button "New Session":
+  - img
 - button "Search sessions":
   - img
 - textbox "Search sessions..."
@@ -14,11 +16,12 @@
   - img
 - button "Add workspace":
   - img
-- tree "Sessions":
-  - treeitem "workspace" [expanded]:
-    - img
-    - text: workspace
-  - treeitem "New Session" [selected]
+- tabpanel "Sessions":
+  - tree "Sessions":
+    - treeitem "workspace" [expanded]:
+      - img
+      - text: workspace
+    - treeitem "New Session" [selected]
 - button "Settings":
   - img
   - text: Settings
