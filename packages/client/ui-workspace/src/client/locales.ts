@@ -6,6 +6,9 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'tabs.aria': '侧边栏视图',
+  'tabs.sessions': '会话',
+  'tabs.runHistory': '运行历史',
   'group.ungrouped': '未分组',
   'session.new': '新会话',
   'section.workspaces': '工作区',
@@ -23,7 +26,9 @@ export const zh = {
   'empty.noMatches': '无匹配结果',
   'workspace.add': '添加工作区',
   'search.sessions.aria': '搜索会话',
+  'search.runHistory.aria': '搜索运行历史',
   'search.placeholder': '搜索会话…',
+  'search.runHistory.placeholder': '搜索运行历史…',
   'search.clear': '清除搜索',
   'search.results.aria': '搜索结果',
   'search.pending': '正在搜索会话历史…',
@@ -76,6 +81,9 @@ export type WorkspaceKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'tabs.aria': 'Sidebar view',
+  'tabs.sessions': 'Sessions',
+  'tabs.runHistory': 'Run History',
   'group.ungrouped': 'Ungrouped',
   'session.new': 'New Session',
   'section.workspaces': 'Workspaces',
@@ -93,7 +101,9 @@ export const en = {
   'empty.noMatches': 'No matches',
   'workspace.add': 'Add workspace',
   'search.sessions.aria': 'Search sessions',
+  'search.runHistory.aria': 'Search run history',
   'search.placeholder': 'Search sessions...',
+  'search.runHistory.placeholder': 'Search run history...',
   'search.clear': 'Clear search',
   'search.results.aria': 'Search results',
   'search.pending': 'Searching session history…',

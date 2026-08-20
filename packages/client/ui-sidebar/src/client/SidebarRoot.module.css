@@ -244,8 +244,8 @@
   white-space: nowrap;
 }
 
-/* New Session: 38px bar, 12px radius (figma 133:7634 geometry, squared-off
-   corners); collapsed it renders as the rail's plain icon control. */
+/* New Session survives only as the collapsed rail's plain icon control; the
+   expanded seat belongs to ui-workspace's Session / Run History tabs. */
 .newSession {
   flex: none;
   display: flex;
@@ -284,16 +284,6 @@
 
 .collapsed .newSession:hover {
   background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.newSessionLabel {
-  max-width: 200px;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.collapsed .newSessionLabel {
-  max-width: 0;
 }
 
 /* Region seat: always mounted so the foot never moves. Its trailing margin
