@@ -410,23 +410,31 @@
   left: 0;
 }
 
-/* Hero phase: the composer stack (hero chrome + workspace row + card) is
-   flex-centered in the column; composer phase docks it at the bottom. Flex,
-   NOT absolute+transform: a transform would make this box the containing
-   block for position:fixed descendants (pickers/modals), shrinking them. */
+/* Hero phase: welcome copy owns the remaining column and centers within it;
+   the workspace row + resident input stay at the panel bottom. Flex, NOT
+   absolute+transform: a transform would make this box the containing block
+   for position:fixed descendants (pickers/modals), shrinking them. */
 .composerHero {
   align-self: center;
   /* figma 75:8208 drew 12 between all three rows; the workspace row now sits
      8 above the card (its margin-top restores 12 under the hero chrome). */
   gap: 8px;
-  /* Foot inside the centered box floats the stack a bit above true center. */
-  padding-bottom: 32px;
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 24px;
   /* Card cap + both clearances: the hero input card lands at exactly the same
      width as the docked composer at every viewport. */
   width: min(calc(var(--dsh-composer-card-max-width) + 2 * var(--dsh-composer-side-clearance)), 100%);
   z-index: 1;
 }
 
+.heroWelcome {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .heroWorkspaceRow {
   display: flex;
   align-items: center;
@@ -438,11 +446,13 @@
   padding-left: 20px;
 }
 
-/* Hero: the composer sits inside the session scroll body; center there so
-   the tree seat matches active (sticky footer) without a Root remount. */
-.root[data-phase='hero'] .scrollBody {
-  justify-content: center;
-  overflow-y: auto;
+/* Hero: the resident composer seat fills the scroll body. Its welcome child
+   consumes the free space while the stable input subtree remains at bottom.
+   The base vertical scroller stays enabled: narrow viewports and enlarged
+   content must remain reachable even while the blank surface is showing. */
+.root[data-phase='hero'] .composerSeat {
+  flex: 1;
+  min-height: 0;
 }
 
 /* Settling (session replaying, hero/docked unknown): keep the composer seat

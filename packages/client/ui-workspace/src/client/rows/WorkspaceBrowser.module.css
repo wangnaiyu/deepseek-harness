@@ -14,6 +14,49 @@
   padding-right: 0;
 }
 
+.browserTabs {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  height: 38px;
+  margin: 0 2px 8px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-alias-button-elevated-fill);
+}
+
+.browserTab {
+  min-width: 0;
+  border: none;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 30px;
+  cursor: pointer;
+}
+
+.browserTab:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.browserTabActive {
+  background: var(--dsw-alias-interactive-bg-hover-solid);
+  color: var(--dsw-alias-label-primary);
+}
+
+.browserTab:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -2px;
+}
+
 .iconButton {
   flex: none;
   display: inline-flex;
@@ -84,10 +127,11 @@
 
 .searchSlot {
   flex: 1;
-  max-width: 28px;
+  max-width: 60px;
   min-width: 0;
   display: flex;
   align-items: center;
+  gap: 4px;
   margin-left: auto;
   padding-left: 0;
   box-sizing: border-box;
@@ -98,7 +142,22 @@
 
 .searchSlotExpanded {
   max-width: 100%;
+  gap: 0;
   padding-left: 0;
+}
+
+.historySearchSlot {
+  max-width: 28px;
+}
+
+.historySearchSlot.searchSlotExpanded {
+  max-width: 100%;
+}
+
+.searchSlot > .search {
+  flex: 1;
+  width: 28px;
+  min-width: 0;
 }
 
 .headerActions {
@@ -124,6 +183,10 @@
   visibility: hidden;
   pointer-events: none;
   transition-delay: 0s, 0s, 0s, 180ms;
+}
+
+.leadingAction {
+  max-width: 28px;
 }
 
 /* Inline search always fills the room between the title and trailing actions;

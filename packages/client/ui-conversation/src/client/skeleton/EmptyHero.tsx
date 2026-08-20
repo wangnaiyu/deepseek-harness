@@ -1,5 +1,6 @@
-// The composer remains in ConversationRoot so switching out of the blank-draft
-// phase does not remount its textarea.
+// Hero chrome for the blank-draft phase of ConversationRoot. The resident
+// composer stays in ConversationRoot so the textarea survives the hero →
+// composer flip.
 
 import { useState } from 'react'
 import type { ReactNode, RefObject } from 'react'

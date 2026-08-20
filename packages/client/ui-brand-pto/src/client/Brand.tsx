@@ -1,6 +1,7 @@
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HeroBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import css from './Brand.module.css'
 
 type PtoBrandMarkProps = HeroBrandMarkOwnerProps & SidebarBrandMarkOwnerProps
 
@@ -19,33 +20,11 @@ export function PtoBrandMark({ size, className }: PtoBrandMarkProps) {
  */
 export function PtoBrandName() {
   return (
-    <svg
-      width={156}
-      height={24}
-      viewBox="26 0 156 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <text
-        x="29"
-        y="12"
-        dominantBaseline="central"
-        fontSize="11.5"
-        fontWeight="600"
-        fill="currentColor"
-        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif"
-      >PTO Agent 工作台</text>
-      <rect x="129.348" y="5.5" width="52" height="14" rx="2" fill="currentColor"/>
-      <text
-        x="155.348"
-        y="12.5"
-        dominantBaseline="central"
-        textAnchor="middle"
-        fontSize="9.5"
-        fontWeight="700"
-        fill="var(--dsw-alias-label-primary-inverted)"
-        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif"
-      >DSH</text>
-    </svg>
+    <span className={css.root} aria-hidden="true">
+      <span className={css.wordmark}>PTO Agent 工作台</span>
+      <span className={css.badgePlate}>
+        <span className={css.badgeText}>DSH</span>
+      </span>
+    </span>
   )
 }

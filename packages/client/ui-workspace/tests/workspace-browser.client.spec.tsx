@@ -100,6 +100,46 @@ function rerender(b: ReturnType<typeof mount>, overrides: Partial<WorkspaceBrows
 }
 
 describe('WorkspaceBrowser', () => {
+  it('switches between the Sessions and Run History tabs', () => {
+    mount()
+    const sessions = screen.getByRole('tab', { name: '会话' })
+    const runHistory = screen.getByRole('tab', { name: '运行历史' })
+
+    expect(sessions.getAttribute('aria-selected')).toBe('true')
+    expect(runHistory.getAttribute('aria-selected')).toBe('false')
+    expect(screen.getByText('工作区')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '新会话' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '视图选项' })).toBeTruthy()
+
+    fireEvent.click(runHistory)
+    expect(runHistory.getAttribute('aria-selected')).toBe('true')
+    expect(sessions.getAttribute('aria-selected')).toBe('false')
+    expect(screen.getAllByText('运行历史')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: '新会话' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '视图选项' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
+
+    const search = screen.getByRole('button', { name: '搜索运行历史' })
+    fireEvent.click(search)
+    expect(search.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByPlaceholderText('搜索运行历史…')).toBeTruthy()
+
+    fireEvent.click(sessions)
+    expect(sessions.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByText('工作区')).toBeTruthy()
+  })
+
+  it('starts a new session from the header icon placed before search', () => {
+    const b = mount()
+    const newSession = screen.getByRole('button', { name: '新会话' })
+    const search = screen.getByRole('button', { name: '搜索会话' })
+
+    expect(newSession.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    fireEvent.click(newSession)
+    expect(b.props.startSession).toHaveBeenCalledOnce()
+    expect(b.props.startSession).toHaveBeenCalledWith()
+  })
+
   it('workspace hover card shows a POSIX home descendant as ~', () => {
     vi.useFakeTimers()
     try {
@@ -162,7 +202,7 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '单列表' }))
     // Store-driven flip: title changes, rows flatten newest-first, headers gone.
     expect(b.store.getSnapshot().groupBy).toBe('flat')
-    expect(screen.getByText('会话')).toBeTruthy()
+    expect(screen.getByText('会话', { selector: 'span' })).toBeTruthy()
     expect(screen.queryByText('alpha')).toBeNull()
     expect(screen.getByText('alpha-s')).toBeTruthy()
     expect(screen.getByText('beta-s')).toBeTruthy()
