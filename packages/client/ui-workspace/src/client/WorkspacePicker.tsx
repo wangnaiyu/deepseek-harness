@@ -38,6 +38,13 @@ export interface WorkspacePickFlowProps {
   useDirectoryFlow: SnapshotSelectorHook<boolean>
   /** Render this surface's directory-flow hole with the owner conversation (the entry's narrowed renderSlot). */
   renderDirectoryFlow: (owner: DirectoryFlowOwnerProps) => ReactNode
+  /**
+   * Replace the default Workspace adoption. The run-record open flow supplies
+   * it: picking a run directory registers a record and creates no Workspace,
+   * so `createWorkspace` and `onPick` stay out of that path. Rejections land
+   * in the same retryable folder-error dialog.
+   */
+  adoptPath?: ((path: string) => Promise<void>) | undefined
   /** A real Workspace was picked or created. */
   onPick: (workspaceId: WorkspaceId) => void
   /** Close the popover (outside click / Escape / post-pick). */
@@ -63,6 +70,7 @@ export function WorkspacePickFlow({
   createWorkspace,
   useDirectoryFlow,
   renderDirectoryFlow,
+  adoptPath,
   onPick,
   onClose,
   addOnly = false,
@@ -124,10 +132,13 @@ export function WorkspacePickFlow({
 
   /** Adopt a picked directory; failures land in the folder-error dialog (Choose again reopens the flow). */
   const adoptDirectory = (path: string): Promise<void> =>
-    createWorkspace({ path }).then((workspace) => {
-      setFlowOpen(false)
-      onPick(workspace.workspaceId)
-    }).catch((reason: unknown) => {
+    (adoptPath === undefined
+      ? createWorkspace({ path }).then((workspace) => {
+        setFlowOpen(false)
+        onPick(workspace.workspaceId)
+      })
+      : adoptPath(path).then(() => { setFlowOpen(false) })
+    ).catch((reason: unknown) => {
       setModalError(reason instanceof Error ? reason.message : String(reason))
       setFlowOpen(false)
       setErrorOpen(true)
