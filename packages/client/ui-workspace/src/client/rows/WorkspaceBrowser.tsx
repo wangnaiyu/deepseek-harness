@@ -9,6 +9,7 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
+import type { RefObject } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
@@ -23,7 +24,11 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { SessionNode, SessionOrderBy } from '../tree.ts'
 import { deriveFlat, deriveGroups, deriveSearchResults, UNGROUPED_KEY } from '../tree.ts'
-import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
+import type { OpenedRunRecord } from '../runRecords.ts'
+import { containingGroupKey, deriveRunRecordGroups } from '../runRecords.ts'
+import {
+  ProjectRowItem, RunGroupRowItem, RunRecordRowItem, SearchResultItem, SessionNodeItem,
+} from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import css from './WorkspaceBrowser.module.css'
@@ -55,7 +60,7 @@ function collapsedSessionRows(sessions: readonly SessionNode[]): {
   return { rows, hiddenCount: sessions.length - rows.length }
 }
 
-const BROWSER_VIEWS = ['sessions', 'runHistory'] as const
+const BROWSER_VIEWS = ['sessions', 'runRecords'] as const
 type BrowserView = typeof BROWSER_VIEWS[number]
 
 /** Keep controlled input and RPC payload inside the session.search wire contract. */
@@ -797,6 +802,81 @@ function SearchResults({
   )
 }
 
+/** Run-record tree body: workspace sections in Host order, then the import bucket. */
+type RunRecordTreeProps = Pick<WorkspaceBrowserProps, 't'> & {
+  /** Host account home for POSIX hover-path abbreviation. */
+  home?: string | undefined
+  workspaces: readonly WorkspaceView[]
+  /** The user's explicitly opened run directories. */
+  records: readonly OpenedRunRecord[]
+  /** Trimmed filter text from the region header's search field. */
+  query: string
+  /** Explicit persisted fold state by group identity. */
+  expansion: Readonly<Record<string, boolean>>
+  /** Persist one section's fold state. */
+  setExpanded: (key: string, expanded: boolean) => void
+  /** Raise the open-run-record flow from the import bucket's trailing action. */
+  onOpenRecord: () => void
+  /** Popover anchor for that flow (the bucket's trailing button). */
+  openRef: RefObject<HTMLButtonElement>
+  /** Open the browser-owned remove confirmation for one record. */
+  onRemoveRequest: (path: string, label: string) => void
+}
+
+/**
+ * The scrolling run-record tree. Unlike the session tree it owns no ordering,
+ * no drag, and no overflow control: records are a bookmark list the user
+ * looks back through, so recency ordering is the whole policy.
+ * @param props - workspaces, records, and the browser-owned callbacks.
+ * @returns the tree body element.
+ */
+function RunRecordTree({
+  workspaces, records, query, expansion, setExpanded,
+  onOpenRecord, openRef, onRemoveRequest, home, t,
+}: RunRecordTreeProps) {
+  const expandedGroups = useMemo(
+    () => Object.entries(expansion).filter(([, expanded]) => expanded).map(([key]) => key),
+    [expansion],
+  )
+  const groups = useMemo(
+    () => deriveRunRecordGroups(workspaces, records, { expandedGroups, query }),
+    [workspaces, records, expandedGroups, query],
+  )
+  const total = groups.reduce((sum, group) => sum + group.recordCount, 0)
+  return (
+    <div className={clsx(css.treeBody, css.wide)}>
+      <div className={css.list} role="tree" aria-label={t('tabs.runRecords')}>
+        {groups.map(group => (
+          <div key={group.key} className={css.groupSection}>
+            <RunGroupRowItem
+              group={group}
+              home={home}
+              t={t}
+              onToggle={() => { setExpanded(group.key, !group.expanded) }}
+              {...group.project === undefined ? { onOpen: onOpenRecord, openRef } : {}}
+            />
+            {group.records.map(record => (
+              <RunRecordRowItem
+                key={record.id}
+                record={record}
+                home={home}
+                t={t}
+                onRemove={() => { onRemoveRequest(record.path, record.label) }}
+              />
+            ))}
+          </div>
+        ))}
+        {/* The bucket row above already carries the open entry, so the empty
+            state stays a plain line — no second call to action in the body. */}
+        {total === 0 && (
+          <div className={css.empty}>{query === '' ? t('runRecords.empty') : t('runRecords.noMatches')}</div>
+        )}
+      </div>
+      <span className={css.fade} />
+    </div>
+  )
+}
+
 /**
  * Render the browsing region.
  * @param props - composed slot props (shell owner share + store + injected actions).
@@ -842,6 +922,8 @@ export function WorkspaceBrowser({
   const groupExpansion = useStore(s => s.groupExpansion)
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   const sessionUpdatedAtByAccount = useStore(s => s.sessionUpdatedAtByAccount)
+  const runGroupExpansion = useStore(s => s.runGroupExpansion)
+  const openedRunRecords = useStore(s => s.openedRunRecords)
   const currentBlankSessionId = useSessions((state) => {
     const current = state.current
     return current !== undefined && state.byId[current]?.blank === true ? current : undefined
@@ -893,13 +975,31 @@ export function WorkspaceBrowser({
   // states; the menu anchors on this button).
   const [wsPickerOpen, setWsPickerOpen] = useState(false)
   const wsPlusRef = useRef<HTMLButtonElement>(null)
+  // The run-record open flow shares the surface's one directory-flow occupant
+  // with the workspace add flow; the two are mutually exclusive by Tab, so
+  // they differ only in their anchor and in what adopts the picked path.
+  const [runPickerOpen, setRunPickerOpen] = useState(false)
+  const runPlusRef = useRef<HTMLButtonElement>(null)
   const composingRef = useRef(false)
   const selectView = (view: BrowserView): void => {
     setActiveView(view)
     setQuery('')
     setSearchExpanded(false)
     setWsPickerOpen(false)
+    setRunPickerOpen(false)
   }
+
+  // The rail does not carry run records: collapsing returns the region to
+  // Sessions so its single search control keeps one meaning. The run-record
+  // query goes with it rather than silently filtering sessions.
+  useEffect(() => {
+    if (wide || activeView === 'sessions') return
+    setActiveView('sessions')
+    setQuery('')
+    setSearchExpanded(false)
+    setWsPickerOpen(false)
+    setRunPickerOpen(false)
+  }, [wide, activeView])
 
   // Rail search = expand + land in the search box: the flag arms before the
   // expand request; once the shell flips wide the input mounts and takes focus.
@@ -1044,6 +1144,22 @@ export function WorkspaceBrowser({
     })
   }
 
+  // Opening a run record registers it in this browser-local list only. The
+  // Workspace registration is deferred to the first session started on the
+  // record, so a directory looked at once does not enter the Sessions Tab's
+  // workspace list. Group attribution is resolved here, once: a record opened
+  // while nothing contained it stays in the bucket even if its parent project
+  // is registered later.
+  const adoptRunRecordPath = (path: string): Promise<void> => {
+    actions.openRunRecord(path, containingGroupKey(path, workspaces), Date.now())
+    setRunPickerOpen(false)
+    return Promise.resolve()
+  }
+
+  // Removing a run record deregisters it and nothing else — same retention
+  // boundary as deleting a Workspace registration, so it confirms the same way.
+  const [runRemoveTarget, setRunRemoveTarget] = useState<{ path: string; label: string } | null>(null)
+
   // Delete dialog is separate from the row so a successful removal can
   // unmount that row without tearing down the in-flight confirmation state.
   const [deleteTarget, setDeleteTarget] = useState<{ workspaceId: WorkspaceId; title: string } | null>(null)
@@ -1111,7 +1227,7 @@ export function WorkspaceBrowser({
                   tabRefs.current[nextIndex]?.focus()
                 }}
               >
-                {t(view === 'sessions' ? 'tabs.sessions' : 'tabs.runHistory')}
+                {t(view === 'sessions' ? 'tabs.sessions' : 'tabs.runRecords')}
               </button>
             )
           })}
@@ -1120,15 +1236,15 @@ export function WorkspaceBrowser({
       <div className={css.sectionHeader}>
         {wide && (
           <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
-            {activeView === 'runHistory'
-              ? t('tabs.runHistory')
+            {activeView === 'runRecords'
+              ? t('tabs.runRecords')
               : groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
           </span>
         )}
         {wide && (
           <div className={clsx(
             css.searchSlot,
-            activeView === 'runHistory' && css.historySearchSlot,
+            activeView === 'runRecords' && css.runRecordsSearchSlot,
             searchExpanded && css.searchSlotExpanded,
           )}>
             {activeView === 'sessions' && (
@@ -1158,7 +1274,7 @@ export function WorkspaceBrowser({
                 <button
                   type="button"
                   className={css.searchButton}
-                  aria-label={t(activeView === 'sessions' ? 'search.sessions.aria' : 'search.runHistory.aria')}
+                  aria-label={t(activeView === 'sessions' ? 'search.sessions.aria' : 'search.runRecords.aria')}
                   aria-expanded={searchExpanded}
                   onClick={() => {
                     setWsPickerOpen(false)
@@ -1172,7 +1288,7 @@ export function WorkspaceBrowser({
                 ref={searchInput}
                 className={css.searchInput}
                 type="text"
-                placeholder={t(activeView === 'sessions' ? 'search.placeholder' : 'search.runHistory.placeholder')}
+                placeholder={t(activeView === 'sessions' ? 'search.placeholder' : 'search.runRecords.placeholder')}
                 maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
                 value={query}
                 tabIndex={searchExpanded ? 0 : -1}
@@ -1232,19 +1348,23 @@ export function WorkspaceBrowser({
         {/* Add flow + its error dialog (same package — direct composition). */}
         <WorkspacePickFlow
           t={t}
-          open={activeView === 'sessions' && wsPickerOpen}
-          anchorRef={wsPlusRef}
+          open={activeView === 'sessions' ? wsPickerOpen : runPickerOpen}
+          anchorRef={activeView === 'sessions' ? wsPlusRef : runPlusRef}
           useWorkspaces={useWorkspaces}
           createWorkspace={createWorkspace}
           useDirectoryFlow={useDirectoryFlow}
           renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
           addOnly
           side="right"
+          {...activeView === 'runRecords' ? { adoptPath: adoptRunRecordPath } : {}}
           onPick={(workspaceId) => {
             setWsPickerOpen(false)
             startSession(workspaceId)
           }}
-          onClose={() => { setWsPickerOpen(false) }}
+          onClose={() => {
+            setWsPickerOpen(false)
+            setRunPickerOpen(false)
+          }}
         />
       </div>
 
@@ -1336,7 +1456,48 @@ export function WorkspaceBrowser({
                 }}
               />
             ))}
+        {wide && activeView === 'runRecords' && (
+          <RunRecordTree
+            workspaces={workspaces}
+            records={openedRunRecords}
+            query={normalizedQuery}
+            expansion={runGroupExpansion}
+            setExpanded={actions.setRunGroupExpanded}
+            onOpenRecord={() => { setRunPickerOpen(v => !v) }}
+            openRef={runPlusRef}
+            onRemoveRequest={(path, label) => { setRunRemoveTarget({ path, label }) }}
+            home={home}
+            t={t}
+          />
+        )}
       </div>
+
+      <Modal
+        open={runRemoveTarget !== null}
+        onClose={() => { setRunRemoveTarget(null) }}
+        closeLabel={t('close')}
+        title={t('runRecords.remove')}
+        {...runRemoveTarget === null
+          ? {}
+          : { description: t('runRecords.remove.desc', { name: runRemoveTarget.label }) }}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setRunRemoveTarget(null) }}>{t('cancel')}</Button>
+            <Button
+              variant="outline"
+              className={css.deleteAction}
+              onClick={() => {
+                /* v8 ignore next -- the Modal is absent without a target. */
+                if (runRemoveTarget === null) return
+                actions.removeRunRecord(runRemoveTarget.path)
+                setRunRemoveTarget(null)
+              }}
+            >
+              {t('runRecords.remove')}
+            </Button>
+          </>
+        )}
+      />
 
       <Modal
         open={renameTarget !== null}

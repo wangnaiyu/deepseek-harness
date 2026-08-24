@@ -146,11 +146,11 @@
   padding-left: 0;
 }
 
-.historySearchSlot {
+.runRecordsSearchSlot {
   max-width: 28px;
 }
 
-.historySearchSlot.searchSlotExpanded {
+.runRecordsSearchSlot.searchSlotExpanded {
   max-width: 100%;
 }
 

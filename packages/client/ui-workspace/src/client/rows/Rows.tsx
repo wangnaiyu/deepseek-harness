@@ -5,17 +5,19 @@
  * except workspace Rename/Delete and session Rename/Fork/Archive; the session
  * and workspace hover cards are suppressed while a menu is open.
  */
+import type { RefObject } from 'react'
 import { useState } from 'react'
 import clsx from 'clsx'
 import {
   HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
-  IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
-  IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
-  StateDot,
+  IconDataOutline16, IconEditOutline16,
+  IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPlusOutline16,
+  IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime, StateDot, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
+import type { RunRecordGroupNode, RunRecordNode } from '../runRecords.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
@@ -494,6 +496,154 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
       content={<SessionHoverContent node={node} now={now} t={t} />}
       disabled={menuOpen || drag?.active === true}
       copyText={row.blank ? undefined : row.title}
+      copyLabel={t('copy')}
+      copiedLabel={t('hover.copied')}
+    />
+  )
+}
+
+/**
+ * Run-record group header row: the same 34px project row as the session
+ * tree, minus the affordances that would misread here.
+ *
+ * A project section carries no trailing action at all: the runs under it are
+ * scanned, so there is nothing to add by hand, and the Workspace's own
+ * rename/delete verbs belong to the Sessions Tab that owns the registration.
+ * Only the import bucket carries a trailing `＋`, hover-revealed like every
+ * other row action — it is the one way a run record enters the list.
+ * @param props.group - derived run-record group node.
+ * @param props.onToggle - expand/collapse the section.
+ * @param props.onOpen - raise the open-run-record flow (import bucket only).
+ * @param props.openRef - anchor element ref for that flow's popover.
+ * @param props.home - host account home for POSIX hover-path abbreviation.
+ * @param props.t - the browser root's locale seat.
+ * @returns the row element.
+ */
+export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
+  group: RunRecordGroupNode
+  onToggle: () => void
+  /** Present only on the import bucket. */
+  onOpen?: (() => void) | undefined
+  /** Present only on the import bucket (the flow's popover anchor). */
+  openRef?: RefObject<HTMLButtonElement> | undefined
+  home?: string | undefined
+  t: RowTranslate
+}) {
+  const project = group.project
+  // The import bucket has no Workspace title: its label is dictionary copy.
+  const label = project === undefined ? t('group.ungrouped') : group.label
+  const ownRow = (
+    <div className={css.projectRow} role="treeitem" aria-expanded={group.expanded} onClick={onToggle}>
+      <span className={clsx(css.slot, css.folder)}>
+        {group.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+      </span>
+      <span className={clsx(css.slot, css.chevron)}>
+        <IconTriangleRightFill14 className={clsx(css.arrow, group.expanded && css.arrowOpen)} />
+      </span>
+      <span className={css.projectText}>
+        <span className={css.title}>{label}</span>
+      </span>
+      {onOpen !== undefined && (
+        <span className={css.rowActions}>
+          <Tooltip label={t('runRecords.open')} side="bottom" delayMs={500}>
+            <button
+              ref={openRef}
+              type="button"
+              className={css.iconButton}
+              aria-label={t('runRecords.open')}
+              onClick={(e) => { e.stopPropagation(); onOpen() }}
+            >
+              <IconPlusOutline16 />
+            </button>
+          </Tooltip>
+        </span>
+      )}
+    </div>
+  )
+  // The import bucket has no backing Workspace: no card to show.
+  if (project === undefined) return ownRow
+  return (
+    <HoverCard
+      anchor={ownRow}
+      content={<WorkspaceHoverContent
+        label={group.label}
+        cwd={abbreviateHomePath(project.cwd, home)}
+        createdAt={project.createdAt}
+        t={t}
+      />}
+      copyText={project.cwd}
+      copyLabel={t('copy')}
+      copiedLabel={t('hover.copied')}
+    />
+  )
+}
+
+/**
+ * One run-record row: leading artifact glyph, directory label, and the row
+ * menu. The row itself is deliberately inert — a run record is a thing to
+ * look back at and pick from, not a task start, and its card action set
+ * (view artifacts, open the report board, start a session) is still being
+ * designed. Removing deregisters the record here and leaves the directory
+ * untouched, so the confirmation states that boundary.
+ * @param props.record - derived run-record node.
+ * @param props.onRemove - open the browser-owned remove confirmation.
+ * @param props.home - host account home for POSIX hover-path abbreviation.
+ * @param props.t - the browser root's locale seat.
+ * @returns the row element.
+ */
+export function RunRecordRowItem({ record, onRemove, home, t }: {
+  record: RunRecordNode
+  onRemove: () => void
+  home?: string | undefined
+  t: RowTranslate
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const ownRow = (
+    <div
+      className={clsx(css.sessionRow, css.runRecordRow, menuOpen && css.menuOpen)}
+      role="treeitem"
+      aria-selected={false}
+    >
+      <span className={css.slot}><IconDataOutline16 /></span>
+      <span className={css.title}>{record.label}</span>
+      <span className={css.rowActions}>
+        <Menu
+          open={menuOpen}
+          onClose={() => { setMenuOpen(false) }}
+          items={[{ id: 'remove', label: t('runRecords.remove'), icon: <IconTrashOutline16 />, danger: true }]}
+          onSelect={(id) => {
+            setMenuOpen(false)
+            /* v8 ignore next -- the menu carries exactly this one row today. */
+            if (id !== 'remove') return
+            onRemove()
+          }}
+          portal
+          closeOnPointerLeave
+          anchor={(
+            <button
+              type="button"
+              className={css.iconButton}
+              aria-label={t('runRecords.actions.aria', { name: record.label })}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
+            >
+              <IconEllipsisOutline16 />
+            </button>
+          )}
+        />
+      </span>
+    </div>
+  )
+  return (
+    <HoverCard
+      anchor={ownRow}
+      content={(
+        <div className={css.hoverContent}>
+          <div className={css.hoverTitle}>{record.label}</div>
+          <div className={css.hoverPath}>{abbreviateHomePath(record.path, home)}</div>
+        </div>
+      )}
+      disabled={menuOpen}
+      copyText={record.path}
       copyLabel={t('copy')}
       copiedLabel={t('hover.copied')}
     />

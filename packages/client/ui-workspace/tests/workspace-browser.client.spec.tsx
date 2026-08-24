@@ -100,33 +100,185 @@ function rerender(b: ReturnType<typeof mount>, overrides: Partial<WorkspaceBrows
 }
 
 describe('WorkspaceBrowser', () => {
-  it('switches between the Sessions and Run History tabs', () => {
+  it('switches between the Sessions and Run Records tabs', () => {
     mount()
     const sessions = screen.getByRole('tab', { name: '会话' })
-    const runHistory = screen.getByRole('tab', { name: '运行历史' })
+    const runRecords = screen.getByRole('tab', { name: '运行记录' })
 
     expect(sessions.getAttribute('aria-selected')).toBe('true')
-    expect(runHistory.getAttribute('aria-selected')).toBe('false')
+    expect(runRecords.getAttribute('aria-selected')).toBe('false')
     expect(screen.getByText('工作区')).toBeTruthy()
     expect(screen.getByRole('button', { name: '新会话' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '视图选项' })).toBeTruthy()
 
-    fireEvent.click(runHistory)
-    expect(runHistory.getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(runRecords)
+    expect(runRecords.getAttribute('aria-selected')).toBe('true')
     expect(sessions.getAttribute('aria-selected')).toBe('false')
-    expect(screen.getAllByText('运行历史')).toHaveLength(2)
+    expect(screen.getAllByText('运行记录')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: '新会话' })).toBeNull()
     expect(screen.queryByRole('button', { name: '视图选项' })).toBeNull()
     expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
 
-    const search = screen.getByRole('button', { name: '搜索运行历史' })
+    const search = screen.getByRole('button', { name: '搜索运行记录' })
     fireEvent.click(search)
     expect(search.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByPlaceholderText('搜索运行历史…')).toBeTruthy()
+    expect(screen.getByPlaceholderText('搜索运行记录…')).toBeTruthy()
 
     fireEvent.click(sessions)
     expect(sessions.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('工作区')).toBeTruthy()
+  })
+
+  it('always renders the import bucket and hangs the open entry on it', () => {
+    mount({ useWorkspaces: hook(workspaceState([workspace('alpha', [])])) })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+
+    // Isomorphic with the session tree: one section per workspace, then the
+    // bucket — which renders with nothing in it because it carries the entry.
+    const rows = screen.getAllByRole('treeitem')
+    expect(rows.map(row => row.textContent)).toEqual(['alpha', '未分组'])
+    expect(screen.getByText('暂无运行记录')).toBeTruthy()
+
+    // The entry hangs on the bucket row only; a project section offers none
+    // (its runs are scanned, so there is nothing to add by hand).
+    const open = screen.getAllByRole('button', { name: '打开运行记录' })
+    expect(open).toHaveLength(1)
+    expect(rows[1]?.contains(open[0] as HTMLElement)).toBe(true)
+  })
+
+  it('opens a picked run directory into the group that contains it', () => {
+    let picked: ((path: string) => void) | undefined
+    mount({
+      useWorkspaces: hook(workspaceState([workspace('alpha', [])])),
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    expect(screen.getByTestId('directory-flow')).toBeTruthy()
+
+    // /projects/alpha is a registered workspace, so the record lands there.
+    act(() => { picked?.('/projects/alpha/build_output/mm_20260824_101500') })
+    fireEvent.click(screen.getByRole('treeitem', { name: 'alpha' }))
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_101500/ })).toBeTruthy()
+
+    // Nothing outside every workspace lands in the bucket instead.
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/mm_20260824_111500') })
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_111500/ })).toBeTruthy()
+  })
+
+  it('removes a run record as a deregistration', () => {
+    let picked: ((path: string) => void) | undefined
+    mount({
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/mm_20260824_111500') })
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+
+    fireEvent.click(screen.getByRole('button', { name: '运行记录“mm_20260824_111500”的操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '移除运行记录' }))
+    // The confirmation states the retention boundary before it commits.
+    expect(screen.getByText(/目录及其中的文件会原样保留/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_111500/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '运行记录“mm_20260824_111500”的操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '移除运行记录' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '移除运行记录' })[0] as HTMLElement)
+    expect(screen.queryByRole('treeitem', { name: /mm_20260824_111500/ })).toBeNull()
+    expect(screen.getByText('暂无运行记录')).toBeTruthy()
+  })
+
+  it('filters run records through the region search field', () => {
+    let picked: ((path: string) => void) | undefined
+    mount({
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/mm_20260824_111500') })
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+
+    fireEvent.click(screen.getByRole('button', { name: '搜索运行记录' }))
+    fireEvent.change(screen.getByPlaceholderText('搜索运行记录…'), { target: { value: 'MM_2026' } })
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_111500/ })).toBeTruthy()
+
+    fireEvent.change(screen.getByPlaceholderText('搜索运行记录…'), { target: { value: 'gemm' } })
+    expect(screen.queryByRole('treeitem', { name: /mm_20260824_111500/ })).toBeNull()
+    expect(screen.getByText('无匹配运行记录')).toBeTruthy()
+  })
+
+  it('ignores a re-open of a listed record and closes its menu on Escape', () => {
+    let picked: ((path: string) => void) | undefined
+    mount({
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/mm_20260824_111500') })
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/mm_20260824_111500') })
+
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+    expect(screen.getAllByRole('treeitem', { name: /mm_20260824_111500/ })).toHaveLength(1)
+
+    // Escape closes the row menu without selecting (Menu onClose path).
+    fireEvent.click(screen.getByRole('button', { name: '运行记录“mm_20260824_111500”的操作' }))
+    expect(screen.getByRole('menuitem', { name: '移除运行记录' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menuitem', { name: '移除运行记录' })).toBeNull()
+  })
+
+  it('drops a deregistered workspace section and keeps its records in the bucket', () => {
+    let picked: ((path: string) => void) | undefined
+    const b = mount({
+      useWorkspaces: hook(workspaceState([workspace('alpha', [])])),
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/projects/alpha/build_output/mm_20260824_101500') })
+    fireEvent.click(screen.getByRole('treeitem', { name: 'alpha' }))
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_101500/ })).toBeTruthy()
+
+    // Deleting the registration retires its fold state; the record survives
+    // in the bucket, because deregistering a workspace deletes no records.
+    rerender(b, { useWorkspaces: hook(workspaceState([])) })
+    expect(screen.queryByRole('treeitem', { name: 'alpha' })).toBeNull()
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+    expect(screen.getByRole('treeitem', { name: /mm_20260824_101500/ })).toBeTruthy()
+  })
+
+  it('returns to Sessions when the sidebar collapses', () => {
+    const b = mount()
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '搜索运行记录' }))
+    fireEvent.change(screen.getByPlaceholderText('搜索运行记录…'), { target: { value: 'mm' } })
+
+    // The rail carries no run records, so collapsing drops the view and the
+    // query with it rather than filtering sessions by run-record text.
+    rerender(b, { wide: false })
+    rerender(b, { wide: true })
+    expect(screen.getByRole('tab', { name: '会话' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.queryByPlaceholderText('搜索运行记录…')).toBeNull()
   })
 
   it('starts a new session from the header icon placed before search', () => {
