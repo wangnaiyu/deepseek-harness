@@ -117,6 +117,14 @@
   margin-left: 0;
 }
 
+/* Run-record row: the session cell's geometry, without its click target. The
+   row is a thing to look at and pick from, not a task start, and its card
+   action set is still being designed — so the cursor must not promise a
+   navigation the click does not perform. */
+.runRecordRow {
+  cursor: default;
+}
+
 @keyframes row-in {
   from { opacity: 0; }
 }
