@@ -5,7 +5,7 @@
   - button "Plugins"
 - tablist "Sidebar view":
   - tab "Sessions" [selected]
-  - tab "Run History"
+  - tab "Run Records"
 - text: Workspaces
 - button "New Session":
   - img
