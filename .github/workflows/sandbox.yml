@@ -90,9 +90,12 @@ jobs:
       # The unit suite runs on ubuntu in `checks`; this is the one darwin leg
       # in the workflow, so run it here too — the platform-dependent unit
       # expectations (Seatbelt path canonicalization: /tmp IS /private/tmp)
-      # take their darwin branch only on this runner.
+      # take their darwin branch only on this runner. Keep that full-repository
+      # upstream parity signal in the official repository; forks still run the
+      # focused Seatbelt confinement proof below without inheriting unrelated
+      # upstream PowerShell failures.
       - name: Unit tests (darwin parity)
-        if: matrix.runner == 'seatbelt'
+        if: matrix.runner == 'seatbelt' && github.repository == 'deepseek-ai/deepseek-harness'
         run: pnpm run test
 
       - name: Sandbox e2e (real kernel confinement, world-verified)
