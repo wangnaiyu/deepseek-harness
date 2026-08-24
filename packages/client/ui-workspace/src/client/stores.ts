@@ -9,6 +9,7 @@ import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-sto
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { reconcileManualOrder, type ArchivedFilter, type SessionRowState } from './tree.ts'
+import type { OpenedRunRecord } from './runRecords.ts'
 
 /** Browser-local order account for the hierarchy-free flat Session list. */
 export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
@@ -26,6 +27,15 @@ type WorkspaceViewState = {
   groupExpansion: Record<string, boolean>
   /** Saved manual order per Workspace group plus the browser-local flat-list account. */
   sessionOrderByAccount: Record<string, string[]>
+  /** Explicit fold state of the run-record tree, keyed by the same group identities. */
+  runGroupExpansion: Record<string, boolean>
+  /**
+   * The run directories the user explicitly opened — the run-record Tab's only
+   * data source until the discovery layer lands. Browser-durable because a
+   * record is a bookmark into the filesystem, not Host state: removing one
+   * deregisters it here and never touches the directory.
+   */
+  openedRunRecords: OpenedRunRecord[]
   /** Archived-row visibility; omitted in pre-filter v5 snapshots and read as 'default'. */
   archivedFilter?: ArchivedFilter
 }
@@ -48,6 +58,9 @@ type WorkspaceViewActions = {
     initialOrders: Readonly<Record<string, readonly string[]>>,
   ) => void
   setGroupExpanded: (draft: WorkspaceViewState, key: string, expanded: boolean) => void
+  setRunGroupExpanded: (draft: WorkspaceViewState, key: string, expanded: boolean) => void
+  openRunRecord: (draft: WorkspaceViewState, path: string, groupKey: string, openedAt: number) => void
+  removeRunRecord: (draft: WorkspaceViewState, path: string) => void
   retainAccountKeys: (draft: WorkspaceViewState, workspaceKeys: readonly string[]) => void
   syncSessionOrders: (
     draft: WorkspaceViewState,
@@ -87,8 +100,12 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       groupExpansion: {},
       sessionOrderByAccount: {},
       archivedFilter: 'default',
+      runGroupExpansion: {},
+      openedRunRecords: [],
     }),
-    persist: 'dsh.workspace.view.v5',
+    // Rehydration replaces state wholesale, so a state shape gains new fields
+    // only behind a new key (v5 -> v6 adds the run-record cells).
+    persist: 'dsh.workspace.view.v6',
     actions: {
       setGroupBy: (d, mode: SessionGroupBy) => { d.groupBy = mode },
       setOrderBy: (d, mode: SessionOrderBy, initialOrders) => {
@@ -97,10 +114,26 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         d.orderBy = mode
       },
       setGroupExpanded: (d, key: string, expanded: boolean) => { d.groupExpansion[key] = expanded },
+      setRunGroupExpanded: (d, key: string, expanded: boolean) => { d.runGroupExpansion[key] = expanded },
+      // Re-opening a listed directory keeps the existing row: its group was
+      // resolved at the first open and stays put (sticky attribution).
+      openRunRecord: (d, path: string, groupKey: string, openedAt: number) => {
+        if (d.openedRunRecords.some(record => record.path === path)) return
+        d.openedRunRecords.push({ path, groupKey, openedAt })
+      },
+      // Deregistration only: the directory and everything in it are untouched.
+      removeRunRecord: (d, path: string) => {
+        d.openedRunRecords = d.openedRunRecords.filter(record => record.path !== path)
+      },
       retainAccountKeys: (d, workspaceKeys: readonly string[]) => {
         const retained = new Set(workspaceKeys)
         d.groupExpansion = Object.fromEntries(
           Object.entries(d.groupExpansion).filter(([key]) => retained.has(key)),
+        )
+        // Fold state is per group identity; the records themselves survive a
+        // Workspace deletion and fall back to the import bucket.
+        d.runGroupExpansion = Object.fromEntries(
+          Object.entries(d.runGroupExpansion).filter(([key]) => retained.has(key)),
         )
         d.sessionOrderByAccount = Object.fromEntries(
           Object.entries(d.sessionOrderByAccount).filter(([key]) => retained.has(key)),
