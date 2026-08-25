@@ -14,20 +14,22 @@ import type { ObservableSnapshot } from './store.ts'
 export interface IWorkspaces {
   /** The useWorkspaces standard feed (read face — writes stay inside the domain). */
   readonly list: ObservableSnapshot<WorkspaceListState>
+  /** Stage a Workspace on the current browser-only New Session draft. */
+  selectDraftWorkspace(workspaceId: WorkspaceId): void
   /**
-   * Connect a Workspace to its reusable or freshly created blank session.
-   * @param workspaceId - target workspace.
-   * @returns the connected session id.
-   */
-  connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId>
-  /**
-   * The New Session flow: connect the explicit, current-Session, or recent
-   * Workspace and open the resulting session; failures surface on the session
-   * list state.
+   * The New Session flow: stage the explicit, current-Session, recent
+   * Workspace, or Host-cwd target as a browser-only draft. It does not create
+   * or open a Session; first send calls `materializeSessionDraft()`.
    * @param workspaceId - explicit target; omitted inherits the current
    * Session's Workspace before falling back to the recency projection.
    */
   startSession(workspaceId?: WorkspaceId): void
+  /** Begin a browser-only draft explicitly targeting the Host process cwd. */
+  startUnassignedSession(): void
+  /** Create and open the staged Session; called only by first-send choreography. */
+  materializeSessionDraft(): Promise<SessionId>
+  /** Register ordered async preparation that must settle before the first prompt is admitted. */
+  prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>, order?: number): () => void
   /**
    * Register an existing path as a Workspace.
    * @param input - the Host create payload.

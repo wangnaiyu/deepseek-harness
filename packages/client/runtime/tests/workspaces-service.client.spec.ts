@@ -216,85 +216,6 @@ describe('WorkspaceRuntime', () => {
     expect(workspaces.list.getSnapshot().items.map(item => item.workspaceId)).toEqual(['stable-first', 'active'])
   })
 
-  it('connectWorkspace reuses the workspace-member blank session and creates otherwise', async () => {
-    const ctx = new Context()
-    const api = new FakeApiClient()
-    const sessions = new SessionRuntime(ctx, api, fakeRemote())
-    const workspaces = new WorkspaceRuntime(ctx, api, sessions)
-    api.onWorkspaceList = () => Promise.resolve(ok({
-      items: [workspace('alpha', [sid('s-blank')]), workspace('beta'), workspace('gamma')] as never[],
-    }))
-    api.onList = () => Promise.resolve(ok({
-      items: [
-        // Stray blank at alpha's path but NOT accounted under alpha (a CLI
-        // session birthed at the host cwd), sorted before the member blank:
-        // the scan must skip it and keep looking for a member hit.
-        { sessionId: sid('s-stray-alpha'), updatedAt: 1, running: false, blank: true, cwd: '/w/alpha' },
-        // Blank session parked in alpha (cwd == workspace path canon AND
-        // accounted under alpha): the reuse hit.
-        { sessionId: sid('s-blank'), updatedAt: 2, running: false, blank: true, cwd: '/w/alpha' },
-        // Non-blank sibling in beta must never be reused.
-        { sessionId: sid('s-active'), updatedAt: 3, running: false, blank: false, cwd: '/w/beta' },
-        // Stray blank at gamma's path but NOT accounted under gamma (a CLI
-        // session birthed at the host cwd): cwd alone must not hijack it —
-        // reuse would open a session gamma cannot show, so New Session mints
-        // a fresh accounted one instead.
-        { sessionId: sid('s-stray'), updatedAt: 4, running: false, blank: true, cwd: '/w/gamma' },
-      ] as never[],
-    }))
-    await Promise.all([workspaces.refresh(), sessions.refresh()])
-    await Promise.resolve()
-
-    // Hit: same workspace → the parked member blank comes back (the earlier
-    // cwd-matching non-member stray is skipped), no create RPC.
-    await expect(workspaces.connectWorkspace(wid('alpha'))).resolves.toBe('s-blank')
-    expect(api.callsOf('session.create')).toEqual([])
-    // Resolution guarantee: the id is binding-resolvable synchronously.
-    expect(sessions.binding(sid('s-blank'))).toBeDefined()
-
-    // Miss: beta has only a non-blank session → host create with workspaceId.
-    api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-fresh') }))
-    await expect(workspaces.connectWorkspace(wid('beta'))).resolves.toBe('s-fresh')
-    expect(api.callsOf('session.create')).toEqual([{ workspaceId: 'beta' }])
-    // Same guarantee on the create arm (draft hand-off writes the machine pre-open).
-    expect(sessions.binding(sid('s-fresh'))).toBeDefined()
-
-    // Miss: the stray blank matches gamma's path but is not a gamma member →
-    // never reused, a fresh accounted session is created instead.
-    api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-fresh-3') }))
-    await expect(workspaces.connectWorkspace(wid('gamma'))).resolves.toBe('s-fresh-3')
-    expect(api.callsOf('session.create')).toEqual([{ workspaceId: 'beta' }, { workspaceId: 'gamma' }])
-
-    // Unknown workspace fails loud instead of silently creating in nowhere.
-    await expect(workspaces.connectWorkspace(wid('ghost'))).rejects.toThrow(/unknown workspace ghost/)
-
-    // An archived blank is never reused: no surface can show it, so New
-    // Session mints a fresh one for alpha instead.
-    await workspaces.archiveSession(sid('s-blank'))
-    api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-fresh-2') }))
-    await expect(workspaces.connectWorkspace(wid('alpha'))).resolves.toBe('s-fresh-2')
-  })
-
-  it('a rejected first prompt keeps the blank session eligible for connectWorkspace reuse', async () => {
-    const ctx = new Context()
-    const api = new FakeApiClient()
-    const sessions = new SessionRuntime(ctx, api, fakeRemote())
-    const workspaces = new WorkspaceRuntime(ctx, api, sessions)
-    api.onWorkspaceList = () => Promise.resolve(ok({ items: [workspace('alpha', [sid('s-blank')])] as never[] }))
-    api.onList = () => Promise.resolve(ok({
-      items: [{ sessionId: sid('s-blank'), updatedAt: 2, running: false, blank: true, cwd: '/w/alpha' }] as never[],
-    }))
-    await Promise.all([workspaces.refresh(), sessions.refresh()])
-    await Promise.resolve()
-    const session = sessions.binding(sid('s-blank'))!.session
-    api.onPrompt = () => Promise.resolve(err({ code: 'internal', message: 'agent busy', details: {} }) as never)
-    await session.prompt([{ type: 'text', text: 'hi' }], 'queue')
-    await Promise.resolve()
-    // Failure leaves blank intact, so the same session is still the reuse hit.
-    await expect(workspaces.connectWorkspace(wid('alpha'))).resolves.toBe('s-blank')
-    expect(api.callsOf('session.create')).toEqual([])
-  })
-
   it('returns created Workspaces and preserves Host business errors', async () => {
     const ctx = new Context()
     const api = new FakeApiClient()
@@ -399,7 +320,7 @@ describe('WorkspaceRuntime', () => {
     await expect(workspaces.insertBefore(wid('ghost'))).rejects.toThrow(/workspace-not-found: gone/)
   })
 
-  it('targets New Session at explicit, current-session, then recent Workspaces and clears with none', async () => {
+  it('stages New Session at explicit, current-session, recent, then Host-cwd targets without creating', async () => {
     const ctx = new Context()
     const api = new FakeApiClient()
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
@@ -417,21 +338,22 @@ describe('WorkspaceRuntime', () => {
     await Promise.all([workspaces.refresh(), sessions.refresh()])
     await Promise.resolve()
     sessions.open(sid('current'))
-    const unresolved = new Promise<SessionId>(() => {})
-    const connect = vi.spyOn(workspaces, 'connectWorkspace').mockReturnValue(unresolved)
-
     workspaces.startSession(wid('recent-home'))
-    await Promise.resolve()
-    expect(connect).toHaveBeenLastCalledWith(wid('recent-home'))
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'recent-home', cwd: '/w/recent-home',
+    })
+    expect(api.callsOf('session.create')).toEqual([])
+
+    sessions.open(sid('current'))
+    workspaces.startSession()
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'current-home', cwd: '/w/current-home',
+    })
 
     workspaces.startSession()
-    await Promise.resolve()
-    expect(connect).toHaveBeenLastCalledWith(wid('current-home'))
-
-    sessions.clear()
-    workspaces.startSession()
-    await Promise.resolve()
-    expect(connect).toHaveBeenLastCalledWith(wid('recent-home'))
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'recent-home', cwd: '/w/recent-home',
+    })
 
     const emptyCtx = new Context()
     const emptyApi = new FakeApiClient()
@@ -440,6 +362,8 @@ describe('WorkspaceRuntime', () => {
     const clear = vi.spyOn(emptySessions, 'clear')
     emptyWorkspaces.startSession()
     expect(clear).toHaveBeenCalledOnce()
+    expect(emptyWorkspaces.list.getSnapshot().sessionDraft).toMatchObject({ revision: 1 })
+    expect(emptyApi.callsOf('session.create')).toEqual([])
   })
 
   it('archives a session, projects the set from the response, list, and frame, and clears only the current one', async () => {
@@ -530,7 +454,7 @@ describe('startInitialSelection', () => {
     return { api, sessions, workspaces }
   }
 
-  it('connects the recent Workspace blank session once baselines are ready and opens it', async () => {
+  it('stages the recent Workspace without Host writes, then materializes it on first send', async () => {
     const b = bench()
     const stop = b.workspaces.startInitialSelection()
     // Nothing happens before both baselines land.
@@ -539,13 +463,21 @@ describe('startInitialSelection', () => {
     b.api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('recent', [], '2026-01-02T00:00:00.000Z')] as never[],
     }))
-    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-new') }))
+    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-new'), cwd: '/w/recent' }))
     await b.workspaces.refresh()
     await b.sessions.refresh()
-    // Store notifications and the connect round trip are microtask-batched.
+    // Store notifications are microtask-batched, but startup remains local.
     await new Promise(resolve => setTimeout(resolve, 0))
+    expect(b.api.callsOf('session.create')).toEqual([])
+    expect(b.sessions.list.getSnapshot().current).toBeUndefined()
+    expect(b.workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'recent', cwd: '/w/recent',
+    })
+
+    await expect(b.workspaces.materializeSessionDraft()).resolves.toBe('s-new')
     expect(b.api.callsOf('session.create')).toEqual([{ workspaceId: 'recent' }])
     expect(b.sessions.list.getSnapshot().current).toBe('s-new')
+    expect(b.workspaces.list.getSnapshot().sessionDraft).toBeUndefined()
     stop()
   })
 
@@ -573,7 +505,7 @@ describe('startInitialSelection', () => {
     stopEmpty()
   })
 
-  it('a failed connect returns to waiting and retries on the next list change', async () => {
+  it('keeps a draft after create failure and retries only on another materialization', async () => {
     const b = bench()
     b.api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('recent', [], '2026-01-02T00:00:00.000Z')] as never[],
@@ -583,15 +515,60 @@ describe('startInitialSelection', () => {
     await b.workspaces.refresh()
     await b.sessions.refresh()
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(b.api.callsOf('session.create')).toHaveLength(1)
+    expect(b.api.callsOf('session.create')).toHaveLength(0)
     expect(b.sessions.list.getSnapshot().current).toBeUndefined()
+    await expect(b.workspaces.materializeSessionDraft()).rejects.toThrow(/attach exploded/)
+    expect(b.api.callsOf('session.create')).toHaveLength(1)
+    expect(b.workspaces.list.getSnapshot().sessionDraft).toBeDefined()
 
-    // Recovery: the next workspace-list change re-runs the reconcile.
-    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-retry') }))
-    await b.workspaces.refresh()
-    await new Promise(resolve => setTimeout(resolve, 0))
+    // Recovery happens on an explicit later send attempt, not a list change.
+    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-retry'), cwd: '/w/recent' }))
+    await expect(b.workspaces.materializeSessionDraft()).resolves.toBe('s-retry')
     expect(b.api.callsOf('session.create')).toHaveLength(2)
     expect(b.sessions.list.getSnapshot().current).toBe('s-retry')
     stop()
+  })
+
+  it('waits for registered draft preparation before admitting the first send', async () => {
+    const b = bench()
+    const preparation = deferred<undefined>()
+    const prepared: SessionId[] = []
+    b.workspaces.prepareSessionDraft(async (sessionId) => {
+      prepared.push(sessionId)
+      await preparation.promise
+    })
+    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-prepared'), cwd: '/host/cwd' }))
+    b.workspaces.startUnassignedSession()
+
+    let settled = false
+    const materialized = b.workspaces.materializeSessionDraft().then((sessionId) => {
+      settled = true
+      return sessionId
+    })
+    await vi.waitFor(() => {
+      expect(prepared).toEqual([sid('s-prepared')])
+    })
+
+    expect(b.api.callsOf('session.create')).toEqual([{}])
+    expect(b.sessions.list.getSnapshot().current).toBe('s-prepared')
+    expect(b.workspaces.list.getSnapshot().sessionDraft).toBeDefined()
+    expect(settled).toBe(false)
+
+    preparation.resolve(undefined)
+    await expect(materialized).resolves.toBe('s-prepared')
+    expect(b.workspaces.list.getSnapshot().sessionDraft).toBeUndefined()
+  })
+
+  it('runs draft preparation in declared order instead of plugin registration order', async () => {
+    const b = bench()
+    const prepared: string[] = []
+    b.workspaces.prepareSessionDraft(async () => { prepared.push('model') }, 100)
+    b.workspaces.prepareSessionDraft(async () => { prepared.push('preset') }, 0)
+    b.workspaces.prepareSessionDraft(async () => { prepared.push('permission') }, 100)
+    b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('s-ordered'), cwd: '/host/cwd' }))
+    b.workspaces.startUnassignedSession()
+
+    await expect(b.workspaces.materializeSessionDraft()).resolves.toBe('s-ordered')
+    expect(prepared).toEqual(['preset', 'model', 'permission'])
   })
 })

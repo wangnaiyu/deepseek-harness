@@ -151,6 +151,13 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
     await writeFile(join(scaffold.workspaceCwd, 'workspace', 'reference.txt'), 'reference fixture\n')
+    // Reference catalogs are Session-scoped. Materialize with a Host-only
+    // command so the spec still issues zero model calls.
+    const input = page.locator('textarea').first()
+    await input.fill('/permission workspace-write')
+    await input.press('Enter')
+    await page.locator('[aria-label="Access mode, current: Workspace Write"]')
+      .waitFor({ timeout: 15_000 })
   }, 120_000)
 
   afterAll(async () => {

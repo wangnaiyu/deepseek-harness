@@ -196,7 +196,7 @@ export function apply(ctx: Context): void {
   ctx.typert.contexts.registerClient('agent', {
     identity: candidate => sessions.scopeOf(candidate),
   })
-  const workspaces = new WorkspaceRuntime(ctx, connection.api, sessions)
+  const workspaces = new WorkspaceRuntime(ctx, connection.api, sessions, connection.hostDescription)
   ctx.effect(
     () => workspaces.startInitialSelection(),
     'runtime: initial Workspace selection',

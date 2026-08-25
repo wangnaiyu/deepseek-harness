@@ -42,7 +42,10 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
         }
       },
       async create(request) {
-        return { rpcId: request.rpcId, result: { ok: true, value: { sessionId: 's-new' as never } } }
+        return {
+          rpcId: request.rpcId,
+          result: { ok: true, value: { sessionId: 's-new' as never, cwd: '/host/cwd' } },
+        }
       },
       async history(request) {
         if (request.payload.sessionId === ('with-projections' as never)) {
@@ -336,7 +339,10 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
       ok: true,
       value: { items: [{ sessionId: 's1', snippet: 'fixture match' }], hasMore: false },
     })
-    expect((await c.sessions.create({})).result.ok).toBe(true)
+    expect((await c.sessions.create({})).result).toEqual({
+      ok: true,
+      value: { sessionId: 's-new', cwd: '/host/cwd' },
+    })
     expect((await c.sessions.models({ sessionId: 's' as never })).result.ok).toBe(true)
     const selected = await c.sessions.selectModel({
       sessionId: 's' as never,

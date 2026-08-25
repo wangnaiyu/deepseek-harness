@@ -148,9 +148,14 @@ function declareConversation(slots: SlotRegistry): () => void {
 /** A workspaces double recording new-session starts. */
 function workspacesDouble() {
   const starts: unknown[] = []
+  const preparers = new Set<(sessionId: never) => Promise<void>>()
   return {
     starts,
     startSession: (workspaceId?: unknown) => { starts.push(workspaceId ?? null) },
+    prepareSessionDraft: (prepare: (sessionId: never) => Promise<void>) => {
+      preparers.add(prepare)
+      return () => { preparers.delete(prepare) }
+    },
   }
 }
 

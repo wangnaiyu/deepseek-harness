@@ -40,25 +40,17 @@ export class TestWorkspaces implements IWorkspaces {
 
   /**
    * Replace an action's behavior (the recorded call is still appended first).
-   * @param method - action name (e.g. 'connectWorkspace').
+   * @param method - action name (e.g. 'materializeSessionDraft').
    * @param impl - replacement behavior.
    */
   stub(method: string, impl: (...args: unknown[]) => unknown): void {
     this.stubs.set(method, impl)
   }
 
-  /**
-   * Connect a workspace to its reusable/new blank session (recorded). The
-   * default resolves the workspace id back as the session id; stub for
-   * cross-session flows.
-   * @param workspaceId - target workspace.
-   * @returns the connected session id.
-   */
-  async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {
-    this.calls.push({ method: 'connectWorkspace', args: [workspaceId] })
-    const stub = this.stubs.get('connectWorkspace')
-    if (stub !== undefined) return await (stub(workspaceId) as Promise<SessionId>)
-    return `session-of-${workspaceId}` as SessionId
+  /** Stage a Workspace target without creating a Session (recorded). */
+  selectDraftWorkspace(workspaceId: WorkspaceId): void {
+    this.calls.push({ method: 'selectDraftWorkspace', args: [workspaceId] })
+    this.stubs.get('selectDraftWorkspace')?.(workspaceId)
   }
 
   /**
@@ -68,6 +60,27 @@ export class TestWorkspaces implements IWorkspaces {
   startSession(workspaceId?: WorkspaceId): void {
     this.calls.push({ method: 'startSession', args: [workspaceId] })
     this.stubs.get('startSession')?.(workspaceId)
+  }
+
+  /** Stage an unassigned Host-cwd draft (recorded). */
+  startUnassignedSession(): void {
+    this.calls.push({ method: 'startUnassignedSession', args: [] })
+    this.stubs.get('startUnassignedSession')?.()
+  }
+
+  /** Materialize the staged test draft (recorded). */
+  async materializeSessionDraft(): Promise<SessionId> {
+    this.calls.push({ method: 'materializeSessionDraft', args: [] })
+    const stub = this.stubs.get('materializeSessionDraft')
+    if (stub !== undefined) return await (stub() as Promise<SessionId>)
+    return 'session-of-draft' as SessionId
+  }
+
+  /** Register first-send preparation (recorded; default registration is inert). */
+  prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>): () => void {
+    this.calls.push({ method: 'prepareSessionDraft', args: [prepare] })
+    const stub = this.stubs.get('prepareSessionDraft')
+    return (stub?.(prepare) as (() => void) | undefined) ?? (() => {})
   }
 
   /**

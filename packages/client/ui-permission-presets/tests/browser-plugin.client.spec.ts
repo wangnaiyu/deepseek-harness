@@ -9,8 +9,10 @@
  * its Settings row and invalidates that row on host settings changes.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
-import { SlotRegistry, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createSnapshotStore, SlotRegistry, type SessionId,
+} from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -19,6 +21,7 @@ import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/clien
 import {
   PermissionRow, type PermissionRowInjected,
 } from '../src/client/PermissionRow.tsx'
+import type { DraftPermissionSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply, inject } from '../src/client/index.ts'
 import { accessEn } from '../src/client/locales.ts'
 
@@ -31,6 +34,17 @@ const SELECT: PermissionSelect = {
     { value: 'danger-full-access', name: 'danger-full-access' },
   ],
   currentValue: 'workspace-write',
+}
+
+const SETTINGS_SCHEMA = {
+  uid: 5,
+  refs: {
+    1: { type: 'const', value: 'read-only' },
+    2: { type: 'const', value: 'workspace-write' },
+    3: { type: 'const', value: 'danger-full-access' },
+    4: { type: 'union', list: [1, 2, 3] },
+    5: { type: 'object', dict: { defaultPreset: 4 } },
+  },
 }
 
 async function bench() {
@@ -49,11 +63,20 @@ async function bench() {
     },
   } as never, () => null)
   ctx.provide('connection', {
+    isLoopback: true,
     api: {
       settings: {
         describe: () => Promise.resolve({
-          rpcId: 'describe',
-          result: { ok: true as const, value: { writable: true, hasDocument: false, namespaces: [] } },
+          rpcId: 'describe', result: { ok: true as const, value: {
+            writable: true,
+            hasDocument: false,
+            namespaces: [{
+              ns: 'permission', schema: SETTINGS_SCHEMA,
+              value: { defaultPreset: 'workspace-write' },
+              base: { defaultPreset: 'workspace-write' },
+              applies: 'live' as const, secrets: [], revision: 1,
+            }],
+          } },
         }),
         mutate: () => Promise.reject(new Error('settings mutation is not exercised')),
       },
@@ -87,6 +110,21 @@ async function bench() {
   ctx.provide('sessions', {
     binding: (id: SessionId) => (values.has(id) ? { sessionId: id, session: session(id) } : undefined),
   })
+  let draftPrepare: ((sessionId: SessionId) => Promise<void>) | undefined
+  ctx.provide('workspaces', {
+    list: createSnapshotStore({ sessionDraft: { revision: 1, cwd: '/host/cwd' } }),
+    prepareSessionDraft: (prepare: (sessionId: SessionId) => Promise<void>) => {
+      draftPrepare = prepare
+      return () => { draftPrepare = undefined }
+    },
+  } as never)
+  let draftSource: DraftPermissionSource | undefined
+  ctx.provide('conversation', {
+    registerDraftPermissions: (source: DraftPermissionSource) => {
+      draftSource = source
+      return () => { if (draftSource === source) draftSource = undefined }
+    },
+  } as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   return {
@@ -95,6 +133,8 @@ async function bench() {
     decoration: () => decoration,
     permissionRow: () => ctx.slots.entries('settings.general.item')
       .find(entry => entry.component === PermissionRow),
+    draftPermission: () => draftSource,
+    prepareDraft: (sessionId: SessionId) => draftPrepare?.(sessionId) ?? Promise.resolve(),
   }
 }
 
@@ -112,6 +152,30 @@ describe('ui-permission browser plugin', () => {
     expect(typeof injected?.select).toBe('function')
     await injected!.load()
     await injected!.select('read-only')
+  })
+
+  it('stages a draft permission locally and applies it only after materialization', async () => {
+    const b = await bench()
+    const settingsFace = b.permissionRow()!.inject?.() as unknown as PermissionRowInjected
+    await settingsFace.load()
+    expect(settingsFace.hooks.permission.getSnapshot()).toMatchObject({
+      status: 'ready', currentValue: 'workspace-write',
+    })
+    const face = b.draftPermission()!
+    face.load()
+    await vi.waitFor(() => { expect(face.store.getSnapshot()?.currentValue).toBe('workspace-write') })
+    let unchangedNotifications = 0
+    const stop = face.store.subscribe(() => { unchangedNotifications += 1 })
+    await settingsFace.load()
+    expect(unchangedNotifications).toBe(0)
+    stop()
+    expect(await face.command('/permission read-only')).toBe(true)
+    expect(face.store.getSnapshot()?.currentValue).toBe('read-only')
+    expect(b.commands).toEqual([])
+
+    b.values.set(sid('materialized'), SELECT)
+    await b.prepareDraft(sid('materialized'))
+    expect(b.commands).toEqual(['/permission read-only'])
   })
 
   it('availability follows the projection key; options mark the current value active and exclude custom', async () => {

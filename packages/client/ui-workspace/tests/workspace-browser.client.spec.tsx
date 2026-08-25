@@ -68,6 +68,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     useStore: bindSnapshotSelector(store),
     actions: store.actions,
     startSession: vi.fn(),
+    startUnassignedSession: vi.fn(),
     open: vi.fn(),
     searchSessions: vi.fn(async () => ({ items: [], hasMore: false })),
     searchResultLimit: 20,
@@ -130,10 +131,16 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
 
     // Isomorphic with the session tree: one section per workspace, then the
-    // bucket — which renders with nothing in it because it carries the entry.
+    // bucket — which carries both the open entry and its expanded empty state.
     const rows = screen.getAllByRole('treeitem')
     expect(rows.map(row => row.textContent)).toEqual(['alpha', '未分组'])
-    expect(screen.getByText('暂无运行记录')).toBeTruthy()
+    expect(screen.queryByText('暂无运行记录')).toBeNull()
+
+    fireEvent.click(rows[1] as HTMLElement)
+    const empty = screen.getByText('暂无运行记录')
+    expect(rows[1]?.parentElement?.contains(empty)).toBe(true)
+    fireEvent.click(rows[1] as HTMLElement)
+    expect(screen.queryByText('暂无运行记录')).toBeNull()
 
     // The entry hangs on the bucket row only; a project section offers none
     // (its runs are scanned, so there is nothing to add by hand).
@@ -301,7 +308,8 @@ describe('WorkspaceBrowser', () => {
           version: '0', cwd: '/tmp', attachedSessions: 0, home: '/home/u', canOpenPath: false,
         }),
       })
-      fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
+      const projectRow = screen.getByText('Project').closest('[role="treeitem"]') as HTMLElement
+      fireEvent.pointerEnter(projectRow.parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
       expect(screen.getByText('~/Documents/project')).toBeTruthy()
     } finally {
@@ -601,18 +609,37 @@ describe('WorkspaceBrowser', () => {
     expect(startSession).toHaveBeenCalledWith(wid('alpha'))
   })
 
-  it('auto-expands the Ungrouped bucket for a loose current session; its header has no menu and its ＋ is inert', () => {
+  it('auto-expands the Ungrouped bucket and its ＋ starts an unassigned session', () => {
     const startSession = vi.fn()
+    const startUnassignedSession = vi.fn()
     mount({
       useSessions: hook(sessionState([summary('loose', 1)], { current: sid('loose') })),
       useWorkspaces: hook(workspaceState([workspace('alpha', [])])),
       startSession,
+      startUnassignedSession,
     })
     // The loose session's group is UNGROUPED_KEY: expanded by the effect.
     expect(screen.getByText('loose')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '工作区“未分组”的操作' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '在“未分组”中新建会话' }))
+    expect(startUnassignedSession).toHaveBeenCalledOnce()
     expect(startSession).not.toHaveBeenCalled()
+  })
+
+  it('keeps the Ungrouped bucket when its current blank session loses selection', () => {
+    const blank = { ...summary('loose-blank', 1), blank: true }
+    const sessions = sessionState([blank], { current: blank.id })
+    const b = mount({
+      useSessions: hook(sessions),
+      useWorkspaces: hook(workspaceState([])),
+    })
+    expect(screen.queryByText('新会话')).toBeNull()
+    expect(screen.getByText('暂无会话')).toBeTruthy()
+
+    rerender(b, { useSessions: hook({ ...sessions, current: undefined }) })
+    expect(screen.getByText('未分组')).toBeTruthy()
+    expect(screen.queryByText('新会话')).toBeNull()
+    expect(screen.getByText('暂无会话')).toBeTruthy()
   })
 
   it('keeps an already-expanded group when the selection moves within it', () => {
@@ -630,7 +657,7 @@ describe('WorkspaceBrowser', () => {
     expect(screen.queryByText('b')).toBeNull()
   })
 
-  it('shows only the current blank session as the localized New Session, excluded from search', () => {
+  it('keeps all blank sessions out of grouped and flat navigation', () => {
     const currentBlank = summary('alpha-blank', 9, { blank: true })
     const staleBlank = summary('beta-blank', 8, { blank: true })
     const sessions = sessionState(
@@ -643,15 +670,15 @@ describe('WorkspaceBrowser', () => {
         workspace('alpha', ['alpha-blank']), workspace('beta', ['beta-blank']),
       ])),
     })
-    expect(screen.getByText('新会话')).toBeTruthy()
+    expect(screen.queryByText('新会话')).toBeNull()
     expect(screen.queryByText('alpha-blank')).toBeNull()
     expect(screen.queryByText('beta-blank')).toBeNull()
 
     rerender(b, { useSessions: hook({ ...sessions, current: staleBlank.id }) })
-    expect(screen.getAllByText('新会话')).toHaveLength(1)
+    expect(screen.queryByText('新会话')).toBeNull()
     b.store.actions.setGroupBy('flat')
     rerender(b, {})
-    expect(screen.getAllByText('新会话')).toHaveLength(1)
+    expect(screen.queryByText('新会话')).toBeNull()
     // Search excludes blank rows entirely — neither the canonical stored
     // title nor the localized display label participates in matching.
     fireEvent.change(screen.getByPlaceholderText('搜索会话…'), { target: { value: 'new session' } })
@@ -660,7 +687,7 @@ describe('WorkspaceBrowser', () => {
     expect(screen.queryByText('新会话')).toBeNull()
   })
 
-  it('promotes the blank selected by New Session in its grouped and flat orders', async () => {
+  it('promotes a New Session only when its first prompt materializes the row', async () => {
     const items = [
       summary('old', 100),
       summary('blank', 150, { blank: true }),
@@ -681,16 +708,27 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByRole('button', { name: '在“alpha”中新建会话' }))
     expect(startSession).toHaveBeenCalledWith(wid('alpha'))
     await waitFor(() => {
+      expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['old', 'blank', 'mid'])
+      expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY]).toBeUndefined()
+    })
+    expect(screen.queryByText('新会话')).toBeNull()
+    rerender(b, {
+      useSessions: hook(sessionState([
+        summary('old', 100), summary('blank', 250), summary('mid', 200),
+      ], { current: sid('blank') })),
+    })
+    await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['blank', 'old', 'mid'])
       expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY]).toEqual(['blank'])
     })
+    expect(screen.getByText('blank')).toBeTruthy()
     b.store.actions.setGroupBy('flat')
     await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY]).toEqual(['blank', 'mid', 'old'])
     })
   })
 
-  it('does not repeat blank promotion after a manual drag or the first prompt', async () => {
+  it('does not repeat materialization promotion after a manual drag', async () => {
     const insertSessionBefore = vi.fn(async () => {})
     const b = mount({
       useSessions: hook(sessionState([
@@ -702,9 +740,18 @@ describe('WorkspaceBrowser', () => {
       insertSessionBefore,
     })
     await waitFor(() => {
+      expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['old', 'blank', 'mid'])
+    })
+    expect(screen.queryByText('新会话')).toBeNull()
+    rerender(b, {
+      useSessions: hook(sessionState([
+        summary('old', 100), summary('blank', 250), summary('mid', 200),
+      ], { current: sid('blank') })),
+    })
+    await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['blank', 'old', 'mid'])
     })
-    const blank = screen.getByText('新会话').closest('[role="treeitem"]') as HTMLElement
+    const blank = screen.getByText('blank').closest('[role="treeitem"]') as HTMLElement
     const mid = screen.getByText('mid').closest('[role="treeitem"]') as HTMLElement
     mid.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
@@ -942,11 +989,17 @@ describe('WorkspaceBrowser', () => {
     }
   })
 
-  it('shows the no-sessions empty state in both modes and resolves an empty search', async () => {
+  it('nests the grouped no-sessions state under Ungrouped, keeps the flat empty state, and resolves an empty search', async () => {
     vi.useFakeTimers()
     try {
       const b = mount()
-      expect(screen.getByText('暂无会话')).toBeTruthy()
+      expect(screen.queryByText('暂无会话')).toBeNull()
+      const ungrouped = screen.getByText('未分组').closest('[role="treeitem"]') as HTMLElement
+      fireEvent.click(ungrouped)
+      const empty = screen.getByText('暂无会话')
+      expect(ungrouped.parentElement?.contains(empty)).toBe(true)
+      fireEvent.click(ungrouped)
+      expect(screen.queryByText('暂无会话')).toBeNull()
       b.store.actions.setGroupBy('flat')
       rerender(b, {})
       expect(screen.getByText('暂无会话')).toBeTruthy()
@@ -957,6 +1010,20 @@ describe('WorkspaceBrowser', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('shows the Ungrouped local empty state even when Workspace sessions exist', () => {
+    const b = mount({
+      useSessions: hook(sessionState([summary('owned', 1)], { current: sid('owned') })),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['owned'])])),
+    })
+    expect(screen.getByText('owned')).toBeTruthy()
+    const ungrouped = screen.getByText('未分组').closest('[role="treeitem"]') as HTMLElement
+    fireEvent.click(ungrouped)
+    const empty = screen.getByText('暂无会话')
+    expect(ungrouped.parentElement?.contains(empty)).toBe(true)
+    rerender(b, {})
+    expect(screen.getByText('暂无会话')).toBeTruthy()
   })
 
   it('rail state renders icon controls that request expansion', () => {

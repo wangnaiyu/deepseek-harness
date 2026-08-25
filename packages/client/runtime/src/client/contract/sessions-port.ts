@@ -10,10 +10,10 @@
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ObservableSnapshot } from './store.ts'
 
-/** Session-list row facts sibling domains read: recency, blank-reuse eligibility, and its cwd canon. */
+/** Session-list row facts sibling domains read for Workspace recency. */
 export interface SessionsPortSummary {
   id: SessionId
-  /** Empty-log bit (blank sessions are reused by New Session instead of minting another). */
+  /** Empty-log bit retained as part of the shared summary shape. */
   blank: boolean
   cwd?: string
   updatedAt: number
@@ -36,7 +36,7 @@ export interface SessionsPort {
    * @param opts - target workspace.
    * @returns the new session id.
    */
-  create(opts: { workspaceId: WorkspaceId }): Promise<SessionId>
+  create(opts?: { workspaceId: WorkspaceId }): Promise<SessionId>
   /**
    * Select a session as current.
    * @param id - session id (must exist in the list store).

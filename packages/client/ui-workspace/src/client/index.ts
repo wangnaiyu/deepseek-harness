@@ -74,6 +74,9 @@ export function apply(ctx: ClientContext): void {
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId) => { ctx.workspaces.startSession(workspaceId) },
+    // The Ungrouped-row action stages the Host cwd in a browser-only draft;
+    // session.create is deferred until that draft's first actual send.
+    startUnassignedSession: () => { ctx.workspaces.startUnassignedSession() },
     open: (sessionId) => { ctx.sessions.open(sessionId) },
     searchSessions,
     searchResultLimit: ctx.sessions.searchResultLimit,

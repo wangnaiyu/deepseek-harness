@@ -2328,7 +2328,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         const attachFailure = (
           sessionId: SessionId,
           workspaceId: WorkspaceId,
-        ): Promise<RpcResponse<{ sessionId: SessionId }>> => err(request, {
+        ): Promise<RpcResponse<{ sessionId: SessionId; cwd: string }>> => err(request, {
           code: 'workspace-attach-failed' as const,
           message: `fixture rejected Workspace attachment for ${sessionId}`,
           details: { sessionId, workspaceId },
@@ -2347,7 +2347,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
               if (options.failWorkspaceAttach) return attachFailure(requestedId, workspace.workspaceId)
               attachWorkspace(requestedId)
             }
-            return ok(request, { sessionId: requestedId })
+            return ok(request, { sessionId: requestedId, cwd })
           }
         }
         const created: SessionSummary = {
@@ -2372,7 +2372,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           if (workspace !== undefined) attachWorkspace(created.sessionId)
         }
         if (options.dropSessionCreateResponse) throw new Error('fixture: dropped session.create response after publication')
-        return ok(request, { sessionId: created.sessionId })
+        return ok(request, { sessionId: created.sessionId, cwd })
       },
       rename: (request) => {
         const missing = requireSession(request)

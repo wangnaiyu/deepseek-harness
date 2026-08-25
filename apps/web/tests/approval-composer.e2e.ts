@@ -88,10 +88,11 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
     expect(composerCap).toBeGreaterThan(0)
     await input.fill('')
 
-    // Read-only: the mode whose denial the model escalates from. Switched
-    // through the shipped access-mode chip, not a test-only override.
-    await page.locator('[aria-label^="Access mode"]').click()
-    await page.getByRole('menuitem', { name: 'Read Only' }).click()
+    // Read-only: the mode whose denial the model escalates from. The typed
+    // command is the first send, so it materializes the Session and executes
+    // through the shipped command path without a model call.
+    await input.fill('/permission read-only')
+    await input.press('Enter')
     await expect.poll(
       () => page.locator('[aria-label="Access mode, current: Read Only"]').count(),
       { timeout: 15_000 },

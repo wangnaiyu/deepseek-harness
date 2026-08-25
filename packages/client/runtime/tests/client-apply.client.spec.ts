@@ -94,7 +94,7 @@ describe('runtime client apply', () => {
     bench.sinks?.onConnected?.({ version: '0', cwd: '/f', attachedSessions: 0, home: '/h', canOpenPath: true })
   })
 
-  it('selects the recent Workspace once when the first baselines have no current session', async () => {
+  it('stages the recent Workspace once when the first baselines have no current session', async () => {
     const bench = await mount()
     bench.api.onWorkspaceList = () => Promise.resolve(ok({
       items: [{
@@ -109,14 +109,17 @@ describe('runtime client apply', () => {
 
     const sessions = bench.ctx.get('sessions') as SessionRuntime
     const workspaces = bench.ctx.get('workspaces') as WorkspaceRuntime
-    expect(bench.api.callsOf('session.create')).toEqual([{ workspaceId: 'w-recent' }])
-    expect(sessions.list.getSnapshot().current).toBe('fk-new')
+    expect(bench.api.callsOf('session.create')).toEqual([])
+    expect(sessions.list.getSnapshot().current).toBeUndefined()
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'w-recent', cwd: '/w/recent',
+    })
 
     sessions.clear()
     await workspaces.refresh()
     await flushMicrotasks()
     expect(sessions.list.getSnapshot().current).toBeUndefined()
-    expect(bench.api.callsOf('session.create')).toHaveLength(1)
+    expect(bench.api.callsOf('session.create')).toHaveLength(0)
   })
 
   it('wires registry changes into resident Sessions during the runtime apply pass', async () => {

@@ -92,6 +92,29 @@ describe('CI workflow', () => {
     ))
     expect(nativeCommandSteps.map(step => step.run)).toContain('pnpm run check:ci:windows-complete')
 
+    // Forks cannot inherit the canonical repository's named larger runners.
+    // Keep each check present and successful through an explicit public-runner
+    // no-op, while every resource-shaped step remains canonical-only.
+    const canonicalRepository = 'deepseek-ai/deepseek-harness'
+    for (const [jobName, job] of [
+      ['node-24', node24],
+      ['node-24-coverage', node24Coverage],
+      ['node-24-consumers', node24Consumers],
+      ['windows-native', windowsNative],
+    ] as const) {
+      expect(job.if, `${jobName} must remain visible on fork pull requests`).toBe("github.event_name == 'pull_request'")
+      expect(job['runs-on'], `${jobName} must select a public runner for forks`).toContain(`github.repository != '${canonicalRepository}'`)
+      expect(job['runs-on']).toContain('ubuntu-latest')
+      if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
+      const steps = job.steps.filter(isRecord)
+      expect(steps.find(step => step.name === 'Skip canonical larger-runner check on fork')).toMatchObject({
+        if: `github.repository != '${canonicalRepository}'`,
+      })
+      for (const step of steps.filter(step => step.name !== 'Skip canonical larger-runner check on fork')) {
+        expect(step.if, `${jobName} resource-shaped steps must remain canonical-only`).toEqual(expect.stringContaining(`github.repository == '${canonicalRepository}'`))
+      }
+    }
+
     // wine-apt-cache: master-only, seeds the Wine apt cache, lives in ci-master.
     expect(wineAptCache.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/master'")
     expect(wineAptCache['runs-on']).toBe('ubuntu-latest')
@@ -424,16 +447,15 @@ describe('Python release workflows', () => {
 })
 
 describe('Issue lifecycle workflow', () => {
-  it('runs the lifecycle job on every PR/review event but gates token and board steps', () => {
+  it('runs named checks on every PR/review event but keeps forks as successful no-ops', () => {
     const lifecycle = loadWorkflow('.github/workflows/issue-lifecycle.yml')
     const policy = loadWorkflow('.github/workflows/issue-policy.yml')
     const lifecycleJob = workflowJob(lifecycle, 'lifecycle')
     if (!Array.isArray(lifecycleJob.steps)) throw new TypeError('Issue lifecycle job must define steps')
 
-    // The job has no job-level `if`, so it is listed on every pull_request /
-    // pull_request_review event and reports success instead of a gray skip. The
-    // write-capable steps are gated at step level so approved/commented reviews
-    // never mint a Project/Issue App token nor touch the board.
+    // The jobs have no job-level `if`, so they are listed on every event. Forks
+    // execute one explicit no-op step, while every canonical-repository step is
+    // gated so no fork can read App configuration or query canonical PR ids.
     expect(lifecycle.on).toHaveProperty('pull_request')
     expect(lifecycle.on).toHaveProperty('pull_request_review')
     expect(lifecycleJob.if).toBeUndefined()
@@ -445,16 +467,29 @@ describe('Issue lifecycle workflow', () => {
     expect(lifecyclePullRequest.types).not.toContain('ready_for_review')
     expect(lifecyclePullRequest.types).toContain('review_requested')
     expect(lifecycleReview.types).toEqual(['submitted'])
-    const gated = "${{ github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested' }}"
+    const canonical = "${{ github.repository == 'deepseek-harness/deepseek-harness' }}"
+    const fork = "${{ github.repository != 'deepseek-harness/deepseek-harness' }}"
+    const lifecycleGate = "${{ github.repository == 'deepseek-harness/deepseek-harness' && (github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested') }}"
     const steps = lifecycleJob.steps.filter(isRecord)
+    const skipLifecycleStep = steps.find(s => s.name === 'Skip canonical Issue lifecycle in forks')
+    const lifecycleCheckoutStep = steps.find(s => s.name === 'Check out trusted policy')
     const tokenStep = steps.find(s => s.name === 'Create project token')
     const handleStep = steps.find(s => s.name === 'Handle repository event')
-    expect(tokenStep).toMatchObject({ if: gated })
-    expect(handleStep).toMatchObject({ if: gated })
+    expect(skipLifecycleStep).toMatchObject({ if: fork })
+    expect(lifecycleCheckoutStep).toMatchObject({ if: canonical })
+    expect(tokenStep).toMatchObject({ if: lifecycleGate })
+    expect(handleStep).toMatchObject({ if: lifecycleGate })
 
     // issue-policy owns PR validation; it is read-only and a real gate.
     const policyPullRequest = workflowEvent(policy, 'pull_request')
     expect(policyPullRequest.types).toContain('ready_for_review')
+    const policyJob = workflowJob(policy, 'policy')
+    if (!Array.isArray(policyJob.steps)) throw new TypeError('Issue policy job must define steps')
+    expect(policyJob.if).toBeUndefined()
+    const policySteps = policyJob.steps.filter(isRecord)
+    expect(policySteps.find(s => s.name === 'Skip canonical Issue policy in forks')).toMatchObject({ if: fork })
+    expect(policySteps.find(s => s.name === 'Check out trusted policy')).toMatchObject({ if: canonical })
+    expect(policySteps.find(s => s.name === 'Validate pull request')).toMatchObject({ if: canonical })
   })
 })
 

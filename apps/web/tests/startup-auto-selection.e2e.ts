@@ -31,9 +31,6 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** Wire path of the history round-trip the conversation root waits out (POST /api/session.history). */
-const HISTORY_ROUTE = '**/api/session.history'
-
 /**
  * The conversation root's own phase attribute. `div` disambiguates it from the
  * composer textarea, which carries an unrelated `data-phase` of its own.
@@ -110,7 +107,7 @@ describe('web e2e: startup auto-selection', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
 
-  it('keeps the hero and the composer on screen while the auto-selected blank session opens', async () => {
+  it('restores the recent Workspace as a browser draft without opening a blank Session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-startup-auto-selection'))
     // Runs before any page script on the reload below, so the first phase the
     // root ever renders is recorded, not just the ones after a listener attaches.
@@ -124,40 +121,20 @@ describe('web e2e: startup auto-selection', () => {
       }, 8)
     })
 
-    let releaseHistory = (): void => {}
-    const historyHeld = new Promise<void>((resolve) => { releaseHistory = resolve })
-    let historyRequested = (): void => {}
-    const historyInFlight = new Promise<void>((resolve) => { historyRequested = resolve })
-    let gated = false
-    await page.route(HISTORY_ROUTE, async (route) => {
-      // Only the auto-selection's own round-trip is held; later pages must not
-      // deadlock behind a gate this test has already released.
-      if (gated) { await route.continue(); return }
-      gated = true
-      historyRequested()
-      await historyHeld
-      await route.continue()
-    })
-
     const warningsBefore = tripwire.warnings.length
-    await page.reload({ waitUntil: 'commit' })
-    await historyInFlight
+    await page.reload({ waitUntil: 'load' })
 
-    // The frame a user sees while the session is still opening: hero phase, the
-    // hero title, and a composer that is actually painted (`settling` hides the
-    // seat with `visibility:hidden`, which Playwright reports as not visible).
+    // Startup retargets the resident draft to the most recent Workspace. It
+    // neither requests Session history nor selects a persisted Session row.
     await page.waitForSelector(ROOT_PHASE, { timeout: 15_000 })
     expect(await page.locator(ROOT_PHASE).first().getAttribute('data-phase')).toBe('hero')
     expect(await page.getByText('Into the Unknown').isVisible()).toBe(true)
     expect(await page.locator('textarea').first().isVisible()).toBe(true)
-
-    releaseHistory()
     await page.locator('textarea:enabled[placeholder="Describe what you want to build"]')
       .waitFor({ timeout: 15_000 })
+    expect(await page.locator('[role="treeitem"][aria-selected="true"]').count()).toBe(0)
     acknowledgeReloadConnectionLoss(tripwire, warningsBefore)
 
-    // Settling is not merely absent from the frame sampled above: the root
-    // never entered it at any point of the load.
     expect(await recordedPhases(page)).toEqual(['hero'])
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)

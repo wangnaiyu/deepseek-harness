@@ -20,7 +20,9 @@ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts
 import { createChatStore } from '../src/client/stores.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { en, zh } from '../src/client/locales.ts'
-import { ConversationRoot } from '../src/client/skeleton/ConversationRoot.tsx'
+import {
+  ConversationRoot, draftLocationLabel, sessionLocationLabel,
+} from '../src/client/skeleton/ConversationRoot.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
 import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -92,6 +94,8 @@ function mount(
     overlayTakeover?: boolean
     /** The session list summary's `blank` flag — independent of the snapshot's. */
     summaryBlank?: boolean
+    /** Resolved session cwd; null models the provisional create echo before cwd arrives. */
+    summaryCwd?: string | null
     /** Drop the session's summary row entirely (a session the list has not caught up with). */
     omitSummaryRow?: boolean
     /** Classify the selected child as a subagent instead of an ordinary fork. */
@@ -113,7 +117,8 @@ function mount(
   }
   const childRow = {
     id: SID, displayTitle: 'Child', parentId: options.nestedSubagent === true ? parent : root,
-    cwd: '/projects/one', running: false, blank: options.summaryBlank ?? false, updatedAt: 3,
+    ...(options.summaryCwd === null ? {} : { cwd: options.summaryCwd ?? '/projects/one' }),
+    running: false, blank: options.summaryBlank ?? false, updatedAt: 3,
     ...(options.summaryOrigin === undefined ? {} : { origin: options.summaryOrigin }),
   }
   const listed = options.omitSummaryRow !== true
@@ -226,6 +231,7 @@ function mount(
           useNotices={bindSnapshotSelector(wiring.notices)}
           useLexicon={bindSnapshotSelector(wiring.lexicon)}
           useMenuLauncher={bindSnapshotSelector(createSnapshotStore<string | null>(null))}
+          useDraftPermissions={bindSnapshotSelector(createSnapshotStore(undefined))}
           stop={stop}
           command={() => Promise.resolve(true)}
           t={t}
@@ -286,6 +292,17 @@ describe('Hero chrome', () => {
 })
 
 describe('ConversationRoot resident composer', () => {
+  it('labels Host-cwd drafts and ungrouped Sessions as default while preserving Workspace titles', () => {
+    expect(draftLocationLabel(undefined)).toBeUndefined()
+    expect(draftLocationLabel({})).toBe('default')
+    expect(draftLocationLabel({ cwd: '/projects/pto-agent-workbench' })).toBe('default')
+    expect(draftLocationLabel({ workspaceId: 'w1', cwd: '/projects/workspace' })).toBe('workspace')
+    expect(draftLocationLabel({ workspaceId: 'w1', cwd: '/projects/workspace' }, 'Registered')).toBe('Registered')
+    expect(sessionLocationLabel(undefined)).toBeUndefined()
+    expect(sessionLocationLabel('/projects/pto-agent-workbench')).toBe('default')
+    expect(sessionLocationLabel('/projects/workspace', 'Registered')).toBe('Registered')
+  })
+
   it('renders the composer inert with the blocker\u2019s own reason', () => {
     const b = mount(conversationSnapshot(), undefined, undefined, {
       composerBlock: { reason: 'select a model first' },
@@ -306,11 +323,12 @@ describe('ConversationRoot resident composer', () => {
     expect(seat('conversation.input.plan')).toEqual({ locked: true })
   })
 
-  it('lets the no-workspace posture win over a block', () => {
-    // Picking a workspace is the earlier prerequisite; naming a model first
-    // would send the user somewhere they cannot act yet.
+  it('lets a provisional no-cwd posture win over a block', () => {
+    // Before the create response supplies cwd, picking a Workspace is the
+    // earlier prerequisite; naming a model first would send the user nowhere.
     const b = mount(conversationSnapshot({ composerPhase: 'blank' }), [], undefined, {
       summaryBlank: true,
+      summaryCwd: null,
       composerBlock: { reason: 'select a model first' },
     })
     const box = b.view.getByRole('textbox') as HTMLTextAreaElement
@@ -320,6 +338,25 @@ describe('ConversationRoot resident composer', () => {
     expect(box.placeholder).not.toBe('select a model first')
     const modelSeat = b.seatOwners.filter(call => call.key === 'conversation.input.model').at(-1)?.owner
     expect(modelSeat).toEqual({ locked: true })
+  })
+
+  it('keeps an unregistered Host-cwd session editable and labels it default with the exact directory tooltip', () => {
+    const b = mount(
+      conversationSnapshot({ composerPhase: 'blank', blank: true }),
+      [],
+      undefined,
+      { summaryBlank: true, summaryCwd: '/projects/loose-run' },
+    )
+    const box = b.view.getByRole('textbox') as HTMLTextAreaElement
+    expect(box.readOnly).toBe(false)
+    expect(box.disabled).toBe(false)
+    fireEvent.change(box, { target: { value: 'direct prompt' } })
+    expect(box.value).toBe('direct prompt')
+
+    const chip = b.view.getByRole('button', { name: '选择工作区' })
+    expect(chip.textContent).toContain('default')
+    expect(chip.textContent).not.toContain('loose-run')
+    expect(chip.getAttribute('title')).toBe('/projects/loose-run')
   })
 
   it('keeps composer text in the machine, mirrors to the chat store, and submits through the sink', () => {

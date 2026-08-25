@@ -207,6 +207,11 @@ describe('sessions', () => {
     const runtime = await runtimeWithFrame()
     await runtime.sessions.add({ id: 's1' })
     await runtime.sessions.add({ id: 's2' })
+    await expect(runtime.sessions.create()).resolves.toBe('session-3')
+    expect(runtime.sessions.list.getSnapshot()).toMatchObject({
+      current: 's2',
+      byId: { 'session-3': { blank: true } },
+    })
     const address = {
       parentSessionId: 's2' as SessionId,
       childSessionId: 's1' as SessionId,
@@ -240,6 +245,7 @@ describe('sessions', () => {
       sessionId: 's1' as SessionId, atSeq: 7, increaseTitle: true,
     })).resolves.toBe('s1')
     expect(runtime.sessions.calls).toEqual([
+      { method: 'create', args: [{}] },
       { method: 'openSubagent', args: [address] },
       { method: 'setSubagentCatalogOpen', args: ['s2', true] },
       { method: 'refreshSubagents', args: ['s2'] },
@@ -365,14 +371,16 @@ describe('workspaces', () => {
     expect(view.container.textContent).toContain('ws:pending')
 
     runtime.workspaces.startSession('w1' as WorkspaceId)
-    await expect(runtime.workspaces.connectWorkspace('w2' as WorkspaceId)).resolves.toBe('session-of-w2')
+    runtime.workspaces.selectDraftWorkspace('w2' as WorkspaceId)
+    await expect(runtime.workspaces.materializeSessionDraft()).resolves.toBe('session-of-draft')
     expect(runtime.workspaces.calls).toEqual([
       { method: 'startSession', args: ['w1'] },
-      { method: 'connectWorkspace', args: ['w2'] },
+      { method: 'selectDraftWorkspace', args: ['w2'] },
+      { method: 'materializeSessionDraft', args: [] },
     ])
     const stub = vi.fn(() => Promise.resolve('other' as never))
-    runtime.workspaces.stub('connectWorkspace', stub)
-    await expect(runtime.workspaces.connectWorkspace('w3' as WorkspaceId)).resolves.toBe('other')
+    runtime.workspaces.stub('materializeSessionDraft', stub)
+    await expect(runtime.workspaces.materializeSessionDraft()).resolves.toBe('other')
     expect(stub).toHaveBeenCalledOnce()
     await runtime.dispose()
   })

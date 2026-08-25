@@ -16,9 +16,11 @@ async function bench() {
     title: 'new', sessionIds: [], createdAt: '0', updatedAt: '0',
   }))
   const startSession = vi.fn()
+  const startUnassignedSession = vi.fn()
   const rename = vi.fn(async () => ({}))
   const insertSessionBefore = vi.fn(async () => ({}))
   const open = vi.fn()
+  const createSession = vi.fn(async () => 'unassigned' as never)
   const clear = vi.fn()
   const search = vi.fn(async () => ({
     ok: true as const,
@@ -28,9 +30,9 @@ async function bench() {
   const binding = vi.fn(() => ({ session: { rename: renameSession } }))
   const fork = vi.fn(async () => 'forked' as never)
   ctx.provide('workspaces', {
-    create, startSession, rename, insertSessionBefore,
+    create, startSession, startUnassignedSession, rename, insertSessionBefore,
   } as never)
-  ctx.provide('sessions', { open, clear, search, searchResultLimit: 20, binding, fork } as never)
+  ctx.provide('sessions', { open, create: createSession, clear, search, searchResultLimit: 20, binding, fork } as never)
   ctx.provide('connection', {
     hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
   } as never)
@@ -41,8 +43,8 @@ async function bench() {
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   return {
-    ctx, slots: ctx.get('slots') as SlotRegistry, locale, create, startSession, rename,
-    insertSessionBefore, open, clear, search, renameSession, binding, fork,
+    ctx, slots: ctx.get('slots') as SlotRegistry, locale, create, startSession, startUnassignedSession, rename,
+    insertSessionBefore, open, createSession, clear, search, renameSession, binding, fork,
   }
 }
 
@@ -88,6 +90,9 @@ describe('ui-workspace apply', () => {
     expect(b.startSession).toHaveBeenCalledWith('ws')
     browser.startSession()
     expect(b.startSession).toHaveBeenLastCalledWith(undefined)
+    browser.startUnassignedSession()
+    expect(b.startUnassignedSession).toHaveBeenCalledOnce()
+    expect(b.createSession).not.toHaveBeenCalled()
     browser.open('session' as never)
     expect(b.open).toHaveBeenCalledWith('session')
     const signal = new AbortController().signal
