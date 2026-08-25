@@ -64,7 +64,7 @@ export class SessionProvideChannel {
     }
   }
 
-  /** The static no-session projection under the current roster (declared names present, values undefined). */
+  /** The no-session projection under the current roster. */
   get maybeInfo(): SessionMaybeProvideInfo {
     return this.maybeInfoCache
   }
@@ -171,18 +171,31 @@ export class SessionProvideChannel {
     this.publishCurrent()
   }
 
-  /** Build the static no-session kit and reject duplicate declared names. */
+  /** Build the no-session kit, admitting only explicitly supplied draft-safe members. */
   private materializeMaybeInfo(): SessionMaybeProvideInfo {
-    const hooks: Record<string, undefined> = {}
-    const props: Record<string, undefined> = {}
+    const hooks: Record<string, HostObservable<unknown> | undefined> = {}
+    const props: Record<string, unknown> = {}
     for (const descriptor of this.providers) {
+      const contribution = descriptor.resolveAbsent?.()
+      const contributedHooks = contribution?.hooks ?? {}
+      const contributedProps = contribution?.props ?? {}
+      for (const name of Object.keys(contributedHooks)) {
+        if (!(descriptor.hooks ?? []).includes(name)) {
+          throw new Error(`sessions.provide: undeclared absent hook "${name}"`)
+        }
+      }
+      for (const name of Object.keys(contributedProps)) {
+        if (!(descriptor.props ?? []).includes(name)) {
+          throw new Error(`sessions.provide: undeclared absent prop "${name}"`)
+        }
+      }
       for (const name of descriptor.hooks ?? []) {
         if (Object.hasOwn(hooks, name)) throw new Error(`sessions.provide: duplicate hook "${name}"`)
-        hooks[name] = undefined
+        hooks[name] = contributedHooks[name]
       }
       for (const name of descriptor.props ?? []) {
         if (Object.hasOwn(props, name)) throw new Error(`sessions.provide: duplicate prop "${name}"`)
-        props[name] = undefined
+        props[name] = contributedProps[name]
       }
     }
     return { sessionId: undefined, hooks, props } // no projections face: every key reads absent without a session

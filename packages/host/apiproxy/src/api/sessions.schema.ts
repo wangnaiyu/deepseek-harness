@@ -112,6 +112,7 @@ export const sessionCreateRequestSchema = z.object({
 /** session.create response value. */
 export const sessionCreateValueSchema = z.object({
   sessionId: sessionIdSchema,
+  cwd: z.string(),
   agentPreset: z.string().optional(),
 }) satisfies z.ZodType<Wire<ResponseValue<'session.create'>>>
 

@@ -158,6 +158,12 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
   if (start === null) throw new Error('fixture Workspace new-session action missing')
   fireEvent.click(start)
   const textarea = await screen.findByPlaceholderText('Describe what you want to build', {}, { timeout: 10_000 })
+  // A draft deliberately has no Session-scoped image-limit projection. Use a
+  // local slash command as the first send so the draft materializes without
+  // invoking the model, then exercise the real Session composer below.
+  fireEvent.change(textarea, { target: { value: '/plan' } })
+  fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+  await screen.findByRole('button', { name: /Plan mode on/ }, { timeout: 10_000 })
 
   // A file drag anywhere over the page raises the full-viewport overlay whose
   // desc line carries the projected limits — copy that can only render after

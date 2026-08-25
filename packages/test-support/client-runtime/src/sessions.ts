@@ -6,7 +6,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   AgentContext, ConversationSnapshot, ISessions, ObservableSnapshot, ProjectionsFace, SessionFace, SessionId,
   SessionListState, SessionProvideDescriptor, SessionSearchResultItem, SessionSummary, SnapshotStore,
-  SubagentAddress,
+  SubagentAddress, WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
 // The double reports the wire schema's own search bound, like the production
 // service — a transport-varying limit would be a fiction no client can see.
@@ -185,7 +185,7 @@ export class TestSessions implements ISessions {
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
     method: 'open' | 'openSubagent' | 'setSubagentCatalogOpen' | 'refreshSubagents'
-      | 'clear' | 'search' | 'fork'
+      | 'create' | 'clear' | 'search' | 'fork'
     args: unknown[]
   }[] = []
 
@@ -396,6 +396,21 @@ export class TestSessions implements ISessions {
     const id = scopeOf(ctx)
     if (id === undefined) return undefined
     return this.records.get(id)?.session
+  }
+
+  /** Create a blank fixture session and make it addressable without selecting it. */
+  async create(opts: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId } = {}): Promise<SessionId> {
+    this.calls.push({ method: 'create', args: [opts] })
+    let suffix = this.records.size + 1
+    let id = opts.sessionId ?? (`session-${suffix}` as SessionId)
+    while (this.records.has(id)) {
+      suffix += 1
+      id = `session-${suffix}` as SessionId
+    }
+    return this.add({
+      id,
+      summary: { blank: true, ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }) },
+    }, { current: false })
   }
 
   /**

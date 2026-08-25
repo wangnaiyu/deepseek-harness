@@ -370,15 +370,23 @@ describe('session creation and Workspace membership', () => {
     const workspace = expectOk(await api.workspace.create(request({ path: stageDir(root, 'project') }))).workspace
     const sessionId = SessionId('session-workspace-preallocated')
 
-    expectOk(await api.sessions.create(request({ workspaceId: workspace.workspaceId, sessionId })))
-    expectOk(await api.sessions.create(request({ workspaceId: workspace.workspaceId, sessionId })))
+    expect(expectOk(await api.sessions.create(request({ workspaceId: workspace.workspaceId, sessionId }))).cwd)
+      .toBe(workspace.path)
+    expect(expectOk(await api.sessions.create(request({ workspaceId: workspace.workspaceId, sessionId }))).cwd)
+      .toBe(workspace.path)
     expect(expectOk(await api.workspace.list(request({}))).items[0]?.sessionIds).toEqual([sessionId])
     expect(ctx.agents.list().filter(agent => agent.id === sessionId)).toHaveLength(1)
 
     const ungrouped = SessionId('session-cwd-only')
-    expectOk(await api.sessions.create(request({ cwd: workspace.path, sessionId: ungrouped })))
+    expect(expectOk(await api.sessions.create(request({ cwd: workspace.path, sessionId: ungrouped }))).cwd)
+      .toBe(workspace.path)
     expect(expectOk(await api.workspace.list(request({}))).items[0]?.sessionIds).toEqual([sessionId])
     expect(expectOk(await api.sessions.list(request({}))).items.map(item => item.sessionId)).toContain(ungrouped)
+
+    const defaulted = expectOk(await api.sessions.create(request({
+      sessionId: SessionId('session-host-cwd'),
+    })))
+    expect(defaulted.cwd).toBe(root)
 
     const conflict = await api.sessions.create(request({ cwd: join(workspace.path, 'other'), sessionId }))
     expect(conflict.result).toMatchObject({

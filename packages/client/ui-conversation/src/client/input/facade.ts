@@ -169,6 +169,19 @@ export class SessionInputShell implements SessionInput {
     this.run(this.core.dispatch({ type: 'send-committed' }))
   }
 
+  /**
+   * Reset a reusable browser-only shell for an explicitly fresh draft.
+   * @returns attachment ids whose draft registrations the caller must release.
+   */
+  resetDraft(): readonly DraftAttachmentId[] {
+    const released = this.imageIds
+    this.run(this.core.dispatch({ type: 'release' }))
+    this.imageIds = []
+    this.setDraft('')
+    this.notices.set(null)
+    return released
+  }
+
   /** Undo the latest transaction (InputBar intercepts the platform chord). */
   undo(): void {
     this.run(this.core.dispatch({ type: 'undo' }))

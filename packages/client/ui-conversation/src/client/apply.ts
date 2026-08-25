@@ -16,7 +16,6 @@ import type {
   ComposerChainProps, ConversationInjected, ConversationSessionHeaderInjected, ConversationSessionInjected,
   DetailsInjected,
 } from './contract/slots.ts'
-import type { InputNotice } from './input/contract.ts'
 import { createChatStore } from './stores.ts'
 import { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
 import type { IConversation } from './service.ts'
@@ -56,18 +55,9 @@ export const inject = [
 // Static no-session sources for the composer-bar hooks compartment: module
 // constants so the render side's per-source hook cache (observableHook) keeps
 // one identity across every no-session render.
-const ABSENT_NOTICES = {
-  getSnapshot: (): InputNotice | null => null,
-  subscribe: () => () => {},
-}
-/** No session, therefore nothing to block; same one-identity rule as above. */
+/** No session, therefore nothing to block. */
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
-  subscribe: () => () => {},
-}
-const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
-const ABSENT_LEXICON = {
-  getSnapshot: () => EMPTY_LEXICON,
   subscribe: () => () => {},
 }
 const ABSENT_MENU_LAUNCHER = {
@@ -189,7 +179,24 @@ export function apply(ctx: Context): void {
         props: { inputActions: shell.actions },
       }
     },
+    resolveAbsent: () => {
+      const shell = inputHub.draftShell()
+      return {
+        hooks: { input: shell.state },
+        props: { inputActions: shell.actions },
+      }
+    },
   }), 'ui-conversation: input standard-kit provider')
+
+  // A new browser-draft revision means an explicit New Session gesture. The
+  // resident no-session shell is reused for DOM stability, so reset its old
+  // text/images here; changing only the draft's Workspace preserves them.
+  let draftRevision = workspaces.list.getSnapshot().sessionDraft?.revision
+  ctx.effect(() => workspaces.list.subscribe(() => {
+    const next = workspaces.list.getSnapshot().sessionDraft?.revision
+    if (next !== undefined && next !== draftRevision) inputHub.resetDraft()
+    draftRevision = next
+  }), 'ui-conversation: browser draft generation')
 
   // Resident current-session-optional shell. It owns the stable Hero/composer
   // frame while strict session slots fill only their session-bound regions.
@@ -212,13 +219,12 @@ export function apply(ctx: Context): void {
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
       hooks: { composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId) },
-      selectWorkspace: async (workspaceId) => {
-        const nextId = await workspaces.connectWorkspace(workspaceId)
-        if (sessionId !== undefined && nextId !== sessionId) {
+      selectWorkspace: workspaceId => Promise.resolve().then(() => {
+        if (sessionId !== undefined) {
           const from = inputHub.shell(sessionId)
           const draft = from.snapshot.draft
           const imageIds = from.snapshot.imageIds
-          const next = inputHub.shell(nextId)
+          const next = inputHub.draftShell()
           if (imageIds.length === 0 || next.addImages(imageIds)) {
             if (draft !== '') {
               next.setDraft(draft)
@@ -229,8 +235,8 @@ export function apply(ctx: Context): void {
             }
           }
         }
-        sessions.open(nextId)
-      },
+        workspaces.selectDraftWorkspace(workspaceId)
+      }),
     }),
   }, ConversationRoot)
 
@@ -286,21 +292,54 @@ export function apply(ctx: Context): void {
     children: {
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.plan': { kind: 'single', scope: 'session' },
-      'conversation.input.model': { kind: 'single', scope: 'session' },
+      'conversation.input.model': { kind: 'single', scope: 'session-maybe' },
     },
     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
       if (sessionId === undefined) {
+        const conversation = concreteConversation(ctx)
+        const shell = inputHub.draftShell()
         return {
-          keyboard: undefined,
-          addImages: undefined,
-          removeImage: undefined,
-          draftImages: undefined,
+          keyboard: shell,
+          addImages: (files) => {
+            try {
+              const images = conversation.createDraftImages(files)
+              if (!shell.addImages(images.map(image => image.id))) {
+                conversation.releaseDraftImages(images)
+              }
+              return null
+            } catch (error: unknown) {
+              if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
+              return error instanceof Error ? error.message : String(error)
+            }
+          },
+          removeImage: (id) => {
+            conversation.releaseDraftImage(id)
+            shell.removeImage(id)
+          },
+          draftImages: ids => conversation.draftImages(ids),
           resolveSubmitMode: (running, gesture, steeringAvailable) =>
             submissionPolicy.resolve(running, gesture, steeringAvailable),
-          toggleCommandMenu: undefined,
+          // A browser draft has no Agent command directory yet. The launcher
+          // still starts a slash command at the current selection; first-send
+          // materialization then adjudicates that line against the real
+          // Session before it can execute.
+          toggleCommandMenu: (selection) => {
+            const snapshot = shell.snapshot
+            shell.setDraft(
+              snapshot.draft.slice(0, selection.start)
+              + '/'
+              + snapshot.draft.slice(selection.end),
+            )
+            return selection.start + 1
+          },
           stop: undefined,
-          command: undefined,
-          hooks: { notices: ABSENT_NOTICES, lexicon: ABSENT_LEXICON, menuLauncher: ABSENT_MENU_LAUNCHER },
+          command: line => conversation.commandDraftPermission(line),
+          hooks: {
+            notices: shell.notices,
+            lexicon: shell.lexicon,
+            menuLauncher: ABSENT_MENU_LAUNCHER,
+            draftPermissions: conversation.draftPermissions,
+          },
         }
       }
       const conversation = concreteConversation(ctx)
@@ -359,6 +398,7 @@ export function apply(ctx: Context): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          draftPermissions: conversation.draftPermissions,
         },
       }
     },

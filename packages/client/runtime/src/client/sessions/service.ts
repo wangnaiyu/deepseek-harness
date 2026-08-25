@@ -61,10 +61,8 @@ export interface SessionSummary {
   /** Finished while not selected and not yet opened — the sidebar's green "done" reminder. Absent = false. */
   completed?: boolean
   /**
-   * Empty-log bit (host summary derivation mirror). New Session reuses a blank
-   * one targeting the same workspace. Filtering stays with the consumer: the
-   * store carries every row, while the Workspace browser shows only the
-   * selected blank entry.
+   * Empty-log bit (host summary derivation mirror). Filtering stays with the
+   * consumer: navigation hides every blank row until a prompt is accepted.
    */
   blank: boolean
   updatedAt: number
@@ -223,6 +221,12 @@ export interface SessionProvideDescriptor {
   props?: readonly string[]
   /** Resolve every declared member for one definite session. */
   resolve(binding: SessionBinding): SessionProvideContribution
+  /**
+   * Optional browser-draft contribution while no Session exists. Omitted
+   * members remain undefined; providers use this only for state that is
+   * genuinely independent of a Session identity.
+   */
+  resolveAbsent?: () => SessionProvideContribution
 }
 
 /** Root sessions service: list store, current selection, object-layer manager, scope tree, bindings, and breadcrumb routes. */

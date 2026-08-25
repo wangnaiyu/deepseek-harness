@@ -43,7 +43,7 @@ export interface SessionOptions {
    * into its list row so the session surfaces without waiting for a host
    * frame. Acceptance is the flip point because it proves the user message
    * is in the host log; a rejected first prompt keeps the session blank
-   * (hidden, still reusable by connectWorkspace).
+   * (hidden until a later accepted prompt).
    */
   onEngaged?(session: Session): void
   /**
@@ -252,9 +252,8 @@ export class Session implements SessionFace {
     // turn/start — is fact, not optimism; standalone command and projection
     // events never flip it), while a rejected first prompt must keep the
     // session blank — the client-side blank mirror only ever lowers, so
-    // flipping early on a failure would surface the session forever and
-    // strip its connectWorkspace reuse eligibility against the host's
-    // authority.
+    // flipping early on a failure would surface a Session whose first user
+    // message never entered the Host log.
     if (this.blankBit) {
       this.blankBit = false
       this.options.onEngaged?.(this)

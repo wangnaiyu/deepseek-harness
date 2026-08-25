@@ -5,6 +5,7 @@ import type {
   DirectoryListing, IApiClient, RpcError,
   SessionId, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
 import type { SnapshotStore } from '../contract/store.ts'
 import { createSnapshotStore } from '../contract/store.ts'
 import type { SessionsPort, SessionsPortList } from '../contract/sessions-port.ts'
@@ -29,6 +30,19 @@ export interface WorkspaceListState {
   baselinesReady: boolean
   /** Most recently active Workspace, derived without changing `items` order. */
   recentWorkspaceId: WorkspaceId | undefined
+  /**
+   * Browser-only New Session draft. It deliberately has no Session id: a
+   * click only stages where the eventual first prompt will run. The Host
+   * entity is materialized by `materializeSessionDraft()` on first send.
+   */
+  sessionDraft?: {
+    /** Monotonic local identity used only to reset the resident draft editor. */
+    revision: number
+    /** Registered Workspace target; absent means the Host process cwd. */
+    workspaceId?: WorkspaceId
+    /** Display-ready final directory known without creating a Session. */
+    cwd?: string
+  }
 }
 
 /** Structured create failure for UI flows that distinguish Host business errors. */
@@ -53,17 +67,26 @@ export class WorkspaceRuntime implements IWorkspaces {
   readonly list: SnapshotStore<WorkspaceListState>
   /** Workspace baseline and frame owner. */
   private readonly manager: WorkspaceManager
-  /** In-flight blank-session creates keyed by workspace (connectWorkspace coalescing). */
-  private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
+  /** One first-send materialization for the currently staged browser draft. */
+  private materializingDraft: { revision: number; pending: Promise<SessionId> } | undefined
+  /** Browser-draft generation; explicitly not a Session identity. */
+  private draftRevision = 0
+  /** Optional feature preparation, ordered so composition changes settle before dependent choices. */
+  private readonly draftPreparers = new Map<(sessionId: SessionId) => Promise<void>, number>()
   /** Guards the runtime-owned one-shot initial-selection subscription. */
   private initialSelectionStarted = false
 
   /**
    * @param ctx - client root context.
    * @param api - shared wire client.
-   * @param sessions - cross-domain sessions face used for recency and blank-session reuse.
+   * @param sessions - cross-domain sessions face used for recency and first-send materialization.
    */
-  constructor(ctx: Context, private readonly api: IApiClient, private readonly sessions: SessionsPort) {
+  constructor(
+    ctx: Context,
+    private readonly api: IApiClient,
+    private readonly sessions: SessionsPort,
+    private readonly hostDescription?: HostDescriptionSource,
+  ) {
     this.manager = new WorkspaceManager(api)
     this.list = createSnapshotStore<WorkspaceListState>({
       items: [], archivedSessionIds: [], state: 'idle', phase: 'pending', error: null,
@@ -71,54 +94,78 @@ export class WorkspaceRuntime implements IWorkspaces {
     })
     this.manager.subscribe(() => { this.project() })
     this.sessions.list.subscribe(() => { this.project() })
+    if (hostDescription !== undefined) {
+      ctx.effect(() => hostDescription.subscribe(() => {
+        const cwd = hostDescription.getSnapshot()?.cwd
+        const draft = this.list.getSnapshot().sessionDraft
+        if (cwd === undefined || draft === undefined || draft.workspaceId !== undefined || draft.cwd === cwd) return
+        this.setSessionDraft({ ...draft, cwd })
+      }), 'workspaces: Host cwd for browser draft')
+    }
     ctx.reflect.provide('workspaces', this, undefined)
   }
 
-  /**
-   * Resolve the session a New Session flow lands in once this Workspace is
-   * chosen: reuse the workspace's existing blank session when one is in the
-   * list mirror, else create a fresh one on the host (`session.create` births
-   * the full Session+Agent — the client holds no intermediate state). The
-   * caller owns navigation: take the returned id to `sessions.open`.
-   * Resolution guarantee (both arms): the returned id is already in the list
-   * store and `sessions.binding(id)` resolves synchronously — draft hand-off
-   * may write the new scope's machine before opening.
-   * @param workspaceId - chosen Workspace (must be in the workspace list).
-   * @returns the reused or newly created session id.
-   */
-  async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {
+  /** Stage one registered Workspace as the target of the browser-only draft. */
+  selectDraftWorkspace(workspaceId: WorkspaceId): void {
     const workspace = this.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
-    if (workspace === undefined) throw new Error(`workspaces.connectWorkspace: unknown workspace ${workspaceId}`)
-    // Coalesce concurrent connects: a create's summary lands without cwd
-    // until the host frame arrives, so a second call inside that window
-    // would miss the reuse scan and mint another hidden blank session.
-    const inflight = this.connecting.get(workspaceId)
-    if (inflight !== undefined) return inflight
-    // Reuse requires workspace membership (id in sessionIds AND same
-    // canonical cwd — the host's own membership rule), never cwd alone:
-    // a cwd match can belong to no account (sessions the CLI/TUI birthed at
-    // the host cwd, or a deleted/recreated registration) and reusing it
-    // would open a session no grouping surface shows under this workspace.
-    // An archived blank is never reused either: reuse would open a session
-    // no grouping surface can show, so New Session mints a fresh one instead.
-    const archived = this.list.getSnapshot().archivedSessionIds
-    const sessions = this.sessions.list.getSnapshot()
-    for (const id of sessions.ids) {
-      const summary = sessions.byId[id]
-      if (summary !== undefined && summary.blank && summary.cwd === workspace.path
-        && workspace.sessionIds.includes(summary.id)
-        && !archived.includes(summary.id)) return summary.id
-    }
-    const attempt = this.sessions.create({ workspaceId })
-      .finally(() => { this.connecting.delete(workspaceId) })
-    this.connecting.set(workspaceId, attempt)
-    return attempt
+    if (workspace === undefined) throw new Error(`workspaces.selectDraftWorkspace: unknown workspace ${workspaceId}`)
+    const current = this.list.getSnapshot().sessionDraft
+    this.setSessionDraft({
+      revision: current?.revision ?? ++this.draftRevision,
+      workspaceId,
+      cwd: workspace.path,
+    })
+    this.sessions.clear()
+  }
+
+  /** Begin a fresh browser-only draft explicitly targeting the Host cwd. */
+  startUnassignedSession(): void {
+    this.beginSessionDraft(undefined)
+  }
+
+  /** Register one first-prompt preparation hook. Lower order runs first. */
+  prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>, order = 0): () => void {
+    this.draftPreparers.set(prepare, order)
+    return () => { this.draftPreparers.delete(prepare) }
+  }
+
+  /**
+   * Materialize the currently staged browser draft on its first actual send.
+   * The create is coalesced, and no call reaches the Host before this method.
+   * @returns the newly created, opened Session id.
+   */
+  materializeSessionDraft(): Promise<SessionId> {
+    const draft = this.list.getSnapshot().sessionDraft
+    if (draft === undefined) return Promise.reject(new Error('workspaces.materializeSessionDraft: no staged draft'))
+    if (this.materializingDraft?.revision === draft.revision) return this.materializingDraft.pending
+    const pending = this.sessions.create(
+      draft.workspaceId === undefined ? undefined : { workspaceId: draft.workspaceId },
+    ).then(async (sessionId) => {
+      if (this.list.getSnapshot().sessionDraft?.revision === draft.revision) {
+        this.sessions.open(sessionId)
+        const preparers = [...this.draftPreparers].sort((left, right) => left[1] - right[1])
+        for (const [prepare] of preparers) {
+          try {
+            await prepare(sessionId)
+          } catch (error) {
+            console.warn('new session preparation failed:', error)
+          }
+        }
+        this.setSessionDraft(undefined)
+      }
+      return sessionId
+    }).finally(() => {
+      if (this.materializingDraft?.revision === draft.revision) this.materializingDraft = undefined
+    })
+    this.materializingDraft = { revision: draft.revision, pending }
+    return pending
   }
 
   /**
    * Follow the first complete Workspace/Session baseline and select a default
    * session exactly once. A restored current session wins; otherwise the most
-   * recent Workspace is connected (reusing or creating its blank session).
+   * recent Workspace is staged as a browser-only draft. No Session is
+   * created during startup selection.
    * Later explicit clears stay cleared instead of retriggering this startup
    * policy. A failed connect may retry on the next baseline projection.
    * @returns disposer for the baseline subscription; late work cannot navigate after disposal.
@@ -128,7 +175,7 @@ export class WorkspaceRuntime implements IWorkspaces {
       throw new Error('workspaces.startInitialSelection: already started')
     }
     this.initialSelectionStarted = true
-    let state: 'waiting' | 'connecting' | 'done' = 'waiting'
+    let state: 'waiting' | 'done' = 'waiting'
     let disposed = false
     const reconcile = (): void => {
       if (disposed || state !== 'waiting') return
@@ -140,21 +187,8 @@ export class WorkspaceRuntime implements IWorkspaces {
         state = 'done'
         return
       }
-      state = 'connecting'
-      void this.connectWorkspace(target).then(
-        (sessionId) => {
-          if (disposed) return
-          if (this.sessions.list.getSnapshot().current === undefined) {
-            this.sessions.open(sessionId)
-          }
-          state = 'done'
-        },
-        (reason: unknown) => {
-          if (disposed) return
-          state = 'waiting'
-          console.warn('initial workspace selection failed:', reason)
-        },
-      )
+      state = 'done'
+      this.beginSessionDraft(target)
     }
     const unsubscribe = this.list.subscribe(reconcile)
     reconcile()
@@ -168,10 +202,10 @@ export class WorkspaceRuntime implements IWorkspaces {
    * The shared New Session action behind the shell entry points (sidebar
    * button, workspace browser): resolve the target Workspace — explicit wins,
    * then the current Session's Workspace, then the recent-Workspace
-   * projection — connect its blank session and navigate there; with no
-   * Workspace at all, clear the selection into the New Session view state.
-   * Connect failures are non-fatal (console diagnostics; the current view
-   * stays usable).
+   * projection — stage that target; with no
+   * Workspace at all, use the Host cwd. This action is browser-only: it clears
+   * the current selection and stages a target, but does not allocate a
+   * Session id or call `session.create`.
    * @param workspaceId - explicit target Workspace for scoped actions.
    */
   startSession(workspaceId?: WorkspaceId): void {
@@ -181,14 +215,36 @@ export class WorkspaceRuntime implements IWorkspaces {
       ? undefined
       : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
     const target = workspaceId ?? currentWorkspaceId ?? workspace.recentWorkspaceId
-    if (target === undefined) {
-      this.sessions.clear()
-      return
+    this.beginSessionDraft(target)
+  }
+
+  /** Begin a fresh draft, resolving its display cwd without creating a Session. */
+  private beginSessionDraft(workspaceId: WorkspaceId | undefined): void {
+    const workspace = workspaceId === undefined
+      ? undefined
+      : this.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
+    if (workspaceId !== undefined && workspace === undefined) {
+      throw new Error(`workspaces.startSession: unknown workspace ${workspaceId}`)
     }
-    void this.connectWorkspace(target).then(
-      (sessionId) => { this.sessions.open(sessionId) },
-      (reason: unknown) => { console.warn('new session failed:', reason) },
-    )
+    const hostCwd = this.hostDescription?.getSnapshot()?.cwd
+    this.setSessionDraft({
+      revision: ++this.draftRevision,
+      ...(workspaceId === undefined ? {} : { workspaceId }),
+      ...(workspace?.path !== undefined
+        ? { cwd: workspace.path }
+        : hostCwd !== undefined
+          ? { cwd: hostCwd }
+          : {}),
+    })
+    this.sessions.clear()
+  }
+
+  /** Replace only the client draft slice while preserving wire projections. */
+  private setSessionDraft(sessionDraft: WorkspaceListState['sessionDraft']): void {
+    this.list.update((draft) => {
+      if (sessionDraft === undefined) delete draft.sessionDraft
+      else draft.sessionDraft = sessionDraft
+    })
   }
 
   /**
@@ -350,6 +406,9 @@ export class WorkspaceRuntime implements IWorkspaces {
       error: workspace.error,
       baselinesReady,
       recentWorkspaceId: baselinesReady ? recentWorkspace(workspace.items, sessions.byId) : undefined,
+      ...(this.list.getSnapshot().sessionDraft === undefined
+        ? {}
+        : { sessionDraft: this.list.getSnapshot().sessionDraft }),
     })
   }
 }

@@ -121,9 +121,21 @@ async function bench() {
     }
     return { state, actions }
   }
+  const draftInputApi = () => {
+    const info = runtime.sessions.maybeProvideInfo(undefined)
+    const state = info.hooks['input'] as {
+      getSnapshot: () => { draft: string }
+      subscribe: (fn: () => void) => () => void
+    }
+    const actions = info.props['inputActions'] as {
+      setDraft: (text: string) => void
+      submit: () => void
+    }
+    return { state, actions }
+  }
   return {
     runtime, feature, slots: runtime.slots, entryOf,
-    conversationApi, conversationHeaderApi, residentApi, composerApi, chatViewApi, inputApi,
+    conversationApi, conversationHeaderApi, residentApi, composerApi, chatViewApi, inputApi, draftInputApi,
     sessionFake, layoutFake,
   }
 }
@@ -203,11 +215,14 @@ describe('conversation slot inject API', () => {
     const injectFn = entry.inject as unknown as (sessionId: SessionId | undefined) => ComposerBarInjected
     // Unknown session: the keyboard face's binding resolution answers nothing.
     expect(() => { injectFn('ghost' as SessionId).stop!() }).toThrow(/resolved no binding/)
-    // No session (session-maybe absent side): machine faces absent, static
-    // hooks compartment still present so the render side's hook order holds.
+    // No session: the browser-only draft machine is live. The command
+    // launcher starts a slash line locally; stop remains session-only.
     const absent = injectFn(undefined)
-    expect(absent.keyboard).toBeUndefined()
-    expect(absent.toggleCommandMenu).toBeUndefined()
+    expect(absent.keyboard).toBeDefined()
+    expect(absent.toggleCommandMenu).toBeTypeOf('function')
+    b.draftInputApi().actions.setDraft('draft tail')
+    absent.toggleCommandMenu!({ start: 0, end: 0 })
+    expect(b.draftInputApi().state.getSnapshot().draft).toBe('/draft tail')
     expect(absent.stop).toBeUndefined()
     expect(absent.hooks.notices.getSnapshot()).toBeNull()
     expect(absent.hooks.lexicon.getSnapshot().size).toBe(0)
@@ -251,64 +266,51 @@ describe('conversation slot inject API', () => {
     await b.runtime.dispose()
   })
 
-  it('routes workspace switching through the runtime owner, carrying the draft', async () => {
+  it('routes workspace switching to the browser draft and carries the current text', async () => {
     const b = await bench()
     const resident = b.residentApi(ROOT)
-    // Same-session connect (the picked workspace resolves to this session):
-    // no draft movement, plain re-open.
-    b.runtime.workspaces.stub('connectWorkspace', () => Promise.resolve(ROOT))
     const { state, actions } = b.inputApi(ROOT)
     actions.setDraft('carry me')
-    void resident.selectWorkspace('workspace-1' as never)
-    await vi.waitFor(() => {
-      expect(b.runtime.sessions.calls.filter(c => c.method === 'open')).toHaveLength(1)
-    })
-    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'connectWorkspace', args: ['workspace-1'] })
-    expect(state.getSnapshot().draft).toBe('carry me')
-    // Cross-session connect: the draft MOVES — the old machine empties, the
-    // new session's machine receives the text, then navigation lands there.
-    const OTHER = 'other-1' as SessionId
-    await b.runtime.sessions.add({ id: OTHER }, { current: false })
-    b.runtime.workspaces.stub('connectWorkspace', () => Promise.resolve(OTHER))
-    void resident.selectWorkspace('workspace-2' as never)
-    await vi.waitFor(() => {
-      expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [OTHER] })
-    })
+    await resident.selectWorkspace('workspace-1' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-1'] })
     expect(state.getSnapshot().draft).toBe('')
-    expect(b.inputApi(OTHER).state.getSnapshot().draft).toBe('carry me')
+    expect(b.draftInputApi().state.getSnapshot().draft).toBe('carry me')
     await b.runtime.dispose()
   })
 
-  it('selectWorkspace edge arms: no-session resident, empty-draft move, connect failure retryable', async () => {
+  it('selectWorkspace stages both no-session and empty-session targets without opening a Session', async () => {
     const b = await bench()
-    // No-session resident (hero before any session): connect resolves and
-    // navigation proceeds without any draft choreography.
+    // No-session resident updates only the browser draft target.
     const noSession = b.residentApi(undefined)
-    b.runtime.workspaces.stub('connectWorkspace', () => Promise.resolve(ROOT))
-    void noSession.selectWorkspace('workspace-0' as never)
-    await vi.waitFor(() => {
-      expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [ROOT] })
-    })
+    await noSession.selectWorkspace('workspace-0' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-0'] })
 
-    // Cross-session connect with an EMPTY draft: no move, no clearing.
-    const OTHER = 'b9-other' as SessionId
-    await b.runtime.sessions.add({ id: OTHER }, { current: false })
+    // A current empty draft also moves to the browser shell without creating.
     const resident = b.residentApi(ROOT)
     const { state } = b.inputApi(ROOT)
     expect(state.getSnapshot().draft).toBe('')
-    b.runtime.workspaces.stub('connectWorkspace', () => Promise.resolve(OTHER))
-    void resident.selectWorkspace('workspace-3' as never)
-    await vi.waitFor(() => {
-      expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [OTHER] })
-    })
-    expect(b.inputApi(OTHER).state.getSnapshot().draft).toBe('')
+    await resident.selectWorkspace('workspace-3' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-3'] })
+    expect(b.runtime.sessions.calls.filter(c => c.method === 'open')).toHaveLength(0)
+    await b.runtime.dispose()
+  })
 
-    // Connect failure: the rejection propagates to the caller (the view owns
-    // the rollback) and no further navigation happens.
-    const opens = b.runtime.sessions.calls.filter(c => c.method === 'open').length
-    b.runtime.workspaces.stub('connectWorkspace', () => Promise.reject(new Error('offline')))
-    await expect(resident.selectWorkspace('workspace-4' as never)).rejects.toThrow('offline')
-    expect(b.runtime.sessions.calls.filter(c => c.method === 'open')).toHaveLength(opens)
+  it('materializes the browser draft only when its first prompt is submitted', async () => {
+    const b = await bench()
+    b.runtime.sessions.clear()
+    b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
+    const { state, actions } = b.draftInputApi()
+    actions.setDraft('first prompt')
+    expect(b.runtime.workspaces.calls.filter(c => c.method === 'materializeSessionDraft')).toEqual([])
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+
+    actions.submit()
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'materializeSessionDraft', args: [] })
+    expect(b.sessionFake.prompt).toHaveBeenCalledWith(
+      [{ type: 'text', text: 'first prompt' }], 'queue', expect.any(AbortSignal),
+    )
+    await vi.waitFor(() => { expect(state.getSnapshot().draft).toBe('') })
     await b.runtime.dispose()
   })
 

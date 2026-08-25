@@ -535,7 +535,7 @@ export class SessionManager {
    */
   async create(
     opts: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId } = {},
-  ): Promise<RpcResult<{ sessionId: SessionId }>> {
+  ): Promise<RpcResult<{ sessionId: SessionId; cwd: string }>> {
     try {
       const shared = opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }
       const payload = opts.workspaceId !== undefined
@@ -545,7 +545,7 @@ export class SessionManager {
       if (result.ok) {
         this.recordMutation({ kind: 'upsert', summary: {
           sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
-          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+          cwd: result.value.cwd,
           ...(result.value.agentPreset !== undefined ? { agentPreset: result.value.agentPreset } : {}),
         } })
       } else {

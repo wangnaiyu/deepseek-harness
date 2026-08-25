@@ -79,7 +79,7 @@ export type InputBarProps = ComposerBarProps
 export function InputBar({
   useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
-  renderSlot, useNotices, useLexicon, useMenuLauncher,
+  renderSlot, useNotices, useLexicon, useMenuLauncher, useDraftPermissions,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory, overlay, leftItems, rightItems, footer,
@@ -155,7 +155,9 @@ export function InputBar({
 
   // The Access seat's data: the host-computed permissions projection
   // (undefined = capability absent → the chip renders nothing).
-  const permissions = useProjection('permissions')
+  const sessionPermissions = useProjection('permissions')
+  const draftPermissions = useDraftPermissions(s => s)
+  const permissions = sessionId === undefined ? draftPermissions : sessionPermissions
 
   // A continuable child without its live parent cannot accept human input,
   // but its independent Stop below stays available while it runs.
@@ -554,7 +556,9 @@ export function InputBar({
 
   const onToggleCommandMenu = (): void => {
     const el = inputRef.current
-    if (el !== null) toggleCommandMenu?.(selectionOf(el))
+    if (el === null) return
+    const caret = toggleCommandMenu?.(selectionOf(el))
+    if (caret !== undefined) restoreCaret(el, caret)
   }
 
   // Ordinary sessions retain their primary Send/Stop toggle. A continuable

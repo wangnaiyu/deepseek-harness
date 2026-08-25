@@ -12,6 +12,7 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
+import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { ComposerBlock } from '../input/blocks.ts'
 import type {
@@ -172,8 +173,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /**
      * The hero-phase Workspace picker hole: rendered by ConversationRoot
      * while the session is blank (picking another workspace switches to that
-     * workspace's blank session, draft carried). Root scope: the picker
-     * reads the global workspace list.
+     * browser draft's target Workspace, carrying its local draft). Root
+     * scope: the picker reads the global workspace list.
      */
     'conversation.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
     /**
@@ -268,7 +269,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * model-related block: every such block is one the user clears by picking
      * a model here.
      */
-    'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+    'conversation.input.model': { kind: 'single'; scope: 'session-maybe'; owner: InputControlOwnerProps }
   }
 
   /**
@@ -471,10 +472,7 @@ export type ChatStore = ReturnType<typeof createChatStore>
 
 /** Business callbacks injected into the conversation slot. */
 export interface ConversationInjected {
-  /**
-   * Connect the selected Workspace and open its reusable/new blank session.
-   * When a blank session is already current, carry its draft to the target.
-   */
+  /** Stage the selected Workspace without creating a Session; carry any current draft. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
    * Framework-bound sources. `composerBlock` is this session's block when a
@@ -565,8 +563,12 @@ export interface ComposerBarInjected {
     gesture: ComposerSubmitGesture,
     steeringAvailable: boolean,
   ) => InputSubmitMode
-  /** Toggle the shared slash menu with only its command source; absent without ui-input-trigger or a session. */
-  toggleCommandMenu: ((selection: EditSelection) => void) | undefined
+  /**
+   * Start the command surface at the current selection. A real Session opens
+   * its command menu and returns nothing; a browser draft inserts `/` and
+   * returns the caret position the bar must restore.
+   */
+  toggleCommandMenu: ((selection: EditSelection) => number | undefined) | undefined
   /** Cancel the in-flight turn; absent with the session. */
   stop: (() => void) | undefined
   /**
@@ -589,6 +591,8 @@ export interface ComposerBarInjected {
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     /** Source name opened by the programmatic menu launcher, or null. */
     menuLauncher: ObservableSnapshot<string | null>
+    /** Optional permission-plugin value for the Session-id-free browser draft. */
+    draftPermissions: ObservableSnapshot<PermissionSelect | undefined>
   }
 }
 

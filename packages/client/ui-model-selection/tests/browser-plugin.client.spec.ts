@@ -9,8 +9,8 @@
  * Scope disposal drops the directory (HMR safety).
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
-import { createScope } from '@deepseek-ai/dsh-client-runtime/client'
+import { describe, expect, it, vi } from 'vitest'
+import { createScope, createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
@@ -57,26 +57,34 @@ const GROUPS = [{
 async function bench() {
   const ctx = new Context()
   let current: ModelSelection = { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
-  const calls = { models: 0, select: 0 }
-  ctx.provide('connection', { api: { sessions: {
-    models: () => {
-      calls.models += 1
-      return Promise.resolve({
-        result: { ok: true as const, value: { current, routable, groups: GROUPS, failures: [] } },
-      })
+  const calls = { models: 0, select: 0, draftModels: 0 }
+  ctx.provide('connection', { api: {
+    llm: {
+      models: () => {
+        calls.draftModels += 1
+        return Promise.resolve({ result: { ok: true as const, value: { groups: GROUPS, failures: [] } } })
+      },
     },
-    selectModel: (payload: { provider: string; model: string; reasoningEffort?: string }) => {
-      calls.select += 1
-      current = {
-        provider: payload.provider,
-        model: payload.model,
-        ...payload.reasoningEffort === undefined
-          ? {}
-          : { reasoningEffort: payload.reasoningEffort },
-      }
-      return Promise.resolve({ result: { ok: true as const, value: { selected: current } } })
+    sessions: {
+      models: () => {
+        calls.models += 1
+        return Promise.resolve({
+          result: { ok: true as const, value: { current, routable, groups: GROUPS, failures: [] } },
+        })
+      },
+      selectModel: (payload: { provider: string; model: string; reasoningEffort?: string }) => {
+        calls.select += 1
+        current = {
+          provider: payload.provider,
+          model: payload.model,
+          ...payload.reasoningEffort === undefined
+            ? {}
+            : { reasoningEffort: payload.reasoningEffort },
+        }
+        return Promise.resolve({ result: { ok: true as const, value: { selected: current } } })
+      },
     },
-  } } })
+  } })
   // Whether the Host reports an adapter for the current route; the composer
   // block follows this, never catalog membership.
   let routable = true
@@ -94,12 +102,16 @@ async function bench() {
     },
   })
   const seats = new Map<string, {
-    inject: ((sessionId: SessionId) => ModelSelectInjected) | undefined
+    inject: ((sessionId: SessionId | undefined) => ModelSelectInjected) | undefined
     locale: string | undefined
   }>()
   ctx.provide('slots', {
     inject(_name: string, callback: () => () => void) { return callback() },
-    register(options: { name: string; locale?: string; inject?: (sessionId: SessionId) => ModelSelectInjected }) {
+    register(options: {
+      name: string
+      locale?: string
+      inject?: (sessionId: SessionId | undefined) => ModelSelectInjected
+    }) {
       seats.set(options.name, { inject: options.inject, locale: options.locale })
       return () => { seats.delete(options.name) }
     },
@@ -118,6 +130,17 @@ async function bench() {
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
+  const workspaceList = createSnapshotStore({
+    sessionDraft: { revision: 1, cwd: '/host/cwd' },
+  })
+  let draftPrepare: ((sessionId: SessionId) => Promise<void>) | undefined
+  ctx.provide('workspaces', {
+    list: workspaceList,
+    prepareSessionDraft: (prepare: (sessionId: SessionId) => Promise<void>) => {
+      draftPrepare = prepare
+      return () => { draftPrepare = undefined }
+    },
+  } as never)
   new TestRemote(ctx)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
@@ -136,6 +159,7 @@ async function bench() {
     address: (id: SessionId) => { addressed.add(id) },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
+    prepareDraft: (sessionId: SessionId) => draftPrepare?.(sessionId) ?? Promise.resolve(),
   }
 }
 
@@ -149,6 +173,30 @@ describe('ui-model-selection dual entry', () => {
     expect(b.seat().inject).toBeTypeOf('function')
     // Copy rides the standard locale seat.
     expect(b.seat().locale).toBe('model')
+  })
+
+  it('stages a draft model from llm.models and applies it only after materialization', async () => {
+    const b = await bench()
+    const draftFace = b.seat().inject!(undefined)
+    draftFace.load()
+    await vi.waitFor(() => { expect(draftFace.directory.getSnapshot().status).toBe('ready') })
+    expect(b.calls.draftModels).toBe(1)
+    expect(b.calls.select).toBe(0)
+
+    expect(await draftFace.select({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })).toBe(true)
+    expect(draftFace.directory.getSnapshot().current).toEqual({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })
+    expect(b.calls.select).toBe(0)
+
+    b.mint('materialized')
+    await b.prepareDraft(sid('materialized'))
+    expect(b.calls.select).toBe(1)
+    expect(b.hostCurrent()).toEqual({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })
   })
 
   it('popup options mark the host current active with the provider group in the detail', async () => {
@@ -323,6 +371,6 @@ describe('ui-model-selection dual entry', () => {
     })).rejects.toThrow(/unavailable for addressed subagent/)
     b.ctx.emit('connection/reset')
     await Promise.resolve()
-    expect(b.calls).toEqual({ models: 0, select: 0 })
+    expect(b.calls).toEqual({ models: 0, select: 0, draftModels: 0 })
   })
 })

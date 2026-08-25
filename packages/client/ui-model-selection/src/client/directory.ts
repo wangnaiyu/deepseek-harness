@@ -33,6 +33,111 @@ export interface ModelDirectoryState {
   error: string | null
 }
 
+/** Host-scoped catalog returned for a Session-id-free browser draft. */
+export interface DraftModelCatalog {
+  groups: readonly ModelProviderGroup[]
+  failures: readonly ModelCatalogFailure[]
+}
+
+/**
+ * Browser-only model directory for New Session drafts. Catalog reads use the
+ * Host-scoped `llm.models` method, while selection is staged locally until
+ * first-send materialization gives it a real Session id.
+ */
+export class DraftModelDirectory {
+  /** Same render contract as a real directory, with no Host-confirmed route bit. */
+  readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
+    current: null, routable: null, groups: [], failures: [], status: 'idle', error: null,
+  })
+
+  private generation = 0
+  private staged: ModelSelection | undefined
+  private disposed = false
+
+  constructor(private readonly llm: Pick<IApiClient['llm'], 'models'>) {}
+
+  /**
+   * Load the session-independent model catalog without allocating a Session.
+   * @returns the fresh Host-scoped catalog.
+   */
+  async load(): Promise<DraftModelCatalog> {
+    const generation = ++this.generation
+    this.store.update((state) => { state.status = 'loading'; state.error = null })
+    const { result } = await this.llm.models({})
+    if (this.disposed || generation !== this.generation) {
+      if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+      return result.value
+    }
+    if (!result.ok) {
+      this.store.update((state) => {
+        state.status = 'error'
+        state.error = `${result.error.code}: ${result.error.message}`
+      })
+      throw new Error(`llm.models failed: ${result.error.code}: ${result.error.message}`)
+    }
+    this.store.update((state) => {
+      state.current = this.staged ?? null
+      state.routable = null
+      state.groups = result.value.groups
+      state.failures = result.value.failures
+      state.status = 'ready'
+      state.error = null
+    })
+    return result.value
+  }
+
+  /**
+   * Stage a selection in browser memory; no Session RPC is issued here.
+   * @param selection - complete provider, model, and optional reasoning effort.
+   */
+  select(selection: ModelSelection): Promise<void> {
+    if (this.disposed) throw new Error('draft model directory is disposed')
+    ++this.generation
+    this.staged = selection
+    this.store.update((state) => {
+      state.current = selection
+      state.routable = null
+      state.status = 'ready'
+      state.error = null
+    })
+    return Promise.resolve()
+  }
+
+  /**
+   * Selection to apply after first-send creates the real Session.
+   * @returns the staged selection, or undefined when the draft uses Host defaults.
+   */
+  stagedSelection(): ModelSelection | undefined {
+    return this.staged
+  }
+
+  /** A fresh New Session gesture drops the previous unsent selection. */
+  resetDraft(): void {
+    if (this.disposed) return
+    ++this.generation
+    this.staged = undefined
+    this.store.update((state) => {
+      state.current = null
+      state.routable = null
+      state.groups = []
+      state.failures = []
+      state.status = 'idle'
+      state.error = null
+    })
+  }
+
+  /** Connection reset invalidates the Host catalog but preserves no draft fact. */
+  resetConnected(): void {
+    this.resetDraft()
+  }
+
+  /** Permanently stop this root-owned draft directory. */
+  dispose(): void {
+    this.disposed = true
+    ++this.generation
+  }
+}
+
 /** One session's shared directory controller; disposed with the session scope. */
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
