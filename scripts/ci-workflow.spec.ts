@@ -181,6 +181,32 @@ describe('CI workflow', () => {
     expect(windowsObservational.name).toBe('windows node 24 / observational')
     expect(windowsObservational['continue-on-error']).toBe(true)
 
+    // Forks cannot inherit the canonical repository's named larger runners.
+    // Keep each check present and successful through an explicit public-runner
+    // no-op, while every resource-shaped step remains canonical-only.
+    const canonicalRepository = 'deepseek-ai/deepseek-harness'
+    for (const [jobName, job] of [
+      ['node-24', node24],
+      ['node-24-coverage', node24Coverage],
+      ['node-24-consumers', node24Consumers],
+      ['windows-build', windowsBuild],
+      ['windows-coverage', windowsCoverage],
+      ['windows-native-tests', windowsNativeTests],
+      ['windows-observational', windowsObservational],
+    ] as const) {
+      expect(job.if, `${jobName} must remain visible on fork pull requests`).toBe("github.event_name == 'pull_request'")
+      expect(job['runs-on'], `${jobName} must select a public runner for forks`).toContain(`github.repository != '${canonicalRepository}'`)
+      expect(job['runs-on']).toContain('ubuntu-latest')
+      if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
+      const steps = job.steps.filter(isRecord)
+      expect(steps.find(step => step.name === 'Skip canonical larger-runner check on fork')).toMatchObject({
+        if: `github.repository != '${canonicalRepository}'`,
+      })
+      for (const step of steps.filter(step => step.name !== 'Skip canonical larger-runner check on fork')) {
+        expect(step.if, `${jobName} resource-shaped steps must remain canonical-only`).toEqual(expect.stringContaining(`github.repository == '${canonicalRepository}'`))
+      }
+    }
+
     // wine-apt-cache: master-only, seeds the Wine apt cache, lives in ci-master.
     expect(wineAptCache.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/master'")
     expect(wineAptCache['runs-on']).toBe('ubuntu-latest')
