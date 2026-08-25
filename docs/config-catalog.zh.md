@@ -2492,8 +2492,23 @@ export interface Config {
    * readable directory; an absent root is created on first materialization.
    */
   root: string
+  /**
+   * Optional deployment-owned aliases from an absolute session cwd to one
+   * literal project-directory name below {@link root}. The session header
+   * keeps the real cwd; only the physical bucket changes. Existing artifacts
+   * under the ordinary cwd-derived directory remain readable and writable.
+   */
+  projectDirectoryAliases?: ProjectDirectoryAlias[]
   /** Physical encoding; defaults to checksummed Zstandard frames. */
   compression?: JsonlCompression
+}
+
+/** One physical project-directory override owned by deployment configuration. */
+export interface ProjectDirectoryAlias {
+  /** Session cwd to match; resolved once when the backend is constructed. */
+  cwd: string
+  /** Safe literal directory name below the configured root, for example `default`. */
+  directory: string
 }
 
 /** Physical encoding selected for JSONL session artifacts. */
