@@ -5,7 +5,8 @@
  * creation trigger) and torn down by the scope disposer (instance-and-scope
  * share one lifecycle). The hub registers the scoped input-mutation
  * listeners on each Session context and owns the default-sink choreography: every session is a
- * real host entity, so the sink is one unconditional prompt path.
+ * real host entity, while the one root draft shell materializes a Session only
+ * when its first prompt is actually sent.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
@@ -49,6 +50,7 @@ interface ConversationAttachmentFace {
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
+  private browserDraft: SessionInputShell | undefined
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -69,6 +71,37 @@ export class InputHub implements SessionInputResolver {
     const id = sessions.scopeOf(actx)
     if (id === undefined) throw new Error('conversation.input.for requires a session scope')
     return this.shell(id)
+  }
+
+  /**
+   * Resident Session-id-free input machine used by the New Session screen.
+   * @returns the reusable browser-draft shell.
+   */
+  draftShell(): SessionInputShell {
+    if (this.browserDraft !== undefined) return this.browserDraft
+    this.browserDraft = new SessionInputShell({
+      actx: this.rootCtx,
+      defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
+      commandImages: {
+        serialize: ids => this.conversation().serializeDraftImages(ids),
+        release: (ids) => {
+          const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
+          for (const imageId of ids) conversation?.releaseDraftImage(imageId)
+        },
+        unsupportedNotice: token => this.t('command.imagesUnsupported', {
+          command: token.trim().replace(/^\//u, ''),
+        }),
+      },
+    })
+    return this.browserDraft
+  }
+
+  /** Drop the previous unsent browser draft when the user explicitly starts another. */
+  resetDraft(): void {
+    if (this.browserDraft === undefined) return
+    const ids = this.browserDraft.resetDraft()
+    const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
+    for (const id of ids) conversation?.releaseDraftImage(id)
   }
 
   /**
@@ -184,6 +217,34 @@ export class InputHub implements SessionInputResolver {
   }
 
   /**
+   * First-send transaction for the browser-only draft. Creation failure
+   * leaves that draft untouched. Once creation succeeds, the captured draft
+   * moves into the real Session shell and is submitted there. That second
+   * adjudication step is intentional: a slash command typed as the first
+   * send must resolve against the newly born Session's Agent catalog, while
+   * the pre-Session screen still performs no Host lookup or allocation.
+   */
+  private async sinkDraft(
+    text: string,
+    imageIds: readonly DraftAttachmentId[],
+    mode: InputSubmitMode,
+    _signal: AbortSignal,
+  ): Promise<SubmitOutcome> {
+    if (text === '' && imageIds.length === 0) return { kind: 'success' }
+    const sessionId = await this.uiWorkspace().materializeSessionDraft()
+    const binding = this.sessions().binding(sessionId)
+    if (binding === undefined) throw new Error(`conversation.input: created session "${sessionId}" resolved no binding`)
+    const shell = this.shellFor(binding)
+    if (text !== '') shell.setDraft(text)
+    if (imageIds.length > 0) shell.addImages(imageIds)
+    shell.submit(mode)
+    // The draft now belongs to the real Session. Report success to the old
+    // browser machine only so it clears its duplicate state; the real shell
+    // owns command/prompt settlement, retry text, and notices from here on.
+    return { kind: 'success' }
+  }
+
+  /**
    * Steer every still-pending queued message into the running turn, in FIFO
    * order — the same strict-steer operation as the queue dock's per-row
    * button. A turn closing mid-way (`session/steer-unavailable`) or a row already
@@ -221,6 +282,12 @@ export class InputHub implements SessionInputResolver {
     const sessions = this.rootCtx.get('sessions')
     if (sessions === undefined) throw new Error('conversation.input: sessions service unavailable')
     return sessions
+  }
+
+  private uiWorkspace() {
+    const uiWorkspace = this.rootCtx.get('uiWorkspace')
+    if (uiWorkspace === undefined) throw new Error('conversation.input: uiWorkspace service unavailable')
+    return uiWorkspace
   }
 
   private conversation(): ConversationAttachmentFace {

@@ -45,6 +45,8 @@ describe('assembled todo surfaces', () => {
     mountAssembledApp()
 
     const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+    const group = within(tree).getByText('fixture').closest<HTMLElement>('[role="treeitem"]')
+    if (group?.getAttribute('aria-expanded') === 'false') fireEvent.click(group)
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // The todo turn is the fixture's last, so wait for its keyed row rather
     // than for chat content in general.

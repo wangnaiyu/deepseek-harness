@@ -232,6 +232,12 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     // A connected Workspace is what puts a live composer — and its model
     // trigger — on the page; the scaffold boots without one.
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd, 'model-fallback-e2e')
+    const input = page.locator('textarea').first()
+    await input.fill('/permission workspace-write')
+    await input.press('Enter')
+    await expect.poll(() => scaffold.ctx.sessions.list().length, { timeout: 15_000 }).toBeGreaterThan(0)
+    await page.locator('[aria-label="访问模式，当前：Workspace Write"]')
+      .waitFor({ timeout: 15_000 })
 
     const modelTrigger = page.getByRole('button', { name: /^选择模型/ })
     await modelTrigger.waitFor({ timeout: 10_000 })

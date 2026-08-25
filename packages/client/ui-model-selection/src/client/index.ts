@@ -28,8 +28,8 @@ import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { en, zh, type ModelKey } from './locales.ts'
 
-export { ModelDirectory } from './directory.ts'
-export type { ModelDirectoryState } from './directory.ts'
+export { DraftModelDirectory, ModelDirectory } from './directory.ts'
+export type { DraftModelCatalog, ModelDirectoryState } from './directory.ts'
 export { ModelDirectoryResolver } from './service.ts'
 export type { ModelSelectInjected } from './slots.ts'
 export type { ModelKey } from './locales.ts'
@@ -101,7 +101,7 @@ function selectionOf(state: ModelDirectoryState, id: string): ModelSelection | u
 const NS = 'model'
 
 /** Required services: the contribution registry, the seat's slot registry, locale, and the service's own faces. */
-export const inject = ['commandUi', 'locale', 'sessions', 'slots', 'remote', 'remote.session']
+export const inject = ['commandUi', 'locale', 'sessions', 'uiWorkspace', 'slots', 'remote', 'remote.session']
 
 /**
  * Client plugin body: mount ModelDirectoryResolver, register the `model` dictionaries,
@@ -155,15 +155,20 @@ export function apply(ctx: ClientContext): void {
   })
 
   // Entry 2: the composer's named model seat over the SAME directory.
-  ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {
+  ctx.inject(['slots', 'modelDirectories', 'uiWorkspace'], (scope: ClientContext) => {
     const models = scope.modelDirectories
     const sessions = scope.sessions
     scope.slots.inject('conversation.input.model', () => scope.slots.register({
       name: 'conversation.input.model',
       locale: NS,
       inject: (sessionId): ModelSelectInjected => {
-        const directory = models.directoryFor(sessionId)
-        const available = sessions.subagentAddress(sessionId) === undefined
+        const draft = sessionId === undefined
+        const directory = draft ? models.directoryForDraft() : models.directoryFor(sessionId)
+        // The no-Session inject face is cached before startup selection may
+        // create its browser draft. Keep that face available permanently;
+        // ConversationRoot's live `locked` owner prop is the authority that
+        // disables it while no draft exists.
+        const available = draft || sessions.subagentAddress(sessionId) === undefined
         return {
           available,
           directory: directory.store,

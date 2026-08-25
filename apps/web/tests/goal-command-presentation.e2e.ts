@@ -49,13 +49,10 @@ describe('web e2e: /goal human transcript presentation', () => {
       timeout: 15_000,
     }).toBe(1)
     const input = page.locator('[data-composer-input]').first()
-    await input.fill('/go')
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
-    await menu.getByRole('option', { name: 'goal set or view the goal for a long-running task' })
-      .waitFor({ timeout: 10_000 })
-    await input.press('Tab')
-    await expect.poll(() => input.textContent()).toBe('/goal ')
-    await expect.poll(() => menu.count()).toBe(0)
+    // The typed command is itself the first send. Include the claimed empty
+    // argument explicitly because the pre-Session draft has no suggestion
+    // catalog to perform the old `/goal` -> `/goal ` completion gesture.
+    await input.fill('/goal ')
     await input.press('Enter')
 
     const commandInput = page.locator('[data-command-input]')
@@ -84,7 +81,7 @@ describe('web e2e: /goal human transcript presentation', () => {
     await expect.poll(() => page.locator('[data-phase="active"]').count()).toBe(1)
     expect(await page.getByText('Into the Unknown', { exact: false }).count()).toBe(0)
 
-    const run = events.find(event => event.type === 'command/run')
+    const run = events.find(event => event.type === 'command/run' && event.data.name === 'goal')
     expect(run).toMatchObject({
       type: 'command/run',
       data: { name: 'goal', args: ' ', source: { kind: 'user' } },

@@ -2,9 +2,8 @@
  * Hero-chip controller: which preset the NEXT session gets.
  *
  * The new-session screen has no session, so a pick is staged rather than
- * applied. It reaches a session when one becomes current and is still blank —
- * whether the workspace connect created it or reused an existing blank one,
- * which is why staging cannot simply ride along on `sessions.create`.
+ * applied. First send creates and opens the real Session, then the Workspace
+ * runtime awaits this controller before admitting that first prompt.
  *
  * The stage is forgotten once applied: the next new session starts from the
  * deployment default again, matching the workspace picker beside it.
@@ -53,6 +52,8 @@ export class AgentPresetSeatController {
 
   /** Set while a pick is waiting for a session; cleared once applied. */
   private staged: string | undefined
+  /** Coalesces the current-session observer with first-send preparation. */
+  private applying: Promise<void> | undefined
 
   constructor(
     private readonly ctx: ClientContext,
@@ -142,6 +143,16 @@ export class AgentPresetSeatController {
    * @returns once the switch settled, or immediately when there is nothing to do.
    */
   async apply(): Promise<void> {
+    if (this.applying !== undefined) return this.applying
+    const pending = this.applyOnce().finally(() => {
+      if (this.applying === pending) this.applying = undefined
+    })
+    this.applying = pending
+    return pending
+  }
+
+  /** One staged-selection application transaction. */
+  private async applyOnce(): Promise<void> {
     const staged = this.staged
     const session = this.currentSession()
     if (staged === undefined) {

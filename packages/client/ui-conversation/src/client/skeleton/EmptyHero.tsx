@@ -32,13 +32,15 @@ export function workspaceLabel(cwd: string): string {
  * label the chip renders its placeholder state: closed folder + the
  * "Choose workspace" call to action.
  * @param props.label - chip label (see {@link workspaceLabel}); omitted → placeholder.
+ * @param props.path - exact Host directory exposed as the chip tooltip.
  * @param props.menuOpen - menu expansion echo.
  * @param props.onClick - menu toggle.
  * @returns the chip button element.
  */
-export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }: {
+export function WorkspaceChip({ buttonRef, label, path, menuOpen = false, onClick, t }: {
   buttonRef?: RefObject<HTMLButtonElement>
   label?: string | undefined
+  path?: string | undefined
   menuOpen?: boolean
   onClick?: () => void
   t: HeroTranslate
@@ -51,6 +53,7 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
       aria-label={t('hero.chooseWorkspace')}
       aria-haspopup="menu"
       aria-expanded={menuOpen}
+      title={path}
       onClick={onClick}
     >
       {label === undefined

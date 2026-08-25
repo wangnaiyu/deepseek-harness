@@ -122,11 +122,13 @@ describe('list lifecycle', () => {
 
   it('merges create into the list immediately without waiting for a refresh', async () => {
     const api = new FakeApiClient()
-    api.onCreate = () => Promise.resolve(ok({ sessionId: S2 }))
+    api.onCreate = () => Promise.resolve(ok({ sessionId: S2, cwd: '/host/cwd' }))
     const manager = new SessionManager(fakeRemote(api))
     const result = await manager.create()
-    expect(result).toMatchObject({ ok: true, value: { sessionId: S2 } })
-    expect(manager.getListSnapshot().items.map(i => i.sessionId)).toEqual([S2])
+    expect(result).toMatchObject({ ok: true, value: { sessionId: S2, cwd: '/host/cwd' } })
+    expect(manager.getListSnapshot().items).toEqual([
+      expect.objectContaining({ sessionId: S2, cwd: '/host/cwd' }),
+    ])
   })
 
   it('retains title projections before list arrival, keeps last-wins by seq, and clears them on removal', async () => {
@@ -638,11 +640,11 @@ describe('remaining branches', () => {
 
   it('create passes cwd and a preallocated id, folds transport throws, and deduplicates the echo', async () => {
     const api = new FakeApiClient()
-    api.onCreate = () => Promise.resolve(ok({ sessionId: S1 }))
+    api.onCreate = () => Promise.resolve(ok({ sessionId: S1, cwd: '/host/resolved' }))
     const manager = new SessionManager(fakeRemote(api))
     await manager.create({ cwd: '/tmp/w', sessionId: S1 })
     expect(api.callsOf('session.create')).toEqual([{ cwd: '/tmp/w', sessionId: S1 }])
-    expect(manager.getListSnapshot().items[0]).toMatchObject({ sessionId: S1, cwd: '/tmp/w' })
+    expect(manager.getListSnapshot().items[0]).toMatchObject({ sessionId: S1, cwd: '/host/resolved' })
     await manager.create({ cwd: '/tmp/w' }) // same id returned: no duplicate row
     expect(manager.getListSnapshot().items).toHaveLength(1)
     api.onCreate = () => Promise.reject(new Error('create wire down'))

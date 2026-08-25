@@ -30,8 +30,6 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/lifecycle-chr
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 const REPLAY_OVERRIDE = join(SNAPSHOT_DIR, 'replay.override.json')
 const HERO_EXPECTED = join(SNAPSHOT_DIR, 'hero.expected.md')
-const COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu.expected.md')
-const FUZZY_COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu-fuzzy.expected.md')
 const PLAN_ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'plan-active.expected.md')
 const CONNECTION_ERROR_EXPECTED = join(SNAPSHOT_DIR, 'connection-error.expected.md')
 // Post-reload golden: the same settled conversation rebuilt purely from
@@ -69,38 +67,18 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     await scaffold?.close()
   })
 
-  it.skipIf(MODE === 'record')('opens the shared slash menu from plus with only Command candidates', async () => {
+  it.skipIf(MODE === 'record')('keeps draft command insertion local before first send', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-command-menu-launcher'))
     const launcher = page.getByRole('button', { name: 'Commands' })
-    await launcher.click()
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
-    await menu.waitFor({ timeout: 10_000 })
-    const snapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(COMMAND_MENU_EXPECTED, snapshot, MODE)
-    expect(snapshot).toContain('text: Commands')
-    expect(snapshot).not.toContain('text: Skills')
-    expect(snapshot).not.toContain('text: Subagents')
-    const launchedBox = await menu.boundingBox()
-    await page.locator('[data-composer-input]').first().press('Escape')
-    await expect.poll(() => menu.count()).toBe(0)
+    expect(await launcher.isEnabled()).toBe(true)
+    expect(scaffold.ctx.sessions.list()).toEqual([])
     const input = page.locator('[data-composer-input]').first()
-    await writeComposerDraft(page, input, '/')
-    await menu.waitFor({ timeout: 10_000 })
-    const typedBox = await menu.boundingBox()
-    expect(launchedBox).not.toBeNull()
-    expect(typedBox).not.toBeNull()
-    expect(Math.abs(launchedBox!.x - typedBox!.x)).toBeLessThan(1)
-    expect(Math.abs(
-      launchedBox!.y + launchedBox!.height - typedBox!.y - typedBox!.height,
-    )).toBeLessThan(1)
-    await writeComposerDraft(page, input, '/cpt')
-    await expect.poll(() => menu.getByRole('option').allTextContents()).toEqual([
-      'compactCompact older conversation history',
-    ])
-    const fuzzySnapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(FUZZY_COMMAND_MENU_EXPECTED, fuzzySnapshot, MODE)
-    await writeComposerDraft(page, input, '')
-    await expect.poll(() => menu.count()).toBe(0)
+    await launcher.click()
+    expect(await input.textContent()).toBe('/')
+    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
+    expect(await menu.count()).toBe(0)
+    expect(scaffold.ctx.sessions.list()).toEqual([])
+    await input.fill('')
   })
 
   it.skipIf(MODE === 'record')('shows active Plan as the warn-state status action', async () => {
@@ -112,11 +90,10 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await activePage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       await connectFreshWorkspace(activePage, activeScaffold.workspaceCwd)
       const input = activePage.locator('[data-composer-input]').first()
-      await activePage.getByRole('button', { name: 'Commands' }).click()
-      const menu = activePage.getByRole('listbox', { name: 'Trigger suggestions' })
-      await menu.waitFor({ timeout: 10_000 })
-      await menu.getByRole('option', { name: 'plan Enter or leave plan mode' }).click()
-      await expect.poll(() => input.textContent()).toBe('/plan ')
+      // A slash command may itself be the first send. The pre-Session draft
+      // cannot discover an Agent catalog, so Enter materializes the Session
+      // and re-adjudicates the captured line in its real command pipeline.
+      await input.fill('/plan')
       await input.press('Enter')
       const planButton = activePage.getByRole('button', { name: 'Plan mode on, press to turn off' })
       await planButton.waitFor({ timeout: 10_000 })

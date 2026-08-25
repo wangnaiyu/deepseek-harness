@@ -49,6 +49,8 @@ describe('assembled search card', () => {
     mountAssembledApp()
 
     const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+    const group = within(tree).getByText('fixture').closest<HTMLElement>('[role="treeitem"]')
+    if (group?.getAttribute('aria-expanded') === 'false') fireEvent.click(group)
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // Wait for chat content to reach the fixture's later turns (the bash sample
     // is turn 66, the grep card turn 67).

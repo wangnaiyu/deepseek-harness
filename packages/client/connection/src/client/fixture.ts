@@ -204,7 +204,7 @@ interface FixtureRemoteEventResult {
 interface FixtureRemoteEventReadyFrame {
   readonly type: 'ready'
   readonly clientId: string
-  readonly host: { readonly home: string }
+  readonly host: { readonly home: string; readonly cwd?: string }
 }
 
 interface FixtureProjectionFrame {
@@ -2796,7 +2796,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       const attachFailure = (
         sessionId: SessionId,
         workspaceId: WorkspaceId,
-      ): Promise<ConnectionRpcResult<{ sessionId: SessionId }>> => sessionErr({
+      ): Promise<ConnectionRpcResult<{ sessionId: SessionId; cwd: string }>> => sessionErr({
         code: 'session/workspace-attach-failed' as const,
         message: `fixture rejected Workspace attachment for ${sessionId}`,
         details: { sessionId, workspaceId },
@@ -2815,7 +2815,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             if (options.failWorkspaceAttach) return attachFailure(requestedId, workspace.workspaceId)
             attachWorkspace(requestedId)
           }
-          return sessionOk({ sessionId: requestedId })
+          return sessionOk({ sessionId: requestedId, cwd })
         }
       }
       const created: FixtureSessionSummary = {
@@ -2838,7 +2838,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         if (workspace !== undefined) attachWorkspace(created.sessionId)
       }
       if (options.dropSessionCreateResponse) throw new Error('fixture: dropped session.create response after publication')
-      return sessionOk({ sessionId: created.sessionId })
+      return sessionOk({ sessionId: created.sessionId, cwd })
     },
     rename: (request) => {
       const missing = requireRemoteSession(request)
@@ -3167,7 +3167,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       if (gamma !== undefined) setRunning(gamma.sessionId, !gamma.running)
     }, 5000)
     try {
-      yield { type: 'ready', clientId, host: { home: FIXTURE_HOME } }
+      yield { type: 'ready', clientId, host: { home: FIXTURE_HOME, cwd: '/tmp/fixture' } }
       if (approvalPending) yield approvalInvocation()
       if (questionPending) yield questionInvocation()
       yield* conn.drain(signal)

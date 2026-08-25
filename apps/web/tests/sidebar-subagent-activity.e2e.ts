@@ -136,6 +136,9 @@ describe('web e2e: sidebar subagent activity', () => {
   it('pins a running descendant on its visible idle owner row', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-subagent-activity'))
     const sidebar = page.getByRole('tree', { name: 'Sessions' })
+    const workspaceRow = sidebar.getByRole('treeitem', { name: /^workspace/ }).first()
+    if (await workspaceRow.getAttribute('aria-expanded') === 'false') await workspaceRow.click()
+    await page.mouse.move(1200, 800)
     const ownerRow = sidebar.getByRole('treeitem', { name: /1 subagent running Delegate a background job/ })
     await ownerRow.waitFor({ timeout: 10_000 })
     expect(parentHandle.agent.status).toBe('idle')

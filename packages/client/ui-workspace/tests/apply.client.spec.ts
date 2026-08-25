@@ -117,6 +117,8 @@ describe('ui-workspace apply', () => {
     declare(b.slots, 'sidebar.workspaces', 'conversation.hero.workspace')
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const startSession = vi.spyOn(b.ctx.uiWorkspace, 'startSession').mockImplementation(() => undefined)
+    const startUnassignedSession = vi.spyOn(b.ctx.uiWorkspace, 'startUnassignedSession')
+      .mockImplementation(() => undefined)
 
     const browser = (b.slots.entries('sidebar.workspaces')[0]!.inject as () => WorkspaceBrowserInjected)()
     // Both arms delegate to the shared Session navigation action.
@@ -124,6 +126,8 @@ describe('ui-workspace apply', () => {
     expect(startSession).toHaveBeenCalledWith('ws')
     browser.startSession()
     expect(startSession).toHaveBeenLastCalledWith(undefined)
+    browser.startUnassignedSession()
+    expect(startUnassignedSession).toHaveBeenCalledOnce()
     browser.open('session' as never)
     expect(b.open).toHaveBeenCalledWith('session')
     const signal = new AbortController().signal

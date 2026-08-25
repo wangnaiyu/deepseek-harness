@@ -46,30 +46,13 @@ export const inject = [
   'slots', 'sessions', 'uiSession', 'uiWorkspace', 'locale', 'settingsScope',
 ]
 
-// Stable no-session sources keep the renderer's observable-hook cache and
-// hook order unchanged across current-Session transitions.
-const ABSENT_NOTICES = {
-  getSnapshot: (): InputNotice | null => null,
-  subscribe: () => () => {},
-}
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
-  subscribe: () => () => {},
-}
-const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
-const ABSENT_LEXICON = {
-  getSnapshot: () => EMPTY_LEXICON,
   subscribe: () => () => {},
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
   subscribe: () => () => {},
-}
-
-interface WorkspaceNavigation {
-  connectWorkspace(
-    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0],
-  ): Promise<SessionId>
 }
 
 /** Resolve the session-scoped Conversation action face, failing loud. */
@@ -97,7 +80,14 @@ function concreteConversation(ctx: Context): ConversationController {
 export function apply(ctx: Context): void {
   const sessions = ctx.sessions
   const slots = ctx.slots
-  const workspaceNavigation = ctx.get('uiWorkspace') as unknown as WorkspaceNavigation
+  const workspaceNavigation = ctx.get('uiWorkspace') as {
+    list: {
+      getSnapshot: () => { sessionDraft?: { revision: number } }
+      subscribe: (listener: () => void) => () => void
+    }
+    selectDraftWorkspace: (workspaceId: import('@deepseek-ai/dsh-workspace/types').WorkspaceId) => void
+  } | undefined
+  if (workspaceNavigation === undefined) throw new Error('ui-conversation: uiWorkspace service unavailable')
   const uiConversation = new UiConversation(ctx, sessions)
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-conversation: dictionaries')
@@ -192,8 +182,27 @@ export function apply(ctx: Context): void {
         props: { inputActions: shell.actions },
       }
     },
+    resolveAbsent: () => {
+      const shell = inputHub.draftShell()
+      return {
+        hooks: { input: shell.state },
+        props: { inputActions: shell.actions },
+      }
+    },
   })
 
+  // A new browser-draft revision means an explicit New Session gesture. The
+  // resident no-session shell is reused for DOM stability, so reset its old
+  // text/images here; changing only the draft's Workspace preserves them.
+  let draftRevision = workspaceNavigation.list.getSnapshot().sessionDraft?.revision
+  ctx.effect(() => workspaceNavigation.list.subscribe(() => {
+    const next = workspaceNavigation.list.getSnapshot().sessionDraft?.revision
+    if (next !== undefined && next !== draftRevision) inputHub.resetDraft()
+    draftRevision = next
+  }), 'ui-conversation: browser draft generation')
+
+  // Resident current-session-optional shell. It owns the stable Hero/composer
+  // frame while strict session slots fill only their session-bound regions.
   const registerConversationRoot = () => slots.register({
     name: 'conversation',
     locale: NS,
@@ -208,16 +217,13 @@ export function apply(ctx: Context): void {
       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
-      hooks: {
-        composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
-      },
-      selectWorkspace: async (workspaceId) => {
-        const nextId = await workspaceNavigation.connectWorkspace(workspaceId)
-        if (sessionId !== undefined && nextId !== sessionId) {
+      hooks: { composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId) },
+      selectWorkspace: workspaceId => Promise.resolve().then(() => {
+        if (sessionId !== undefined) {
           const from = inputHub.shell(sessionId)
           const draft = from.snapshot.draft
           const imageIds = from.snapshot.imageIds
-          const next = inputHub.shell(nextId)
+          const next = inputHub.draftShell()
           if (imageIds.length === 0 || next.addImages(imageIds)) {
             if (draft !== '') {
               next.setDraft(draft)
@@ -228,8 +234,8 @@ export function apply(ctx: Context): void {
             }
           }
         }
-        sessions.open(nextId)
-      },
+        workspaceNavigation.selectDraftWorkspace(workspaceId)
+      }),
     }),
   }, ConversationRoot)
 
@@ -277,25 +283,54 @@ export function apply(ctx: Context): void {
       'conversation.input.left': { kind: 'list', scope: 'session' },
       'conversation.input.plan': { kind: 'single', scope: 'session' },
       'conversation.input.right': { kind: 'list', scope: 'session' },
-      'conversation.input.model': { kind: 'single', scope: 'session' },
+      'conversation.input.model': { kind: 'single', scope: 'session-maybe' },
       'conversation.composer.dock': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
       if (sessionId === undefined) {
+        const conversation = concreteConversation(ctx)
+        const shell = inputHub.draftShell()
         return {
-          keyboard: undefined,
-          addImages: undefined,
-          removeImage: undefined,
-          draftImages: undefined,
+          keyboard: shell,
+          addImages: (files) => {
+            try {
+              const images = conversation.createDraftImages(files)
+              if (!shell.addImages(images.map(image => image.id))) {
+                conversation.releaseDraftImages(images)
+              }
+              return null
+            } catch (error: unknown) {
+              if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
+              return error instanceof Error ? error.message : String(error)
+            }
+          },
+          removeImage: (id) => {
+            conversation.releaseDraftImage(id)
+            shell.removeImage(id)
+          },
+          draftImages: ids => conversation.draftImages(ids),
           resolveSubmitMode: (running, gesture, steeringAvailable) =>
             submissionPolicy.resolve(running, gesture, steeringAvailable),
-          toggleCommandMenu: undefined,
+          // A browser draft has no Agent command directory yet. The launcher
+          // still starts a slash command at the current selection; first-send
+          // materialization then adjudicates that line against the real
+          // Session before it can execute.
+          toggleCommandMenu: (selection) => {
+            const snapshot = shell.snapshot
+            shell.setDraft(
+              snapshot.draft.slice(0, selection.start)
+              + '/'
+              + snapshot.draft.slice(selection.end),
+            )
+            return selection.start + 1
+          },
           stop: undefined,
-          command: undefined,
+          command: line => conversation.commandDraftPermission(line),
           hooks: {
-            notices: ABSENT_NOTICES,
-            lexicon: ABSENT_LEXICON,
+            notices: shell.notices,
+            lexicon: shell.lexicon,
             menuLauncher: ABSENT_MENU_LAUNCHER,
+            draftPermissions: conversation.draftPermissions,
           },
         }
       }
@@ -351,6 +386,7 @@ export function apply(ctx: Context): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          draftPermissions: conversation.draftPermissions,
         },
       }
     },

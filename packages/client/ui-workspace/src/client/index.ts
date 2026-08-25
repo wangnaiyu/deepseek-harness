@@ -11,8 +11,12 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { IWorkspaces, WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
+import type {
+  IWorkspaces, WorkspaceId, WorkspaceSnapshot,
+} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type {
+  HostObservable, SnapshotSelectorHook, WorkspaceStandardSnapshot,
+} from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the Controller service merges.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -29,7 +33,7 @@ import { WorkspaceBrowser } from './rows/WorkspaceBrowser.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
 import { en, zh, type WorkspaceKey } from './locales.ts'
 
-export type { UiWorkspace } from './navigation.ts'
+export type { SessionDraft, UiWorkspace, WorkspaceUiSnapshot } from './navigation.ts'
 export type {
   DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
   WorkspaceBrowserInjected, WorkspaceBrowserProps, WorkspacePickerInjected, WorkspacePickerProps,
@@ -39,7 +43,7 @@ export type { WorkspaceKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface GlobalStandardProps {
     /** Selector hook over the pure Workspace Controller snapshot. */
-    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>
+    useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>
   }
 
   interface LocaleNamespaceMap {
@@ -74,7 +78,7 @@ export function apply(ctx: Context): void {
   const workspaces = ctx.get('workspaces') as IWorkspaces
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions)
-  ctx.slots.provideRoot({ hooks: { workspaces: workspaces.list } })
+  ctx.slots.provideRoot({ hooks: { workspaces: uiWorkspace.list } })
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
 
   const searchSessions: WorkspaceBrowserInjected['searchSessions'] = async (query, signal) => {
@@ -99,6 +103,9 @@ export function apply(ctx: Context): void {
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId) => { uiWorkspace.startSession(workspaceId) },
+    // The Ungrouped-row action stages the Host cwd in a browser-only draft;
+    // session.create is deferred until that draft's first actual send.
+    startUnassignedSession: () => { uiWorkspace.startUnassignedSession() },
     open: (sessionId) => { sessions.open(sessionId) },
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,

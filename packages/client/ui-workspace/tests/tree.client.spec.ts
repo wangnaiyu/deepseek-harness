@@ -45,7 +45,7 @@ describe('deriveGroups', () => {
     const sessions = list(summary('newer', 20), summary('older', 10))
     const workspaces = [workspace('first', ['older', 'newer']), workspace('empty', [])]
     const groups = deriveGroups(sessions, workspaces, noArchive, noAttention, view(['first']))
-    expect(groups.map(group => group.key)).toEqual(['first', 'empty'])
+    expect(groups.map(group => group.key)).toEqual(['first', 'empty', UNGROUPED_KEY])
     expect(groups[0]!.sessions.map(session => session.id)).toEqual([sid('older'), sid('newer')])
   })
 
@@ -77,7 +77,7 @@ describe('deriveGroups', () => {
     },
   )
 
-  it('puts only real unaccounted Sessions in the trailing Ungrouped group', () => {
+  it('keeps the trailing Ungrouped group and puts only real unaccounted Sessions in it', () => {
     const sessions = list(summary('owned', 1, '/projects/first'), summary('loose', 9, '/other'))
     const groups = deriveGroups(
       sessions, [workspace('first', ['owned'])], noArchive, noAttention, view([UNGROUPED_KEY]),
@@ -100,7 +100,7 @@ describe('deriveGroups', () => {
     ])
   })
 
-  it('shows only the current blank session in its Workspace count and tree', () => {
+  it('hides every blank session until its first prompt materializes it', () => {
     const currentBlank = { ...summary('current-blank', 5), blank: true }
     const staleBlank = { ...summary('stale-blank', 4), blank: true }
     const real = summary('shown', 3)
@@ -112,20 +112,16 @@ describe('deriveGroups', () => {
       sessions, [workspace('first', ['shown', 'current-blank', 'stale-blank'])],
       noArchive, noAttention, view(['first']),
     )
-    expect(groups[0]!.sessions.map(session => session.id)).toEqual([real.id, currentBlank.id])
-    const blankNode = groups[0]!.sessions.find(session => session.id === currentBlank.id)!
-    // The stored placeholder title stays canonical; the renderer swaps in
-    // the localized New Session label via the blank flag.
-    expect(blankNode.title).toBe('')
-    expect(blankNode.blank).toBe(true)
+    expect(groups[0]!.sessions.map(session => session.id)).toEqual([real.id])
     expect(groups[0]!.sessions.find(session => session.id === real.id)!.blank).toBe(false)
-    expect(groups[0]!.sessionCount).toBe(2)
-    // A non-current blank stray never surfaces an Ungrouped bucket either.
+    expect(groups[0]!.sessionCount).toBe(1)
+    // A blank stray never surfaces as a row, but the bucket stays.
     const strayGroups = deriveGroups(
       list({ ...summary('stray', 2), blank: true }),
       [workspace('first', [])], noArchive, noAttention, view(),
     )
-    expect(strayGroups.map(group => group.key)).toEqual(['first'])
+    expect(strayGroups.map(group => group.key)).toEqual(['first', UNGROUPED_KEY])
+    expect(strayGroups[1]).toMatchObject({ sessionCount: 0, sessions: [] })
   })
 
   it('projects the completion reminder into session and search rows (absent = false)', () => {
@@ -264,10 +260,11 @@ describe('deriveGroups', () => {
       noAttention, view(['first', UNGROUPED_KEY]),
     )
     // The archived member drops from its group AND the archived stray never
-    // surfaces an Ungrouped bucket; counts follow the visible rows.
-    expect(groups.map(group => group.key)).toEqual(['first'])
+    // surfaces as a row; the persistent bucket remains empty.
+    expect(groups.map(group => group.key)).toEqual(['first', UNGROUPED_KEY])
     expect(groups[0]!.sessions.map(node => node.id)).toEqual([kept.id])
     expect(groups[0]!.sessionCount).toBe(1)
+    expect(groups[1]).toMatchObject({ sessionCount: 0, sessions: [] })
   })
 
   it('marks selected Workspace and Ungrouped sessions without relying on an Intent', () => {
@@ -312,7 +309,7 @@ describe('deriveFlat', () => {
     expect(deriveFlat(partial, noArchive, noAttention).map(row => row.id)).toEqual([sid('present')])
   })
 
-  it('shows only the current blank session and excludes blanks from search', () => {
+  it('hides all blank sessions from the flat list and search', () => {
     const currentBlank = { ...summary('current-blank', 9), blank: true }
     const staleBlank = { ...summary('stale-blank', 8), blank: true }
     const sessions = {
@@ -320,9 +317,9 @@ describe('deriveFlat', () => {
       current: currentBlank.id,
     }
     const rows = deriveFlat(sessions, noArchive, noAttention)
-    expect(rows.map(row => row.id)).toEqual([currentBlank.id, sid('real')])
-    expect(rows.map(row => row.title)).toEqual(['', 'real'])
-    expect(rows.map(row => row.blank)).toEqual([true, false])
+    expect(rows.map(row => row.id)).toEqual([sid('real')])
+    expect(rows.map(row => row.title)).toEqual(['real'])
+    expect(rows.map(row => row.blank)).toEqual([false])
   })
 
   it('hides archived sessions in flat mode', () => {

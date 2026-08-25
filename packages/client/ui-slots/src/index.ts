@@ -200,6 +200,20 @@ export interface SessionMaybeStandardProps {}
  */
 export interface GlobalStandardProps {}
 
+/** Browser-local New Session target shared by root-scope UI adapters. */
+export interface StandardSessionDraft<WorkspaceId = unknown> {
+  readonly revision: number
+  readonly catalogRevision: number
+  readonly workspaceId?: WorkspaceId
+  readonly agentPreset?: string
+  readonly cwd?: string
+}
+
+/** Controller Workspace projection enriched with its browser-only draft target. */
+export type WorkspaceStandardSnapshot<Snapshot, WorkspaceId = unknown> = Snapshot & {
+  readonly sessionDraft?: StandardSessionDraft<WorkspaceId>
+}
+
 /**
  * The session id type as `ui-session`'s SessionStandardProps merge declares it
  * (branded); falls back to `string` in programs without the merge (this

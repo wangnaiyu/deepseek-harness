@@ -262,14 +262,21 @@ describe('web e2e: agent-preset selection', () => {
     await page.keyboard.press('Escape')
   })
 
-  it('applies the staged pick to the blank session, and the host honors it', async () => {
+  it('keeps the staged pick local until the first command send, then the host honors it', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-stage'))
+    const persistedBefore = (await scaffold.ctx.sessionPersistence.list()).map(session => session.id)
     await page.getByRole('button', { name: 'Standard mode' }).click()
     await page.getByRole('menuitem', { name: /Minimal mode/ }).click()
 
-    // The chip stages; the blank session the workspace connect produced is
-    // what the stage lands on. The host's own answer is what comes back.
+    // The chip stages without allocating a Session. A typed slash command is
+    // itself a first send: it materializes under the staged preset, then the
+    // real Session command pipeline executes it without a model call.
+    expect((await scaffold.ctx.sessionPersistence.list()).map(session => session.id)).toEqual(persistedBefore)
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
+    await composer.fill('/permission workspace-write')
+    await composer.press('Enter')
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
+    await expect.poll(() => composer.textContent(), { timeout: 10_000 }).toBe('')
   })
 
   it('says why a switch was refused instead of letting the chip revert in silence', async () => {
@@ -288,8 +295,8 @@ describe('web e2e: agent-preset selection', () => {
   }, 60_000)
 
   it('re-reads the slash catalog through the composition the switch installed', async () => {
-    // Continues 'applies the staged pick': the chip has already applied `minimal` to
-    // the blank session, and this one reads the menu that switch left behind.
+    // Continues the previous case: first-command materialization applied
+    // `minimal`, and this one reads the menu that switch left behind.
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-slash-catalog'))
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
 

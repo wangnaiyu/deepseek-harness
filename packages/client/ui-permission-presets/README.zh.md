@@ -9,9 +9,15 @@ kind: "package-reference"
 
 ## 概述
 
-本包为 Web GUI 中两种生命周期提供权限预设表面：通用设置中的一行选择之后创建会话所用的默认值，但不会切换当前会话。挂在宿主 `/permission` 命令上的选择器通过一张扁平预设列表切换当前会话，并标记 active 值。规范内置名称渲染为 locale 所有的产品标签，显式 host 标签保持原样，未知 kebab-case 名称渲染为 Title Case。选择完全权限时，该行或选择器写入前必须先显式确认风险。两个表面读取同一份宿主计算的投影、经同一条路径写入，因此推送的投影帧是两者共同跟随的唯一确认。
+面向三种相关生命周期的浏览器权限界面。「通用」设置行读取显式暴露的 `permission` Settings 描述符，从 host 的动态 `defaultPreset` enum 中推导选项，并携带描述符的 revision 写入一条 `settings.mutate` 路径操作。它的 observable 经 slot 系统的 `hooks` 格传递，因此 React 钩子由渲染器绑定；推送的失效通知会重新获取描述符。这个值仅在后续会话创建时生效；改变它不会切换当前会话。选择 Full access 时必须先显式确认风险，该行随后才会写入。
+
+对于 New Session composer，插件经 `ctx.conversation` 注册草稿数据源：以同一份 Host 描述的动态 enum 作为目录，并提供浏览器本地暂存回调。常驻权限 chip 消费该数据源，不改 Settings，也不写 Session 持久化。首次发送的前置准备会在放行捕获的 prompt 前，对刚实体化的 Session 执行 `/permission <preset>`。开始另一份草稿或重连会丢弃未发送选择。Full access 在这条草稿路径中保留同一风险确认。
+
+宿主 `/permission` 命令上的选择器通过一张扁平预设列表切换当前会话，并标记 active 值。规范内置名称渲染为 locale 所有的产品标签，显式 host 标签保持原样，未知 kebab-case 名称渲染为 Title Case。任一界面写入完全权限前都必须先显式确认风险。当前会话界面读取同一份宿主计算的投影、经同一条命令路径写入，因此推送的投影帧是它们共同跟随的确认。
 
 ## 目录
+
+`/client` 导出面为插件本体（`apply`／`inject`）与 Settings 行共享类型；浏览器草稿 controller 保持包内私有。
 
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
@@ -64,7 +70,7 @@ kind: "package-reference"
 <a id="model-experience"></a>
 ## 模型体验
 
-间接影响。它的两个表面写入权限事实：设置行使未来会话带着全量值旋钮事件启动，而 `/permission` 选择器切换当前会话时追加相同的事实；这些事件决定后续工具调用解析到的沙箱模式与审批策略。
+通过这些界面写入的权限事实间接影响：Settings 行使未来会话带着全量值旋钮事件（`permission/preset`、`sandbox/mode`、`approval/policy`）启动，当前会话与首次发送草稿路径则通过 `/permission` 追加相同事实；这些事件决定后续工具调用解析到的沙箱模式与审批策略。草稿选择本身不添加提示词内容，且首次发送前不写 Host。
 
 #### KV Cache 影响
 

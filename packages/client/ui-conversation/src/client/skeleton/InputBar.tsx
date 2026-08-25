@@ -32,6 +32,7 @@ import type { ComposerBarProps } from '../contract/slots.ts'
 import { ComposerContentEditable } from '../input/editor/ComposerContentEditable.tsx'
 import { DecoratorPortals } from '../input/editor/DecoratorPortals.tsx'
 import { registerComposerKeymap } from '../input/editor/keymap.ts'
+import { $selectDetectSpan } from '../input/editor/span-map.ts'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
 import { ContextMeter } from './ContextMeter.tsx'
 import { PermissionSelect } from './PermissionSelect.tsx'
@@ -42,7 +43,7 @@ export type InputBarProps = ComposerBarProps
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
-  renderSlot, useNotices, useLexicon, useMenuLauncher,
+  renderSlot, useNotices, useLexicon, useMenuLauncher, useDraftPermissions,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory,
@@ -106,7 +107,9 @@ export const InputBar = memo(function InputBar({
 
   // The Access seat's data: the host-computed permissions projection
   // (undefined = capability absent → the chip renders nothing).
-  const permissions = useProjection('permissions')
+  const sessionPermissions = useProjection('permissions')
+  const draftPermissions = useDraftPermissions(s => s)
+  const permissions = sessionId === undefined ? draftPermissions : sessionPermissions
 
   // A continuable child without its live parent cannot accept human input,
   // but its independent Stop below stays available while it runs.
@@ -296,7 +299,12 @@ export const InputBar = memo(function InputBar({
   }
 
   const onToggleCommandMenu = (): void => {
-    if (keyboard !== undefined) toggleCommandMenu?.(keyboard.caretSpan())
+    if (keyboard === undefined) return
+    const caret = toggleCommandMenu?.(keyboard.caretSpan())
+    if (caret === undefined) return
+    keyboard.editor.update(() => {
+      $selectDetectSpan({ start: caret, end: caret })
+    }, { discrete: true })
   }
 
   // The no-session Workspace trigger: the resident editable div acts as the

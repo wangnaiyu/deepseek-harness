@@ -139,6 +139,12 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
 
+    const parentInput = page.locator('textarea:enabled').first()
+    await parentInput.fill('/permission workspace-write')
+    await parentInput.press('Enter')
+    for (let attempt = 0; attempt < 150 && scaffold.ctx.agents.roots().length === 0; attempt += 1) {
+      await new Promise<void>(resolve => setTimeout(resolve, 100))
+    }
     const root = scaffold.ctx.agents.roots()[0]
     if (root === undefined) throw new Error('fresh workspace did not publish its parent Agent')
     parent = root
@@ -155,7 +161,6 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     // One prompted parent turn makes the parent non-blank so the session
     // header (and its subagent catalog action) renders.
     const parentSettled = scaffold.whenTurnSettled()
-    const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
     await parentInput.fill('Ask a research subagent to explain event sourcing.')
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)

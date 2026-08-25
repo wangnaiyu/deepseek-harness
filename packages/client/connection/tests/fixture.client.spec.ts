@@ -1359,7 +1359,10 @@ describe('createFixtureApi', () => {
       workspaceId: made.result.value.workspace.workspaceId,
       sessionId: preallocated,
     }))
-    expect(created.result).toEqual({ ok: true, value: { sessionId: preallocated } })
+    expect(created.result).toEqual({
+      ok: true,
+      value: { sessionId: preallocated, cwd: made.result.value.workspace.path },
+    })
     expect((await workspaceFrames).at(-1)).toMatchObject({
       type: 'upsert', workspace: { sessionIds: [preallocated] },
     })
@@ -1377,7 +1380,10 @@ describe('createFixtureApi', () => {
       workspaceId: made.result.value.workspace.workspaceId,
       sessionId: preallocated,
     }))
-    expect(retried.result).toEqual({ ok: true, value: { sessionId: preallocated } })
+    expect(retried.result).toEqual({
+      ok: true,
+      value: { sessionId: preallocated, cwd: made.result.value.workspace.path },
+    })
     const listed = await api.sessions.list(req({}))
     if (!listed.result.ok) throw new Error('session list failed')
     expect(listed.result.value.items.filter(item => item.sessionId === preallocated)).toHaveLength(1)

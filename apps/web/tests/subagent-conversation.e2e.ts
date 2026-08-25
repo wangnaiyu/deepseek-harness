@@ -108,10 +108,17 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
 
+    // Workspace connection stages only a browser draft. Materialize it with a
+    // local command before addressing its Agent from the Host test harness.
+    const parentInput = page.locator('textarea:enabled').first()
+    await parentInput.fill('/permission workspace-write')
+    await parentInput.press('Enter')
+    for (let attempt = 0; attempt < 150 && scaffold.ctx.agents.roots().length === 0; attempt += 1) {
+      await new Promise<void>(resolve => setTimeout(resolve, 100))
+    }
     const parent = scaffold.ctx.agents.roots()[0]
     if (parent === undefined) throw new Error('fresh workspace did not publish its parent Agent')
     const parentSettled = scaffold.whenTurnSettled()
-    const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
     await parentInput.fill(PARENT_PROMPT)
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)
@@ -503,8 +510,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
   it('opens a one-shot child as permanently read-only history', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-one-shot'))
     const parentSession = page.getByRole('tree', { name: 'Sessions' })
-      .getByRole('treeitem')
-      .last()
+      .getByRole('treeitem', { name: /Ask a research subagent to/ })
     await parentSession.click()
     await page.getByRole('button', { name: '3 subagents' }).hover()
     await page.getByRole('treeitem', { name: new RegExp(ONE_SHOT_LABEL) }).click()
@@ -528,8 +534,13 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await expect.poll(
       () => page.getByRole('tree', { name: 'Sessions' }).getByRole('treeitem').count(),
       { timeout: 15_000 },
-    ).toBe(3)
-    expect(await page.getByText('Ungrouped', { exact: true }).count()).toBe(0)
+    ).toBe(4)
+    expect(await page.getByText('Ungrouped', { exact: true }).count()).toBe(1)
+    const ungrouped = page.getByRole('tree', { name: 'Sessions' })
+      .getByRole('treeitem', { name: /^Ungrouped/ })
+    if (await ungrouped.getAttribute('aria-expanded') === 'true') await ungrouped.click()
+    await expect.poll(() => ungrouped.getAttribute('aria-expanded')).toBe('false')
+    await page.mouse.move(0, 0)
     const hierarchy = page.getByRole('navigation', { name: 'Session hierarchy' })
     await expect.poll(() => hierarchy.getByRole('button').count()).toBe(1)
     await compareOrRefreshGolden(

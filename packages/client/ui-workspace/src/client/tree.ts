@@ -1,7 +1,7 @@
 /**
  * Derives the workspace browser tree from Host Workspace order and membership.
- * Unassigned Sessions trail under Ungrouped; only the selected blank Session
- * remains visible.
+ * Unassigned Sessions trail under the persistent Ungrouped bucket. Blank
+ * Sessions stay out of navigation until their first prompt materializes them.
  */
 import {
   type SessionListState, type SessionSearchResultItem, type SessionSummary,
@@ -20,6 +20,9 @@ import {
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
 
+/** Stable presentation label for the persistent ungrouped bucket. */
+export const UNGROUPED_LABEL = 'Ungrouped'
+
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteractionBase>
@@ -27,9 +30,9 @@ type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteracti
 /** One top-level session row in a group or the flat list. */
 export interface SessionNode {
   id: SessionId
-  /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
+  /** Stored display title. */
   title: string
-  /** The provisional blank session (renderer shows the localized New Session title). */
+  /** Host empty-log bit (visible tree rows are always false). */
   blank: boolean
   /** A Session-scoped UI consumer is awaiting this user. */
   pendingInteraction?: SessionPendingInteractionStatus
@@ -123,24 +126,21 @@ function byRecency(a: SessionSummary, b: SessionSummary): number {
 }
 
 /**
- * Ordinary sessions are visible; among blank sessions, only the current one
- * is visible. Subagent children use their parent header catalog; archived
- * sessions are visible nowhere, while their accounting slots remain so
- * unarchiving restores position.
+ * Materialized ordinary sessions are visible. Blank Sessions are composer
+ * drafts, not navigation destinations, until their first prompt commits.
+ * Subagent children use their parent header catalog; archived sessions are
+ * visible nowhere, while their accounting slots remain so unarchiving restores
+ * position.
  */
-function sessionVisible(session: SessionSummary, current: SessionId | undefined, archived: ReadonlySet<SessionId>): boolean {
+function sessionVisible(session: SessionSummary, archived: ReadonlySet<SessionId>): boolean {
   return session.origin !== 'subagent'
     && !archived.has(session.id)
-    && (!session.blank || session.id === current)
+    && !session.blank
 }
 
-/**
- * A blank session is the selected Workspace's provisional New Session row;
- * its canonical title never enters search (blank rows are query-excluded)
- * and the renderer localizes its display label.
- */
+/** Blank rows are excluded before title projection. */
 function sessionTitle(session: SessionSummary): string {
-  return session.blank ? '' : session.displayTitle
+  return session.displayTitle
 }
 
 /** The list projection alone owns the best-effort active-Schedule indicator. */
@@ -203,7 +203,7 @@ function groupByWorkspace(
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
-      if (!sessionVisible(summary, list.current, archived)) continue
+      if (!sessionVisible(summary, archived)) continue
       members.push(summary)
     }
     groups.push(buildGroup(
@@ -214,18 +214,16 @@ function groupByWorkspace(
   const stray = list.ids
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
-      s !== undefined && !accounted.has(s.id) && sessionVisible(s, list.current, archived))
-  if (stray.length > 0) {
-    groups.push(buildGroup(
-      UNGROUPED_KEY,
-      undefined,
-      undefined,
-      undefined,
-      '',
-      ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
-      ungroupedOrder === undefined ? 'recency' : 'account',
-    ))
-  }
+      s !== undefined && !accounted.has(s.id) && sessionVisible(s, archived))
+  groups.push(buildGroup(
+    UNGROUPED_KEY,
+    undefined,
+    undefined,
+    undefined,
+    UNGROUPED_LABEL,
+    ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
+    ungroupedOrder === undefined ? 'recency' : 'account',
+  ))
   return groups
 }
 
@@ -263,9 +261,9 @@ function sessionNode(
 /**
  * Derive the workspace browser groups with every session as a top-level row.
  *
- * Every group shows; sessions populate under expanded groups in the selected
- * local order. Blank sessions are excluded except for the selected
- * provisional New Session row; archived sessions are excluded everywhere.
+ * Every group shows; materialized sessions populate under expanded groups in
+ * the selected local order. Blank and archived sessions are excluded
+ * everywhere.
  * Content search lives outside this derivation
  * (see {@link deriveSearchResults}).
  * @param list - sessions list snapshot (`current` feeds containsCurrent).
@@ -329,7 +327,7 @@ export function deriveFlat(
   const rows: SessionSummary[] = []
   for (const id of list.ids) {
     const s = list.byId[id]
-    if (s === undefined || !sessionVisible(s, list.current, archived)) continue
+    if (s === undefined || !sessionVisible(s, archived)) continue
     rows.push(s)
   }
   rows.sort(byRecency)
@@ -381,7 +379,7 @@ export function deriveSearchResults(
     const summary = list.byId[id]
     // Blank placeholders never match a query (their canonical title displays
     // localized, so matching it would tie search to one language).
-    if (summary === undefined || summary.blank || !sessionVisible(summary, list.current, archived)) continue
+    if (summary === undefined || summary.blank || !sessionVisible(summary, archived)) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
       || labelOf(summary).toLowerCase().includes(q)
@@ -401,7 +399,7 @@ export function deriveSearchResults(
   for (const summary of local) include(summary)
   for (const item of content.items) {
     const summary = list.byId[item.sessionId]
-    if (summary !== undefined && !summary.blank && sessionVisible(summary, list.current, archived)) include(summary)
+    if (summary !== undefined && !summary.blank && sessionVisible(summary, archived)) include(summary)
   }
 
   return {

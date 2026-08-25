@@ -262,6 +262,8 @@ export interface SessionCreateRequest {
 /** Session creation response value. */
 export interface SessionCreateValue {
   readonly sessionId: SessionId
+  /** Resolved working directory, including the Host-process default. */
+  readonly cwd: string
   readonly agentPreset?: string
 }
 

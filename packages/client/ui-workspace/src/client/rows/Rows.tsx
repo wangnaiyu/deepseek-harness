@@ -534,7 +534,7 @@ export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
   const label = project === undefined ? t('group.ungrouped') : group.label
   const ownRow = (
     <div className={css.projectRow} role="treeitem" aria-expanded={group.expanded} onClick={onToggle}>
-      <span className={clsx(css.slot, css.folder)}>
+      <span className={clsx(css.slot, css.folder, group.expanded && css.folderActive)}>
         {group.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
       </span>
       <span className={clsx(css.slot, css.chevron)}>

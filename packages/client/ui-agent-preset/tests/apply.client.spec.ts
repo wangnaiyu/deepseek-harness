@@ -143,9 +143,17 @@ function declareConversation(slots: SlotRegistry): () => void {
 /** A Workspace UI double recording new-session starts. */
 function uiWorkspaceDouble() {
   const starts: unknown[] = []
+  const preparers = new Set<(sessionId: never) => Promise<void>>()
+  let draftAgentPreset: string | undefined
   return {
     starts,
+    get draftAgentPreset() { return draftAgentPreset },
     startSession: (workspaceId?: unknown) => { starts.push(workspaceId ?? null) },
+    selectDraftAgentPreset: (agentPreset: string) => { draftAgentPreset = agentPreset },
+    prepareSessionDraft: (prepare: (sessionId: never) => Promise<void>) => {
+      preparers.add(prepare)
+      return () => { preparers.delete(prepare) }
+    },
   }
 }
 

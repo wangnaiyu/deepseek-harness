@@ -36,7 +36,10 @@ export const inject = ['typertGateway']
 /** Host plugin body registering this application's selected Cordis event source. */
 export function apply(ctx: Context): void {
   ctx.effect(
-    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), { home: homedir() }),
+    () => ctx.typertGateway.registerRemoteEvents(
+      remoteEventSource(ctx),
+      { home: homedir(), cwd: process.cwd() },
+    ),
     'api-remotes: forwarded Cordis event source',
   )
 }

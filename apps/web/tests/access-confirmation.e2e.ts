@@ -51,6 +51,7 @@ describe('web e2e: Full access confirmation', () => {
     await access.waitFor({ timeout: 10_000 })
 
     expect(await access.getAttribute('aria-label')).toBe('访问模式，当前：工作区内修改')
+    expect(scaffold.ctx.sessions.list()).toEqual([])
 
     await access.click()
     await page.getByRole('menuitem', { name: '完全权限' }).click()
@@ -71,6 +72,9 @@ describe('web e2e: Full access confirmation', () => {
     await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
       .toBe('访问模式，当前：完全权限')
     expect(await dialog.count()).toBe(0)
+    // A draft picker selection is browser-local: only the first user prompt
+    // materializes a Session and applies the staged preset.
+    expect(scaffold.ctx.sessions.list()).toEqual([])
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 

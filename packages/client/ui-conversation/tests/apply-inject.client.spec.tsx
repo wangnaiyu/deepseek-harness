@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import {
   SlotTestRuntime, stubSettingsScope, usePinnedBrowserLanguages,
 } from '@deepseek-ai/dsh-client-test-runtime'
@@ -35,7 +35,18 @@ async function bench() {
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const connectWorkspace = vi.fn(async () => ROOT)
-  runtime.ctx.provide('uiWorkspace', { connectWorkspace } as never)
+  const workspaceList = createSnapshotStore({
+    ...runtime.workspaces.list.getSnapshot(),
+    sessionDraft: { revision: 1, cwd: '/host/cwd' },
+  })
+  runtime.ctx.provide('uiWorkspace', {
+    list: workspaceList,
+    connectWorkspace,
+    selectDraftWorkspace: (workspaceId: WorkspaceId) => {
+      runtime.workspaces.selectDraftWorkspace(workspaceId)
+    },
+    materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
+  } as never)
   const sessionFake = sessionFakeFor()
   await runtime.sessions.add({
     id: ROOT,
@@ -85,9 +96,18 @@ async function bench() {
   }
   const viewSource = (id: SessionId): ObservableSnapshot<readonly ViewTab[]> =>
     conversationApi(id).injected.hooks.conversationViews
+  const draftInputApi = () => {
+    const shell = (runtime.ctx.conversation.input as unknown as {
+      draftShell: () => { state: { getSnapshot: () => { draft: string } }; actions: {
+        setDraft: (text: string) => void
+        submit: () => void
+      } }
+    }).draftShell()
+    return { state: shell.state, actions: shell.actions }
+  }
   return {
     runtime, feature, slots: runtime.slots, entryOf, conversationApi, headerApi, residentApi, composerApi,
-    inputApi, viewSource, sessionFake, connectWorkspace,
+    inputApi, draftInputApi, viewSource, sessionFake, connectWorkspace,
   }
 }
 
@@ -216,57 +236,73 @@ describe('Conversation inject API', () => {
   it('fails loud for an unknown binding or an unloaded scoped service', async () => {
     const b = await bench()
     const entry = b.entryOf('conversation.composer.bar')
-    const injectBar = entry.inject as unknown as (
-      sessionId: SessionId | undefined,
-    ) => ComposerBarInjected
-    expect(() => { injectBar('ghost' as SessionId).stop!() }).toThrow(/resolved no binding/)
-
-    const absent = injectBar(undefined)
-    expect(absent.keyboard).toBeUndefined()
-    expect(absent.toggleCommandMenu).toBeUndefined()
+    const injectFn = entry.inject as unknown as (sessionId: SessionId | undefined) => ComposerBarInjected
+    // Unknown session: the keyboard face's binding resolution answers nothing.
+    expect(() => { injectFn('ghost' as SessionId).stop!() }).toThrow(/resolved no binding/)
+    // No session: the browser-only draft machine is live. The command
+    // launcher starts a slash line locally; stop remains session-only.
+    const absent = injectFn(undefined)
+    expect(absent.keyboard).toBeDefined()
+    expect(absent.toggleCommandMenu).toBeTypeOf('function')
+    b.draftInputApi().actions.setDraft('draft tail')
+    absent.toggleCommandMenu!({ start: 0, end: 0 })
+    expect(b.draftInputApi().state.getSnapshot().draft).toBe('/draft tail')
     expect(absent.stop).toBeUndefined()
     expect(absent.hooks.notices.getSnapshot()).toBeNull()
     expect(absent.hooks.lexicon.getSnapshot().size).toBe(0)
     expect(absent.hooks.menuLauncher.getSnapshot()).toBeNull()
 
-    const stop = injectBar(ROOT).stop!
+    const stop = injectFn(ROOT).stop!
     await b.feature.dispose()
     expect(() => { stop() }).toThrow(/unavailable through the session scope/)
     await b.runtime.dispose()
   })
 
-  it('moves a draft only when Workspace navigation changes Session', async () => {
+  it('routes workspace switching to the browser draft and carries the current text', async () => {
     const b = await bench()
     const resident = b.residentApi(ROOT)
     const { state, actions } = b.inputApi(ROOT)
     actions.setDraft('carry me')
-
-    b.connectWorkspace.mockResolvedValueOnce(ROOT)
-    await resident.selectWorkspace('workspace-1' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [ROOT] })
-    expect(state.getSnapshot().draft).toBe('carry me')
-
-    const other = 'other-1' as SessionId
-    await b.runtime.sessions.add({ id: other }, { current: false })
-    b.connectWorkspace.mockResolvedValueOnce(other)
-    await resident.selectWorkspace('workspace-2' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [other] })
+    await resident.selectWorkspace('workspace-1' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-1'] })
     expect(state.getSnapshot().draft).toBe('')
-    expect(b.inputApi(other).state.getSnapshot().draft).toBe('carry me')
+    expect(b.draftInputApi().state.getSnapshot().draft).toBe('carry me')
     await b.runtime.dispose()
   })
 
-  it('supports no-Session navigation and propagates Workspace connection failure', async () => {
+  it('selectWorkspace stages both no-session and empty-session targets without opening a Session', async () => {
     const b = await bench()
-    b.connectWorkspace.mockResolvedValueOnce(ROOT)
-    await b.residentApi(undefined).selectWorkspace('workspace-0' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [ROOT] })
+    // No-session resident updates only the browser draft target.
+    const noSession = b.residentApi(undefined)
+    await noSession.selectWorkspace('workspace-0' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-0'] })
 
-    const opens = b.runtime.sessions.calls.filter(call => call.method === 'open').length
-    b.connectWorkspace.mockRejectedValueOnce(new Error('offline'))
-    await expect(b.residentApi(ROOT).selectWorkspace('workspace-4' as WorkspaceId))
-      .rejects.toThrow('offline')
-    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(opens)
+    // A current empty draft also moves to the browser shell without creating.
+    const resident = b.residentApi(ROOT)
+    const { state } = b.inputApi(ROOT)
+    expect(state.getSnapshot().draft).toBe('')
+    await resident.selectWorkspace('workspace-3' as never)
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-3'] })
+    expect(b.runtime.sessions.calls.filter(c => c.method === 'open')).toHaveLength(0)
+    await b.runtime.dispose()
+  })
+
+  it('materializes the browser draft only when its first prompt is submitted', async () => {
+    const b = await bench()
+    b.runtime.sessions.clear()
+    b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
+    const { state, actions } = b.draftInputApi()
+    actions.setDraft('first prompt')
+    expect(b.runtime.workspaces.calls.filter(c => c.method === 'materializeSessionDraft')).toEqual([])
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+
+    actions.submit()
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(b.runtime.workspaces.calls).toContainEqual({ method: 'materializeSessionDraft', args: [] })
+    expect(b.sessionFake.prompt).toHaveBeenCalledWith(
+      [{ type: 'text', text: 'first prompt' }], 'queue', expect.any(AbortSignal), expect.any(String),
+    )
+    await vi.waitFor(() => { expect(state.getSnapshot().draft).toBe('') })
     await b.runtime.dispose()
   })
 

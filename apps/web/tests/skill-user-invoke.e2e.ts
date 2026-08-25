@@ -103,14 +103,8 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.waitFor({ timeout: 15_000 })
 
-    // The menu lists the user-only skill (its only entry point) before enter.
-    await composer.fill(`/${SKILL_NAME}`)
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
-    await expect.poll(
-      () => menu.getByRole('option', { name: new RegExp(SKILL_NAME) }).count(),
-      { timeout: 10_000 },
-    ).toBe(1)
-
+    // The draft has no Agent-bound suggestion catalog. A typed skill command
+    // may itself be the first send and is re-adjudicated after materialization.
     const settled = scaffold.whenTurnSettled()
     await composer.fill(`/${SKILL_NAME} ${ARGS_TEXT}`)
     await composer.press('Enter')

@@ -240,7 +240,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
-  'useSessions' | 'useSessionPendingInteraction' | 'startSession' | 'open' | 'forkSession'
+  'useSessions' | 'useSessionPendingInteraction' | 'startSession' | 'startUnassignedSession' | 'open' | 'forkSession'
   | 'insertWorkspaceBefore' | 'insertSessionBefore' | 't'
 > & {
   /** Host account home for POSIX hover-path abbreviation. */
@@ -274,7 +274,8 @@ type SessionTreeProps = Pick<
 
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
-  useSessions, useSessionPendingInteraction, startSession, open, forkSession, workspaces, archivedSessionIds,
+  useSessions, useSessionPendingInteraction, startSession, startUnassignedSession,
+  open, forkSession, workspaces, archivedSessionIds,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
@@ -441,9 +442,6 @@ function SessionTree({
         role="tree"
         aria-label={t('section.sessions')}
       >
-        {groups.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
-        )}
         {groups.map((group) => {
           const workspaceId = group.workspaceId
           const collapsed = collapsedSessionRows(group.sessions)
@@ -514,10 +512,9 @@ function SessionTree({
                   setGroupExpanded(group.key, !group.expanded)
                 }}
                 onCreate={() => {
-                  if (group.workspaceId !== undefined) {
-                    setGroupExpanded(group.key, true)
-                    startSession(group.workspaceId)
-                  }
+                  setGroupExpanded(group.key, true)
+                  if (group.workspaceId === undefined) startUnassignedSession()
+                  else startSession(group.workspaceId)
                 }}
                 drag={workspaceDragProps}
                 actions={group.workspaceId === undefined
@@ -588,6 +585,9 @@ function SessionTree({
                     ? t('sessions.collapse')
                     : t('sessions.expand', { n: collapsed.hiddenCount })}
                 </button>
+              )}
+              {group.workspaceId === undefined && group.expanded && group.sessionCount === 0 && (
+                <div className={css.empty}>{t('empty.none')}</div>
               )}
             </div>
           )
@@ -864,13 +864,13 @@ function RunRecordTree({
                 onRemove={() => { onRemoveRequest(record.path, record.label) }}
               />
             ))}
+            {/* The import bucket row already carries the open entry, so its
+                empty state stays a plain line — no second call to action. */}
+            {group.project === undefined && group.expanded && total === 0 && (
+              <div className={css.empty}>{query === '' ? t('runRecords.empty') : t('runRecords.noMatches')}</div>
+            )}
           </div>
         ))}
-        {/* The bucket row above already carries the open entry, so the empty
-            state stays a plain line — no second call to action in the body. */}
-        {total === 0 && (
-          <div className={css.empty}>{query === '' ? t('runRecords.empty') : t('runRecords.noMatches')}</div>
-        )}
       </div>
       <span className={css.fade} />
     </div>
@@ -891,6 +891,7 @@ export function WorkspaceBrowser({
   useStore,
   actions,
   startSession,
+  startUnassignedSession,
   open,
   renameSession,
   forkSession,
@@ -924,32 +925,38 @@ export function WorkspaceBrowser({
   const sessionUpdatedAtByAccount = useStore(s => s.sessionUpdatedAtByAccount)
   const runGroupExpansion = useStore(s => s.runGroupExpansion)
   const openedRunRecords = useStore(s => s.openedRunRecords)
-  const currentBlankSessionId = useSessions((state) => {
+  const currentSessionId = useSessions(state => state.current)
+  const currentSessionBlank = useSessions((state) => {
     const current = state.current
-    return current !== undefined && state.byId[current]?.blank === true ? current : undefined
+    return current === undefined ? undefined : state.byId[current]?.blank
   })
-  const currentBlankAccount = currentBlankSessionId === undefined
+  const currentSessionAccount = currentSessionId === undefined
     ? undefined
-    : (workspaces.find(workspace => workspace.sessionIds.includes(currentBlankSessionId))
+    : (workspaces.find(workspace => workspace.sessionIds.includes(currentSessionId))
       ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
-  const promotedBlank = useRef<{ sessionId: SessionId; accountKey: string } | undefined>(undefined)
+  const pendingSidebarSession = useRef<{ sessionId: SessionId; accountKey: string } | undefined>(undefined)
   useEffect(() => {
-    if (currentBlankSessionId === undefined || currentBlankAccount === undefined) {
-      promotedBlank.current = undefined
+    if (currentSessionId === undefined || currentSessionAccount === undefined) {
+      pendingSidebarSession.current = undefined
       return
     }
-    const promoted = promotedBlank.current
-    if (promoted !== undefined && promoted.sessionId === currentBlankSessionId
-      && promoted.accountKey === currentBlankAccount) return
-    promotedBlank.current = { sessionId: currentBlankSessionId, accountKey: currentBlankAccount }
-    for (const accountKey of new Set([currentBlankAccount, FLAT_SESSION_ORDER_KEY])) {
+    if (currentSessionBlank === true) {
+      pendingSidebarSession.current = { sessionId: currentSessionId, accountKey: currentSessionAccount }
+      return
+    }
+    const pending = pendingSidebarSession.current
+    pendingSidebarSession.current = undefined
+    if (currentSessionBlank !== false || pending?.sessionId !== currentSessionId) return
+    // The row enters navigation only after the first prompt flips `blank` to
+    // false. Promote at that materialization boundary, not at blank creation.
+    for (const accountKey of new Set([pending.accountKey, FLAT_SESSION_ORDER_KEY])) {
       const previous = sessionOrderByAccount[accountKey] ?? []
       actions.setSessionOrder(accountKey, [
-        currentBlankSessionId,
-        ...previous.filter(id => id !== currentBlankSessionId),
+        currentSessionId,
+        ...previous.filter(id => id !== currentSessionId),
       ])
     }
-  }, [actions.setSessionOrder, currentBlankAccount, currentBlankSessionId, sessionOrderByAccount])
+  }, [actions.setSessionOrder, currentSessionAccount, currentSessionBlank, currentSessionId, sessionOrderByAccount])
   useEffect(() => {
     if (workspacePhase !== 'ready') return
     actions.retainAccountKeys([
@@ -1439,6 +1446,7 @@ export function WorkspaceBrowser({
                 setSessionOrder={actions.setSessionOrder}
                 archivedSessionIds={archivedSessionIds}
                 startSession={startSession}
+                startUnassignedSession={startUnassignedSession}
                 open={open}
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 insertSessionBefore={insertSessionBefore}
