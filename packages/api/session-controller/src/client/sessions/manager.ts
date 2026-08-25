@@ -553,12 +553,8 @@ export class SessionManager {
    * @returns the create result.
   */
   async create(
-    opts: {
-      workspaceId?: WorkspaceId
-      cwd?: string
-      sessionId?: SessionId
-    } = {},
-  ): Promise<ClientResult<{ sessionId: SessionId }>> {
+    opts: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId } = {},
+  ): Promise<ClientResult<{ sessionId: SessionId; cwd: string; agentPreset?: string }>> {
     try {
       const shared = opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }
       const payload = opts.workspaceId !== undefined
@@ -568,7 +564,8 @@ export class SessionManager {
       if (result.ok) {
         this.recordMutation({ kind: 'upsert', summary: {
           sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
-          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+          cwd: result.value.cwd,
+          ...(result.value.agentPreset !== undefined ? { agentPreset: result.value.agentPreset } : {}),
         } })
       } else {
         const publishedSessionId = workspaceAttachSessionId(result.error)

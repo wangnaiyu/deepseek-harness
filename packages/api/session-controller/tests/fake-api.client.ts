@@ -16,6 +16,7 @@ import type {
   SessionPage,
   SessionPageRequest,
   SessionProjectionBaseline,
+  SessionCreateValue,
   SessionSelectModelRequest,
   SessionSelectModelValue,
 } from '@deepseek-ai/dsh-api-session-controller/types'
@@ -132,7 +133,8 @@ export class FakeApiClient {
   onList: (payload: unknown) => Promise<RpcResponse<{ items: never[] }>> = () => Promise.resolve(ok({ items: [] }))
   onSearch: (payload: unknown) => Promise<RpcResponse<{ items: SessionSearchItem[]; hasMore: boolean }>> =
     () => Promise.resolve(ok({ items: [], hasMore: false }))
-  onCreate: (payload: unknown) => Promise<RpcResponse<{ sessionId: SessionId }>> = () => Promise.resolve(ok({ sessionId: 'fk-new' as SessionId }))
+  onCreate: (payload: unknown) => Promise<RpcResponse<SessionCreateValue>> = () =>
+    Promise.resolve(ok({ sessionId: 'fk-new' as SessionId, cwd: '/f' }))
   onSelectModel: (payload: SessionSelectModelRequest) => Promise<RpcResponse<SessionSelectModelValue>> =
     payload => Promise.resolve(ok({
       selected: {

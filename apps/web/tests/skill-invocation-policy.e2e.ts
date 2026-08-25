@@ -96,6 +96,8 @@ describe('web e2e: skill invocation policy through the real host', () => {
   it('renders every user-invocable skill and marks the user-only entry', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-invocation-policy'))
     const input = page.locator('[data-composer-input]').first()
+    await input.fill('/permission workspace-write')
+    await input.press('Enter')
     await input.fill('/policy')
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await expect.poll(

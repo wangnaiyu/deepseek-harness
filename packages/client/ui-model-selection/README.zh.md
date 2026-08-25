@@ -11,6 +11,10 @@ kind: "package-reference"
 
 本包提供 Web GUI 的模型选择：`/model` 弹窗命令与 composer 模型位，两者共用一份按提供方分组的会话级目录。选择模型会提交完整选择——提供方、模型与推理强度——宿主在下一次提示词组装边界对其快照，因此后续请求采用该选择，而运行中的步骤保留已组装选择。composer 位显示两级 Model/Effort 菜单：模型按提供方分组，所选具体模型提供其适配器持有的推理强度名称与默认值。当宿主报告没有适配器服务该会话的路由时，composer 输入停用，直到路由恢复可用。
 
+composer seat 为 `session-maybe`。New Session 浏览器草稿通过 Session Controller 的 `session.modelCatalog` 加载 Host 作用域目录，把完整选择暂存在浏览器内存中，不发出会话选择 RPC。首次发送的前置准备会在较早的 Agent Preset 组合等准备之后、放行已捕获 prompt 之前，把该选择应用到刚实体化的普通 Session。开始另一份草稿或重连会清除暂存选择与目录。
+
+Host 报告的 `ModelSelection` 是唯一的选择事实，其中包含提供方、模型与推理（reasoning）强度；但只有当该提供方／模型对仍在已公布分组中时才会回显。目录行缺席时，可路由的选择保持不变，但触发器会提示 `Select model`；系统不会合成陈旧行，且在用户选择已公布的模型之前不会显示 Effort 行。目录加载与选择共享一个代次计数器，旧响应不会覆盖新结果；连接重置会丢弃所有常驻目录投影，并在显示前重新拉取 Host 恢复的选择。各提供方的元数据获取失败会内联列出，同时可用分组仍可选择；选择失败会保留先前的选择和目录。
+
 ## 目录
 
 - [使用本包](#use-this-package)
@@ -19,6 +23,8 @@ kind: "package-reference"
 - [模型体验](#model-experience)
 - [已知限制与延期工作](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
+
+真实目录按会话惰性解析（`ctx.modelDirectories.directoryFor(sessionId)`），随会话作用域一并 dispose（资源释放）；草稿使用一个 root 所有的 `DraftModelDirectory`。已寻址 subagent 会话不公开任一真实会话入口，其目录会拒绝加载、选择与重新连接刷新，因为绑定到 agent（智能体）的普通模型 RPC 会在直接 parent 继续执行路径之外激活持久化 child 历史。
 
 -----
 
@@ -64,7 +70,7 @@ kind: "package-reference"
 <a id="model-experience"></a>
 ## 模型体验
 
-间接影响。两个入口都提交 `session.selectModel` 选择；宿主在下一次提示词组装边界对完整 `ModelSelection` 快照并拥有模型可见效果，而运行中的步骤保留已组装选择。
+间接影响。两个入口都通过仅供普通会话使用的 `session.selectModel` RPC 提交完整的 `ModelSelection`；Host 会在下一次提示词组装边界对其进行快照，因此后续请求采用所选提供方、模型与推理强度，而运行中的步骤保留已组装选择。草稿菜单交互只发生在浏览器本地；实体化后，只有首个请求头记录实际采用该选择的请求，选择才会持久化。菜单交互不会添加提示词内容。
 
 #### KV Cache 影响
 
@@ -77,7 +83,7 @@ kind: "package-reference"
 
 这些限制界定了当前模型表面。它们是当前包约束，不是通用模型路由器对比或任务积压。
 
-- **无创建期或已寻址 subagent 选择**——两个入口都要求既有普通会话的 agent；没有可纳入会话创建的草稿阶段模型选择，subagent 继续执行也有意不公开独立的模型选择约定。
+- **无已寻址 subagent 选择**——草稿选择只会实体化为新的普通 Session；subagent 继续执行仍有意不公开独立的模型选择约定。
 - **目录名仅供呈现**——选择与持久化使用提供方／模型／推理强度 id；目录查询或确切模型元数据查询失败的提供方以不可选失败行列出，重新加载前保持原样。
 - **不能任意输入推理强度**——composer 仅提供确切模型由适配器公布的推理强度；适配器没有推理元数据时不显示 Effort 行。
 

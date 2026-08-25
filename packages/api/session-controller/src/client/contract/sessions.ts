@@ -28,15 +28,12 @@ export interface ISessions {
    */
   readonly searchResultLimit: number
   /**
-   * Create or adopt a Session on the Host.
-   * @param opts - target workspace, directory, and optional preallocated identity.
-   * @returns the Session identity after its local binding is addressable.
+   * Create a session on the Host; omitted workspace and cwd deliberately use
+   * the Host process cwd. On resolution the session is list- and binding-addressable.
+   * @param opts - optional Workspace, directory, or preallocated identity.
+   * @returns the created session id.
    */
-  create(opts?: {
-    workspaceId?: WorkspaceId
-    cwd?: string
-    sessionId?: SessionId
-  }): Promise<SessionId>
+  create(opts?: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId }): Promise<SessionId>
   /**
    * Select a session as current.
    * @param id - session id (must exist in the list; unknown ids fail loud).

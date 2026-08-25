@@ -252,10 +252,13 @@ describe('web e2e: agent-preset authoring is a host-side copy', () => {
     await dialog.getByRole('button', { name: '用「创造模式」创作自定义预设' }).click()
 
     // Leaving settings is part of the gesture: the flow lands on the
-    // new-session screen with the self-referential preset staged, and the
-    // blank session the flow produces composes from it on the host.
+    // new-session screen with the self-referential preset staged. Nothing is
+    // Host-born until the first send.
     await dialog.waitFor({ state: 'detached', timeout: 10_000 })
     await page.getByRole('button', { name: '创造模式' }).waitFor({ timeout: 10_000 })
+    const input = page.locator('textarea').first()
+    await input.fill('/permission workspace-write')
+    await input.press('Enter')
     await expect.poll(async () => {
       const response = await scaffold.hostFetch('/api/session/list', {
         method: 'POST',
