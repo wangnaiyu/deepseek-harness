@@ -187,6 +187,90 @@ describe('JsonlSessionPersistence: format helpers', () => {
     await fiber.dispose()
   })
 
+  it('aliases one cwd to a literal project directory without changing the stored cwd', async () => {
+    const absoluteRoot = await freshRoot()
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const fiber = await ctx.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      compression: 'none',
+      writeBatchMaxDelayMs: 1,
+      projectDirectoryAliases: [{ cwd: '/host/workbench', directory: 'default' }],
+    })
+    const aliased = meta('aliased', '/host/workbench')
+    const ordinary = meta('ordinary', '/workspace')
+    const aliasedPath = join(absoluteRoot, 'default', encodeSegment(aliased.id), 'session.jsonl')
+    expect(ctx.sessionPersistence.locate(aliased)).toEqual({ kind: 'jsonl', path: aliasedPath })
+    expect(ctx.sessionPersistence.locate(ordinary)).toEqual({
+      kind: 'jsonl',
+      path: rawLogPath(absoluteRoot, ordinary.cwd, ordinary.id),
+    })
+
+    await ctx.sessionPersistence.create(aliased)
+    await ctx.sessionPersistence.append(aliased.id, oneTurnLog())
+    expect((await ctx.sessionPersistence.load(aliased.id)).meta.cwd).toBe('/host/workbench')
+    expect((await stat(aliasedPath)).isFile()).toBe(true)
+    await fiber.dispose()
+  })
+
+  it('keeps an existing conventional cwd artifact readable after adding an alias', async () => {
+    const absoluteRoot = await freshRoot()
+    const original = new Context()
+    await original.plugin(SessionStore)
+    await original.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      compression: 'none',
+      writeBatchMaxDelayMs: 1,
+    })
+    const m = meta('legacy-alias', '/host/workbench')
+    await original.sessionPersistence.create(m)
+    await original.sessionPersistence.append(m.id, oneTurnLog())
+    const conventionalPath = rawLogPath(absoluteRoot, m.cwd, m.id)
+    await original.fiber.dispose()
+
+    const aliased = new Context()
+    await aliased.plugin(SessionStore)
+    await aliased.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      compression: 'none',
+      projectDirectoryAliases: [{ cwd: '/host/workbench', directory: 'default' }],
+    })
+    const loaded = await aliased.sessionPersistence.load(m.id)
+    expect(loaded.meta.cwd).toBe('/host/workbench')
+    expect(aliased.sessionPersistence.locate(m)).toEqual({ kind: 'jsonl', path: conventionalPath })
+    const resumed = aliased.sessions.create(m.id, { seed: loaded.events, meta: loaded.meta })
+    await aliased.sessions.flush(resumed)
+    resumed.append('turn/start', { turn: 2 })
+    resumed.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
+    await aliased.sessions.flush(resumed)
+    expect((await aliased.sessionPersistence.load(m.id)).events.map(event => event.seq))
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    await expect(stat(join(absoluteRoot, 'default', encodeSegment(m.id), 'session.jsonl'))).rejects.toThrow()
+    await aliased.fiber.dispose()
+  })
+
+  it('rejects unsafe or duplicate project directory aliases', async () => {
+    const absoluteRoot = await freshRoot()
+    const unsafe = new Context()
+    await unsafe.plugin(SessionStore)
+    await expect(unsafe.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      projectDirectoryAliases: [{ cwd: '/host', directory: '../default' }],
+    })).rejects.toThrow(/safe, non-reserved path segment/)
+    await unsafe.fiber.dispose()
+
+    const duplicate = new Context()
+    await duplicate.plugin(SessionStore)
+    await expect(duplicate.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      projectDirectoryAliases: [
+        { cwd: '/host', directory: 'default' },
+        { cwd: '/host', directory: 'other' },
+      ],
+    })).rejects.toThrow(/duplicate project directory alias cwd/)
+    await duplicate.fiber.dispose()
+  })
+
   it('refuses a structurally foreign future header as unsupported, not corrupt', async () => {
     const absoluteRoot = await freshRoot()
     const ctx = new Context()
