@@ -83,11 +83,7 @@ export interface ISessions {
    * @param opts - target workspace, directory, and optional preallocated identity.
    * @returns the catalogued identity; retain it before borrowing its binding.
    */
-  create(opts?: {
-    workspaceId?: WorkspaceId
-    cwd?: string
-    sessionId?: SessionId
-  }): Promise<SessionId>
+  create(opts?: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId }): Promise<SessionId>
   /**
    * Resolve an already discovered direct-parent address without opening it.
    * @param id - possible addressed child id.

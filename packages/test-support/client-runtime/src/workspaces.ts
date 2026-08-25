@@ -11,16 +11,6 @@ import type { FixtureSnapshot, Stabilizer } from './fixtures.ts'
 /** Writable test representation of the immutable Workspace Controller snapshot. */
 type WorkspaceFixtureSnapshot = FixtureSnapshot<WorkspaceSnapshot>
 
-/** Callable command names on the production Workspace Controller face. */
-type WorkspaceAction = {
-  [Key in keyof IWorkspaces]: IWorkspaces[Key] extends (...args: never[]) => unknown ? Key : never
-}[keyof IWorkspaces]
-
-/** Test replacement retaining one Controller command's parameters and result. */
-type WorkspaceStub<Key extends WorkspaceAction> = (
-  ...args: Parameters<IWorkspaces[Key]>
-) => ReturnType<IWorkspaces[Key]>
-
 /**
  * Workspaces test double. Implements the same IWorkspaces face features
  * receive as `ctx.workspaces`, so a production face change breaks this
@@ -36,7 +26,7 @@ export class TestWorkspaces implements IWorkspaces {
   readonly calls: { method: string; args: unknown[] }[] = []
 
   /** Replaceable action seat: feature tests may stub richer behavior. */
-  private readonly stubs = new Map<WorkspaceAction, (...args: unknown[]) => unknown>()
+  private readonly stubs = new Map<string, (...args: unknown[]) => unknown>()
 
   /**
    * @param stabilize - the owning runtime's act wrapper.
@@ -55,11 +45,47 @@ export class TestWorkspaces implements IWorkspaces {
 
   /**
    * Replace an action's behavior (the recorded call is still appended first).
-   * @param method - Controller action name (e.g. 'create').
+   * @param method - action name (e.g. 'materializeSessionDraft').
    * @param impl - replacement behavior.
    */
-  stub<Key extends WorkspaceAction>(method: Key, impl: WorkspaceStub<Key>): void {
-    this.stubs.set(method, impl as (...args: unknown[]) => unknown)
+  stub(method: string, impl: (...args: unknown[]) => unknown): void {
+    this.stubs.set(method, impl)
+  }
+
+  /** Stage a Workspace target without creating a Session (recorded). */
+  selectDraftWorkspace(workspaceId: WorkspaceId): void {
+    this.calls.push({ method: 'selectDraftWorkspace', args: [workspaceId] })
+    this.stubs.get('selectDraftWorkspace')?.(workspaceId)
+  }
+
+  /**
+   * New-session flow (recorded; stubbed behavior runs when installed).
+   * @param workspaceId - optional explicit workspace target.
+   */
+  startSession(workspaceId?: WorkspaceId): void {
+    this.calls.push({ method: 'startSession', args: [workspaceId] })
+    this.stubs.get('startSession')?.(workspaceId)
+  }
+
+  /** Stage an unassigned Host-cwd draft (recorded). */
+  startUnassignedSession(): void {
+    this.calls.push({ method: 'startUnassignedSession', args: [] })
+    this.stubs.get('startUnassignedSession')?.()
+  }
+
+  /** Materialize the staged test draft (recorded). */
+  async materializeSessionDraft(): Promise<SessionId> {
+    this.calls.push({ method: 'materializeSessionDraft', args: [] })
+    const stub = this.stubs.get('materializeSessionDraft')
+    if (stub !== undefined) return await (stub() as Promise<SessionId>)
+    return 'session-of-draft' as SessionId
+  }
+
+  /** Register first-send preparation (recorded; default registration is inert). */
+  prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>): () => void {
+    this.calls.push({ method: 'prepareSessionDraft', args: [prepare] })
+    const stub = this.stubs.get('prepareSessionDraft')
+    return (stub?.(prepare) as (() => void) | undefined) ?? (() => {})
   }
 
   /**

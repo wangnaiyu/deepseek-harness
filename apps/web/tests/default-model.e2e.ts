@@ -102,6 +102,12 @@ describe('web e2e: the composer model switch is the default for later sessions',
       reason: 'initial',
     })
 
+    const existingSessionCount = scaffold.ctx.sessions.list().length
+    const composer = page.locator('textarea:enabled').last()
+    await composer.fill('/permission workspace-write')
+    await composer.press('Enter')
+    await expect.poll(() => scaffold.ctx.sessions.list().length, { timeout: 15_000 })
+      .toBeGreaterThan(existingSessionCount)
     const trigger = page.getByRole('button', { name: /^选择模型/ })
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.click()

@@ -1,7 +1,7 @@
 /**
- * Derives the workspace browser tree from caller-projected Workspace and
- * Session order. Unassigned Sessions trail under Ungrouped; only the selected
- * blank Session remains visible.
+ * Derives the workspace browser tree from caller-projected Workspace and Session order.
+ * Unassigned Sessions trail under the persistent Ungrouped bucket. Blank
+ * Sessions stay out of navigation until their first prompt materializes them.
  */
 import {
   type SessionListState, type SessionSearchResultItem, type SessionSummary,
@@ -31,6 +31,8 @@ export function owningGroupKey(
   return (workspaces.find(workspace => workspace.sessionIds.includes(sessionId))
     ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
 }
+/** Stable presentation label for the persistent ungrouped bucket. */
+export const UNGROUPED_LABEL = 'Ungrouped'
 
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
@@ -44,9 +46,9 @@ function mainSessionId(list: SessionListState): SessionId | undefined {
 /** One top-level session row in a group or the flat list. */
 export interface SessionNode {
   id: SessionId
-  /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
+  /** Stored display title. */
   title: string
-  /** The provisional blank session (renderer shows the localized New Session title). */
+  /** Host empty-log bit (visible tree rows are always false). */
   blank: boolean
   /** A Session-scoped UI consumer is awaiting this user. */
   pendingInteraction?: SessionPendingInteractionStatus
@@ -247,7 +249,7 @@ function sessionVisible(
   archivedFilter: ArchivedFilter,
 ): boolean {
   if (session.origin === 'subagent') return false
-  if (session.blank && session.id !== current) return false
+  if (session.blank) return false
   switch (archivedFilter) {
     case 'default':
       return !archived.has(session.id)
@@ -291,13 +293,9 @@ function sectionMembers(
   return [...placeholders, ...leading, ...rest]
 }
 
-/**
- * A blank session is the selected Workspace's provisional New Session row;
- * its canonical title never enters search (blank rows are query-excluded)
- * and the renderer localizes its display label.
- */
+/** Blank rows are excluded before title projection. */
 function sessionTitle(session: SessionSummary): string {
-  return session.blank ? '' : session.displayTitle
+  return session.displayTitle
 }
 
 /** The list projection alone owns the best-effort active-Schedule indicator. */
@@ -374,10 +372,9 @@ function groupByWorkspace(
       undefined,
       undefined,
       undefined,
-      '',
+      UNGROUPED_LABEL,
       orderedUngrouped(stray, ungroupedOrder, list.byId),
     ))
-  }
   return groups
 }
 

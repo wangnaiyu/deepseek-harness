@@ -7,6 +7,7 @@ import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate, RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type {
   BeginSubmissionInput, PendingSubmissionRetirement,
@@ -70,6 +71,29 @@ describe('ConversationController', () => {
     } finally {
       await b.runtime.dispose()
     }
+  })
+
+  it('mirrors and delegates the optional browser-draft permission source', async () => {
+    const b = await bench()
+    const store = createSnapshotStore({
+      currentValue: 'workspace-write',
+      options: [{ value: 'workspace-write', name: 'Workspace Write' }],
+    })
+    const load = vi.fn()
+    const command = vi.fn(() => Promise.resolve(true))
+    const source = { store, load, command }
+    const dispose = b.root.registerDraftPermissions(source)
+    expect(load).toHaveBeenCalledOnce()
+    expect(b.root.draftPermissions.getSnapshot()?.currentValue).toBe('workspace-write')
+    store.set({ currentValue: 'read-only', options: [{ value: 'read-only', name: 'Read Only' }] })
+    expect(b.root.draftPermissions.getSnapshot()?.currentValue).toBe('read-only')
+    await expect(b.root.commandDraftPermission('/permission read-only')).resolves.toBe(true)
+    expect(command).toHaveBeenCalledWith('/permission read-only')
+    expect(() => b.root.registerDraftPermissions(source)).toThrow(/already registered/)
+    dispose()
+    expect(b.root.draftPermissions.getSnapshot()).toBeUndefined()
+    await expect(b.root.commandDraftPermission('/permission read-only')).resolves.toBe(false)
+    await b.runtime.dispose()
   })
 
   it('routes operations through the public Session binding', async () => {

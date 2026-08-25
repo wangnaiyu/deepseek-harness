@@ -486,12 +486,8 @@ export class SessionManager {
    * @returns the create result.
   */
   async create(
-    opts: {
-      workspaceId?: WorkspaceId
-      cwd?: string
-      sessionId?: SessionId
-    } = {},
-  ): Promise<RemoteResult<{ sessionId: SessionId }>> {
+    opts: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId } = {},
+  ): Promise<RemoteResult<{ sessionId: SessionId; cwd: string; agentPreset?: string }>> {
     const shared = opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }
     const payload = opts.workspaceId !== undefined
       ? { workspaceId: opts.workspaceId, ...shared }
@@ -500,7 +496,8 @@ export class SessionManager {
     if (result.ok) {
       this.recordMutation({ kind: 'placeholder', summary: { agentAvailable: true,
         sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
-        ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+        cwd: result.value.cwd,
+        ...(result.value.agentPreset !== undefined ? { agentPreset: result.value.agentPreset } : {}),
       } })
     } else {
       const publishedSessionId = workspaceAttachSessionId(result.error)

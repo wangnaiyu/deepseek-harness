@@ -12,8 +12,9 @@ import type { MenuOpenState, SessionRowOwnerProps } from '../src/client/contract
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { RowDragProps } from '../src/client/rows/Rows.tsx'
 import {
-  ProjectRowItem, SearchResultItem, SessionNodeItem as SessionNodeItemComponent,
+  ProjectRowItem, RunGroupRowItem, SearchResultItem, SessionNodeItem as SessionNodeItemComponent,
 } from '../src/client/rows/Rows.tsx'
+import type { RunRecordGroupNode } from '../src/client/runRecords.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../src/client/tree.ts'
 import { en, zh } from '../src/client/locales.ts'
 
@@ -170,6 +171,18 @@ describe('workspace browser rows', () => {
     expect(onToggle).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Project'))
     expect(onToggle).toHaveBeenCalledOnce()
+  })
+
+  it('uses the business state color for an expanded run-record group folder', () => {
+    const group: RunRecordGroupNode = {
+      key: '', project: undefined, label: '', expanded: false, recordCount: 0, records: [],
+    }
+    const view = render(<RunGroupRowItem group={group} onToggle={vi.fn()} t={t} />)
+    const folder = screen.getByRole('treeitem').querySelector('span')
+    expect(folder?.className).not.toMatch(/folderActive/)
+
+    view.rerender(<RunGroupRowItem group={{ ...group, expanded: true }} onToggle={vi.fn()} t={t} />)
+    expect(folder?.className).toMatch(/folderActive/)
   })
 
   it('renders and opens a selected running Session row', () => {
@@ -579,13 +592,22 @@ describe('workspace browser rows', () => {
     }
   })
 
-  it('ungrouped bucket renders no workspace menu', () => {
+  it('ungrouped bucket uses the active-session state color and renders no workspace menu', () => {
     const group: GroupNode = {
       key: '', workspaceId: undefined, cwd: undefined, createdAt: undefined, label: 'Ungrouped',
       sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
     }
-    render(<ProjectRowItem group={group} onToggle={vi.fn()} onCreate={vi.fn()} t={t} />)
+    const view = render(<ProjectRowItem group={group} onToggle={vi.fn()} onCreate={vi.fn()} t={t} />)
+    const folder = screen.getByRole('treeitem').querySelector('span')
+    expect(folder?.className).not.toMatch(/folderActive/)
     expect(screen.queryByRole('button', { name: /工作区/ })).toBeNull()
+
+    view.rerender(<ProjectRowItem group={{ ...group, expanded: true }} onToggle={vi.fn()} onCreate={vi.fn()} t={t} />)
+    expect(folder?.className).not.toMatch(/folderActive/)
+
+    view.rerender(<ProjectRowItem group={{ ...group, expanded: true, containsCurrent: true }}
+      onToggle={vi.fn()} onCreate={vi.fn()} t={t} />)
+    expect(folder?.className).toMatch(/folderActive/)
   })
 
   it('blank New Session rows carry no menu, no time label, and no hover-card time', () => {

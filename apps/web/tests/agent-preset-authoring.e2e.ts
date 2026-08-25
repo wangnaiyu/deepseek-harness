@@ -87,6 +87,9 @@ describe('web e2e: preset roster guidance', () => {
     await settings.getByRole('button', { name: 'Agent 预设' }).click()
     await settings.getByRole('button', { name: '让 Agent 帮我创建预设模式', exact: true }).click()
     await settings.waitFor({ state: 'detached', timeout: 10_000 })
+    const input = page.locator('textarea').first()
+    await input.fill('/permission workspace-write')
+    await input.press('Enter')
     await expect.poll(async () => {
       const response = await scaffold.hostFetch('/api/session/list', {
         method: 'POST',

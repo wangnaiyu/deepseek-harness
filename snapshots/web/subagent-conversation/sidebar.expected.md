@@ -1,3 +1,7 @@
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "Ask a research subagent to now"
+  - treeitem "Ungrouped" [expanded]:
+    - img
+    - text: Ungrouped
+  - text: No sessions yet

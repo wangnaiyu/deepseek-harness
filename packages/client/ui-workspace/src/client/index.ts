@@ -16,10 +16,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
-  IWorkspaces, SessionActivity, WorkspaceArchiveError, WorkspaceSnapshot,
+  IWorkspaces, WorkspaceId, SessionActivity, WorkspaceArchiveError, WorkspaceSnapshot,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable, WorkspaceStandardSnapshot, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 // Type-only: pulls the Controller service merges.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
@@ -49,7 +49,7 @@ import { RowActionToast } from './session-actions/RowActionToast.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
 import { en, zh, type WorkspaceKey } from './locales.ts'
 
-export type { UiWorkspace } from './navigation.ts'
+export type { SessionDraft, UiWorkspace, WorkspaceUiSnapshot } from './navigation.ts'
 export type {
   DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
   MenuOpenState, RowToast, SessionRenameTarget, SessionRowOwnerProps, UseMenuOpenState, WorkspaceBrowserInjected,
@@ -61,7 +61,7 @@ export type { WorkspaceKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface GlobalStandardProps {
     /** Selector hook over the pure Workspace Controller snapshot. */
-    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>
+    useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>
   }
 
   interface LocaleNamespaceMap {
@@ -112,7 +112,7 @@ export function apply(ctx: Context): void {
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
   )
-  ctx.slots.provideRoot({ hooks: { workspaces: workspaces.list } })
+  ctx.slots.provideRoot({ hooks: { workspaces: uiWorkspace.list } })
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
 
   const searchSessions: WorkspaceBrowserInjected['searchSessions'] = async (query, signal) => {
@@ -224,6 +224,9 @@ export function apply(ctx: Context): void {
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId) => { uiWorkspace.startSession(workspaceId) },
+    // The Ungrouped-row action stages the Host cwd in a browser-only draft;
+    // session.create is deferred until that draft's first actual send.
+    startUnassignedSession: () => { uiWorkspace.startUnassignedSession() },
     open: openSession,
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,

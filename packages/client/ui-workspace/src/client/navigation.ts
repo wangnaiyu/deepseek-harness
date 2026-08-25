@@ -1,6 +1,10 @@
 /** Workspace archive and directory UI capability. */
 
 import { Service, type Context } from '@deepseek-ai/cordis'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type {
+  StandardSessionDraft, WorkspaceStandardSnapshot,
+} from '@deepseek-ai/dsh-client-ui-slots'
 import type { ClientRemote, DirectoryListing, RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
   ISessions,
@@ -9,11 +13,11 @@ import type {
   SessionTarget,
   SessionListState,
 } from '@deepseek-ai/dsh-api-session-controller/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -26,9 +30,16 @@ interface MainSelection {
   readonly sessionId?: SessionId
   readonly subagentAddress?: SubagentAddress
 }
+/** Browser-only target for a New Session; it deliberately has no Session id. */
+export type SessionDraft = StandardSessionDraft<WorkspaceId>
+
+/** Workspace Controller projection plus the Client-only New Session target. */
+export type WorkspaceUiSnapshot = WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
+  /** Workspace projection enriched with the browser-only draft. */
+  readonly list: SnapshotStore<WorkspaceUiSnapshot>
   /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param target - known Session identity or durable direct-parent subagent address to display.
@@ -61,6 +72,16 @@ export interface UiWorkspace {
    * @param workspaceId - explicit target; absent inherits the current or most recent Workspace.
    */
   startSession(workspaceId?: WorkspaceId): void
+  /** Begin a fresh draft explicitly targeting the Host process cwd. */
+  startUnassignedSession(): void
+  /** Retarget the active draft to a registered Workspace without resetting its editor. */
+  selectDraftWorkspace(workspaceId: WorkspaceId): void
+  /** Stage the Agent preset used by draft-only capability discovery. */
+  selectDraftAgentPreset(agentPreset: string): void
+  /** Create/open the staged Session and await ordered first-send preparation. */
+  materializeSessionDraft(): Promise<SessionId>
+  /** Register ordered preparation for a newly materialized draft Session. */
+  prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>, order?: number): () => void
   /**
    * Archive a Session and clear it when it is the current selection.
    * @param sessionId - Session to archive.
@@ -131,6 +152,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     {}, { persist: { name: 'dsh.sessions.current' } },
   )
   private mainReference: SessionReference | undefined
+  readonly list: SnapshotStore<WorkspaceUiSnapshot>
+  private draftRevision = 0
+  private draftCatalogRevision = 0
+  private materializingDraft: { revision: number; pending: Promise<SessionId> } | undefined
+  private readonly draftPreparers = new Map<(sessionId: SessionId) => Promise<void>, number>()
+  private clearingArchivedCurrent = false
 
   /**
    * @param ctx - Client root Context.
@@ -149,6 +176,20 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly notify: (toast: RowToast) => void,
   ) {
     super(ctx, 'uiWorkspace')
+    this.list = createSnapshotStore<WorkspaceUiSnapshot>({ ...workspaces.list.getSnapshot() })
+    ctx.effect(() => {
+      const project = (): void => {
+        const sessionDraft = this.list.getSnapshot().sessionDraft
+        this.list.set({
+          ...this.workspaces.list.getSnapshot(),
+          ...(sessionDraft === undefined ? {} : { sessionDraft }),
+        })
+      }
+      const disposeWorkspace = this.workspaces.list.subscribe(project)
+      return () => {
+        disposeWorkspace()
+      }
+    }, 'ui-workspace: enriched Workspace projection')
     ctx.effect(() => {
       const stop = this.watchNavigation()
       return () => {
@@ -231,13 +272,84 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       ? recentWorkspace(workspace.items, sessions.byId)
       : undefined
     const target = workspaceId ?? currentWorkspaceId ?? recent
-    if (target === undefined) {
-      this.clearMain()
-      return
+    this.beginSessionDraft(target)
+  }
+
+  startUnassignedSession(): void {
+    this.beginSessionDraft(undefined)
+  }
+
+  selectDraftWorkspace(workspaceId: WorkspaceId): void {
+    const workspace = this.workspaces.list.getSnapshot().items
+      .find(item => item.workspaceId === workspaceId)
+    if (workspace === undefined) {
+      throw new Error(`uiWorkspace.selectDraftWorkspace: unknown workspace ${workspaceId}`)
     }
-    void this.openWorkspace(target).catch(
-      (reason: unknown) => { console.warn('new session failed:', reason) },
-    )
+    const current = this.list.getSnapshot().sessionDraft
+    if (current?.workspaceId === workspaceId && current.cwd === workspace.path) return
+    this.setSessionDraft({
+      revision: current?.revision ?? ++this.draftRevision,
+      catalogRevision: ++this.draftCatalogRevision,
+      workspaceId,
+      cwd: workspace.path,
+      ...(current?.agentPreset === undefined ? {} : { agentPreset: current.agentPreset }),
+    })
+    this.clearMain()
+    this.ctx.layout.selectPanel(null)
+  }
+
+  selectDraftAgentPreset(agentPreset: string): void {
+    if (agentPreset.trim() === '') {
+      throw new Error('uiWorkspace.selectDraftAgentPreset: blank preset')
+    }
+    const current = this.list.getSnapshot().sessionDraft
+    if (current === undefined || current.agentPreset === agentPreset) return
+    this.setSessionDraft({
+      ...current,
+      catalogRevision: ++this.draftCatalogRevision,
+      agentPreset,
+    })
+  }
+
+  prepareSessionDraft(
+    prepare: (sessionId: SessionId) => Promise<void>,
+    order = 0,
+  ): () => void {
+    this.draftPreparers.set(prepare, order)
+    return () => { this.draftPreparers.delete(prepare) }
+  }
+
+  materializeSessionDraft(): Promise<SessionId> {
+    const draft = this.list.getSnapshot().sessionDraft
+    if (draft === undefined) {
+      return Promise.reject(new Error('uiWorkspace.materializeSessionDraft: no staged draft'))
+    }
+    if (this.materializingDraft?.revision === draft.revision) {
+      return this.materializingDraft.pending
+    }
+    const pending = this.sessions.create(
+      draft.workspaceId === undefined ? {} : { workspaceId: draft.workspaceId },
+    ).then(async (sessionId) => {
+      if (this.list.getSnapshot().sessionDraft?.revision === draft.revision) {
+        this.openSession(sessionId)
+        const preparers = [...this.draftPreparers].sort((left, right) => left[1] - right[1])
+        for (const [prepare] of preparers) {
+          try {
+            await prepare(sessionId)
+          } catch (error) {
+            console.warn('new session preparation failed:', error)
+          }
+        }
+        this.setSessionDraft(undefined)
+      }
+      return sessionId
+    }).finally(() => {
+      if (this.materializingDraft?.revision === draft.revision) {
+        this.materializingDraft = undefined
+      }
+    })
+    this.materializingDraft = { revision: draft.revision, pending }
+    return pending
   }
 
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
@@ -294,15 +406,32 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         initial = 'done'
         return
       }
-      initial = 'connecting'
-      void this.restoreSelection(workspace, sessions).then(
-        () => { initial = 'done' },
-        (reason: unknown) => {
-          if (this.lifetime.signal.aborted) return
+      const saved = this.selection.getSnapshot()
+      const savedTarget = saved.subagentAddress
+        ?? (saved.sessionId !== undefined && sessions.byId[saved.sessionId] !== undefined
+          ? saved.sessionId
+          : undefined)
+      if (savedTarget !== undefined) {
+        initial = 'connecting'
+        try {
+          if (saved.subagentAddress !== undefined) {
+            void this.sessions.refreshSubagents(saved.subagentAddress.parentSessionId)
+          }
+          this.openSession(savedTarget)
+          initial = 'done'
+        } catch (reason: unknown) {
           initial = 'waiting'
           console.warn('initial Session restoration failed:', reason)
-        },
-      )
+        }
+        return
+      }
+      const target = recentWorkspace(workspace.items, sessions.byId)
+      if (target === undefined) {
+        initial = 'done'
+        return
+      }
+      initial = 'done'
+      this.beginSessionDraft(target)
     }
 
     const disposeWorkspaces = this.workspaces.list.subscribe(reconcile)
@@ -407,6 +536,27 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.mainReference = reference
     previous?.release()
     if (panel === 'reveal') this.ctx.layout.selectPanel(null)
+  }
+
+  private beginSessionDraft(workspaceId: WorkspaceId | undefined): void {
+    const workspace = workspaceId === undefined
+      ? undefined
+      : this.workspaces.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
+    if (workspaceId !== undefined && workspace === undefined) {
+      throw new Error(`uiWorkspace.startSession: unknown workspace ${workspaceId}`)
+    }
+    this.setSessionDraft({
+      revision: ++this.draftRevision,
+      catalogRevision: ++this.draftCatalogRevision,
+      ...(workspaceId === undefined ? {} : { workspaceId }),
+      ...(workspace?.path === undefined ? {} : { cwd: workspace.path }),
+    })
+    this.clearMain()
+  }
+
+  private setSessionDraft(sessionDraft: SessionDraft | undefined): void {
+    const { sessionDraft: _previous, ...snapshot } = this.list.getSnapshot()
+    this.list.set(sessionDraft === undefined ? snapshot : { ...snapshot, sessionDraft })
   }
 
 }

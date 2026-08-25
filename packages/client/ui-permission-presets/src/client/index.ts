@@ -32,6 +32,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (the settings invalidation rides the allowlist) into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { DraftPermissionSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { CommandUiContract, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -47,6 +49,7 @@ import {
   AUTO_REVIEW_PRESET, displayPermissionPreset, FULL_ACCESS_PRESET,
 } from './presentation.ts'
 import { PermissionPresetSettingsController } from './settings-store.ts'
+import { DraftPermissionController } from './draft-controller.ts'
 
 export type { PermissionRowInjected, PermissionRowProps } from './PermissionRow.tsx'
 export type { PermissionCatalogState } from './catalog.ts'
@@ -57,7 +60,7 @@ export type {
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'commandUi', 'connection', 'sessions', 'slots', 'locale', 'remote',
+  'commandUi', 'conversation', 'uiWorkspace', 'connection', 'sessions', 'slots', 'locale', 'remote',
   'remote.permissionPresets', 'remote.settings',
   'configForms', 'settingsSchema',
 ]
@@ -146,6 +149,7 @@ export function apply(ctx: ClientContext): void {
   // The shared ConfigForm mirror updates after document commits and reconnects.
   const controller = new PermissionPresetSettingsController(
     ctx.configForms.describe(), ctx, catalog)
+  const draftController = new DraftPermissionController(controller)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
   const injected = (): PermissionRowInjected => ({
@@ -155,6 +159,36 @@ export function apply(ctx: ClientContext): void {
   })
 
   ctx.effect(() => () => { controller.dispose() }, 'ui-permission: settings row directory')
+  ctx.effect(() => () => { draftController.dispose() }, 'ui-permission: draft directory')
+
+  let draftRevision = ctx.uiWorkspace.list.getSnapshot().sessionDraft?.revision
+  ctx.effect(() => ctx.uiWorkspace.list.subscribe(() => {
+    const next = ctx.uiWorkspace.list.getSnapshot().sessionDraft?.revision
+    if (next !== undefined && next !== draftRevision) draftController.resetDraft()
+    draftRevision = next
+  }), 'ui-permission: browser draft generation')
+  ctx.on('connection/reset', () => { draftController.resetDraft() })
+  ctx.effect(() => ctx.uiWorkspace.prepareSessionDraft(async (sessionId) => {
+    const preset = draftController.stagedPreset()
+    if (preset === undefined) return
+    const live = ctx.sessions.binding(sessionId)?.session
+    if (live === undefined) throw new Error('materialized session has no permission command target')
+    const result = await live.command(`/permission ${preset}`)
+    if (!result.ok) throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
+    if (!result.value.matched) throw new Error('the host offers no /permission command')
+  }, 100), 'ui-permission: apply staged draft permission')
+
+  const draftLoad = (): void => { draftController.load() }
+  const draftCommand = (line: string): Promise<boolean> => {
+    const matched = /^\/permission\s+(\S+)\s*$/.exec(line)
+    return matched?.[1] === undefined ? Promise.resolve(false) : draftController.select(matched[1])
+  }
+  const draftSource: DraftPermissionSource = {
+    store: draftController.store,
+    load: draftLoad,
+    command: draftCommand,
+  }
+  ctx.effect(() => ctx.conversation.registerDraftPermissions(draftSource), 'ui-permission: draft composer source')
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
