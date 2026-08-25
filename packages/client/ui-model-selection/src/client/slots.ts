@@ -11,16 +11,16 @@ import type { ModelDirectoryState } from './directory.ts'
 
 /** Injected business face of the composer model seat. */
 export interface ModelSelectInjected {
-  /** Whether this session supports Agent-bound model inspection and selection. */
+  /** Whether this real Session or browser-only draft may select a model. */
   available: boolean
-  /** The session's shared directory store (same instance the /model popup reads). */
+  /** Shared directory store; drafts use the Host catalog with a locally staged current value. */
   directory: SnapshotStore<ModelDirectoryState>
   /** Ensure the shared advisory catalog is loaded (errors land on the store). */
   load: () => void
   /**
    * Select a complete provider/model/reasoning selection.
    * @param selection - model selection and optional adapter-owned effort.
-   * @returns the Host outcome, or undefined when this Session cannot select a model.
+   * @returns the Host outcome or whether the browser draft staged it.
    */
   select: (selection: ModelSelection) => Promise<RemoteResult<void> | undefined>
 }

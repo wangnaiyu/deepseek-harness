@@ -35,6 +35,7 @@ import {
   keepDraftFocus, revealDraftSelection,
 } from '../input/editor/view-binding.ts'
 import { resolveSubmitMode } from '../input/submission-policy.ts'
+import { $selectDetectSpan } from '../input/editor/span-map.ts'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
 import { ContextMeter } from './ContextMeter.tsx'
 import css from './InputBar.module.css'
@@ -77,7 +78,7 @@ export const InputBar = memo(function InputBar({
   const uploads = useFileUploads(snapshot => snapshot)
   // Send waits for every picked file: uploading and failed drafts both hold
   // the gate (a failed upload is retried or removed, never silently dropped).
-  const uploadsPending = attachments.some(
+  const uploadsPending = sessionId !== undefined && attachments.some(
     attachment => attachment.kind === 'file' && uploads[attachment.id]?.status !== 'ready',
   )
   // Transient error banner (machine notices, image-intake rejections, and
@@ -268,7 +269,11 @@ export const InputBar = memo(function InputBar({
     // leaves focus on the button, and restoring it afterwards would re-track an
     // empty draft and close the menu again.
     if (editor !== null) focusDraftEditor(editor, revealSelection)
-    toggleCommandMenu?.(keyboard.caretSpan())
+    const caret = toggleCommandMenu?.(keyboard.caretSpan())
+    if (caret === undefined) return
+    keyboard.editor.update(() => {
+      $selectDetectSpan({ start: caret, end: caret })
+    }, { discrete: true })
   }
 
   // The no-session Workspace trigger: the resident editable div acts as the

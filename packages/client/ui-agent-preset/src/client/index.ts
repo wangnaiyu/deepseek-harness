@@ -139,7 +139,10 @@ export function apply(ctx: ClientContext): void {
       return {
         hooks: { agentPresetSeat: seat.store },
         load: () => seat.load(),
-        select: (id: string) => seat.select(id),
+        select: (id: string) => {
+          scope.uiWorkspace.selectDraftAgentPreset(id)
+          return seat.select(id)
+        },
         introduced: () => { seat.introduced() },
       }
     }
@@ -150,12 +153,17 @@ export function apply(ctx: ClientContext): void {
     })
 
     scope.effect(() => {
+      const stop = scope.uiWorkspace.prepareSessionDraft(async (sessionId) => {
+        const binding = scope.sessions.binding(sessionId)
+        if (binding === undefined) throw new Error('Draft Session is not retained')
+        await seatFor(scope, binding).apply()
+      })
       creatorDraft = () => {
         if (!section.store.getSnapshot().showPicker) return
         const seat = mainBlankSeat(scope) ?? unboundSeat
         seat.stage('cordis', true)
         scope.uiWorkspace.startSession()
-        void seat.apply()
+        scope.uiWorkspace.selectDraftAgentPreset('cordis')
       }
       const chip = scope.slots.register({
         name: 'conversation.hero.agentPreset',
@@ -171,6 +179,7 @@ export function apply(ctx: ClientContext): void {
         inject: labelInjected,
       }, AgentPresetLabel)
       return () => {
+        stop()
         creatorDraft = undefined
         chip()
         label()

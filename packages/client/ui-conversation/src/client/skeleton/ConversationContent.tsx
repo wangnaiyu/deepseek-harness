@@ -5,6 +5,26 @@ import type { ConversationContentProps, ConversationViewsProps, InputZone } from
 import { HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
 import css from './ConversationRoot.module.css'
 
+/** Stable display name for the Host-cwd, registry-unassigned Session bucket. */
+export const UNGROUPED_SESSION_LOCATION_LABEL = 'default'
+
+/** Resolve the no-Session draft's chip label without replacing its real cwd tooltip. */
+export function draftLocationLabel(
+  draft: { readonly workspaceId?: string; readonly cwd?: string } | undefined,
+  workspaceTitle?: string,
+): string | undefined {
+  if (workspaceTitle !== undefined) return workspaceTitle
+  if (draft === undefined) return undefined
+  if (draft.workspaceId === undefined) return UNGROUPED_SESSION_LOCATION_LABEL
+  return draft.cwd === undefined || draft.cwd === '' ? undefined : workspaceLabel(draft.cwd)
+}
+
+/** Resolve a real Session's chip label from registry membership, keeping cwd display-only. */
+export function sessionLocationLabel(cwd: string | undefined, workspaceTitle?: string): string | undefined {
+  if (workspaceTitle !== undefined) return workspaceTitle
+  return cwd === undefined || cwd === '' ? undefined : UNGROUPED_SESSION_LOCATION_LABEL
+}
+
 function ConversationSessionView({ renderSlot }: ConversationViewsProps) {
   return renderSlot('conversation.session', {})
 }
@@ -68,6 +88,9 @@ export function ConversationContent(props: ConversationContentProps) {
   const sessionWorkspace = sessionId === undefined
     ? undefined
     : workspaces.items.find(workspace => workspace.sessionIds.includes(sessionId))
+  const draftWorkspace = workspaces.sessionDraft?.workspaceId === undefined
+    ? undefined
+    : workspaces.items.find(workspace => workspace.workspaceId === workspaces.sessionDraft?.workspaceId)
   const pendingWorkspace = workspaces.items.find(
     workspace => workspace.workspaceId === pendingWorkspaceId,
   )
@@ -77,10 +100,11 @@ export function ConversationContent(props: ConversationContentProps) {
   useEffect(() => {
     if (pendingWorkspaceId === undefined) return
     if (sessionWorkspace?.workspaceId === pendingWorkspaceId
+      || draftWorkspace?.workspaceId === pendingWorkspaceId
       || (workspaces.phase === 'ready' && pendingWorkspace === undefined)) {
       setPendingWorkspaceId(undefined)
     }
-  }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
+  }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, draftWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
 
   const zone: InputZone | undefined =
     session === undefined || inputState === undefined ? undefined : { session, input: inputState }
@@ -88,24 +112,22 @@ export function ConversationContent(props: ConversationContentProps) {
   // The chip is a selector; label resolution walks the flow top-down:
   //   1. a just-picked workspace (pending) → its title;
   //   2. cold start, no session yet → placeholder ("Choose workspace");
-  //   3. the blank session's workspace is in the list → its title;
-  //   4. list still loading → cwd folder name bridges so the title does not
-  //      flash on refresh (empty cwd → placeholder);
-  //   5. list ready but no owning workspace (deleted from the sidebar) →
-  //      placeholder, never the deleted folder's name via cwd.
+  //   3. a registered Workspace → its title;
+  //   4. an unregistered Session or Host-cwd draft → the stable `default`
+  //      bucket label. The exact working directory remains in chipPath/title.
   const chipTitle = pendingWorkspace?.title
     ?? (sessionId === undefined
-      ? undefined
-      : sessionWorkspace?.title
-        ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
-          ? undefined
-          : workspaceLabel(cwd)))
+      ? draftLocationLabel(workspaces.sessionDraft, draftWorkspace?.title)
+      : sessionLocationLabel(cwd, sessionWorkspace?.title))
+  const chipPath = pendingWorkspace?.path
+    ?? (sessionId === undefined ? draftWorkspace?.path ?? workspaces.sessionDraft?.cwd : sessionWorkspace?.path ?? cwd)
 
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>
       <WorkspaceChip
         buttonRef={pickerAnchor}
         label={chipTitle}
+        path={chipPath}
         menuOpen={pickerOpen}
         onClick={() => { setPickerOpen(open => !open) }}
         t={t}
@@ -113,7 +135,7 @@ export function ConversationContent(props: ConversationContentProps) {
       {renderSlot('conversation.hero.workspace', {
         open: pickerOpen,
         anchorRef: pickerAnchor,
-        selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
+        selectedId: pendingWorkspaceId ?? draftWorkspace?.workspaceId ?? sessionWorkspace?.workspaceId,
         onPick: (workspaceId) => {
           setPickerOpen(false)
           setPendingWorkspaceId(workspaceId)
@@ -128,11 +150,13 @@ export function ConversationContent(props: ConversationContentProps) {
   )
 
   // The placeholder chip ("Choose workspace") and the Workspace-trigger input travel
-  // together: no workspace picked yet (cold start, no session at all), or a
-  // blank session whose workspace vanished (deleted from the sidebar). The
+  // together only when there is no Session, or a provisional blank Session
+  // whose resolved cwd has not arrived yet. An unregistered Session with cwd
+  // is already scoped and keeps the input live. The
   // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
   // not a different tree, so the textarea DOM survives the transition.
-  const inert = sessionId === undefined || (hero && chipTitle === undefined)
+  const inert = (sessionId === undefined && workspaces.sessionDraft === undefined)
+    || (hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.

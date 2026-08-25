@@ -176,7 +176,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
-  'useSessionStatus' | 'startSession' | 'open' | 'forkSession'
+  'useSessionStatus' | 'startSession' | 'startUnassignedSession' | 'open' | 'forkSession'
   | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
 > & {
   /** Always-mounted Session list snapshot. */
@@ -215,7 +215,7 @@ type SessionTreeProps = Pick<
 
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
-  list, useSessionStatus, startSession, open, forkSession, workspaces, ungroupedSessionIds,
+  list, useSessionStatus, startSession, startUnassignedSession, open, forkSession, workspaces, ungroupedSessionIds,
   archivedSessionIds,
   workspaceReady, usePanelInfo,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
@@ -561,9 +561,6 @@ function SessionTree({
         role="tree"
         aria-label={t('section.sessions')}
       >
-        {groups.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
-        )}
         {rootGroups.map(group => renderGroup(group, 0))}
       </div>
       <span className={css.fade} />
@@ -825,13 +822,13 @@ function RunRecordTree({
                 onRemove={() => { onRemoveRequest(record.path, record.label) }}
               />
             ))}
+            {/* The import bucket row already carries the open entry, so its
+                empty state stays a plain line — no second call to action. */}
+            {group.project === undefined && group.expanded && total === 0 && (
+              <div className={css.empty}>{query === '' ? t('runRecords.empty') : t('runRecords.noMatches')}</div>
+            )}
           </div>
         ))}
-        {/* The bucket row above already carries the open entry, so the empty
-            state stays a plain line — no second call to action in the body. */}
-        {total === 0 && (
-          <div className={css.empty}>{query === '' ? t('runRecords.empty') : t('runRecords.noMatches')}</div>
-        )}
       </div>
       <span className={css.fade} />
     </div>
@@ -853,6 +850,7 @@ export function WorkspaceBrowser({
   useStore,
   actions,
   startSession,
+  startUnassignedSession,
   open,
   renameSession,
   forkSession,
@@ -1481,6 +1479,7 @@ export function WorkspaceBrowser({
                 setSessionOrder={saveSessionOrder}
                 archivedSessionIds={archivedSessionIds}
                 startSession={startSession}
+                startUnassignedSession={startUnassignedSession}
                 open={open}
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 revealSessionId={revealSessionId}
