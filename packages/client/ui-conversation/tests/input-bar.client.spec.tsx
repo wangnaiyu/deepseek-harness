@@ -97,7 +97,7 @@ interface BenchOptions {
   addFiles?: (files: readonly File[]) => string | null
   commandMenuOpen?: boolean
   busyEnter?: 'queue' | 'steer'
-  toggleCommandMenu?: (selection: { start: number; end: number }) => void
+  toggleCommandMenu?: (selection: { start: number; end: number }) => number | undefined
 }
 
 /** One pending queue row (the runtime snapshot shape, as the dock tests build it). */
@@ -199,6 +199,7 @@ function bench(over?: BenchOptions) {
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    useDraftPermissions: bindSnapshotSelector(createSnapshotStore(undefined)),
     stop,
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: over?.t ?? makeTranslate(zh, commonZh),
@@ -1597,6 +1598,15 @@ describe('command launcher chrome and control seats', () => {
     expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
     act(() => { menuLauncher.set('command') })
     expect(launcher.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('restores the caret returned by the browser-draft slash launcher', async () => {
+    const toggleCommandMenu = vi.fn(() => 3)
+    const { view, shell } = bench({ draft: 'draft', toggleCommandMenu })
+    act(() => { shell.editor.update(() => { $selectDetectSpan({ start: 2, end: 2 }) }, { discrete: true }) })
+    fireEvent.click(view.getByLabelText('指令'))
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    expect(shell.caretSpan()).toEqual({ start: 3, end: 3 })
   })
 
   it('a registered entry fills its seat and receives the locked owner prop', () => {

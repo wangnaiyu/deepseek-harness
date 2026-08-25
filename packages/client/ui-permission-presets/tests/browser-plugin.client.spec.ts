@@ -11,6 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { remoteDefaultResponses } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/remote-default-responses.ts'
@@ -26,6 +27,7 @@ import {
 } from '../src/client/PermissionRow.tsx'
 import { PermissionSelect } from '../src/client/PermissionSelect.tsx'
 import type { PermissionSelectInjected } from '../src/client/PermissionSelect.tsx'
+import type { DraftPermissionSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply, inject } from '../src/client/index.ts'
 import { accessEn, accessZh } from '../src/client/locales.ts'
 
@@ -42,6 +44,17 @@ const CATALOG: PermissionCatalog = {
       description: 'Run without a sandbox after an experimental same-model review of every native tool call and PTC inner call.',
     },
   ],
+}
+
+const SETTINGS_SCHEMA = {
+  uid: 5,
+  refs: {
+    1: { type: 'const', value: 'read-only' },
+    2: { type: 'const', value: 'workspace-write' },
+    3: { type: 'const', value: 'danger-full-access' },
+    4: { type: 'union', list: [1, 2, 3] },
+    5: { type: 'object', dict: { defaultPreset: 4 } },
+  },
 }
 
 async function bench() {
@@ -120,6 +133,21 @@ async function bench() {
   ctx.provide('sessions', {
     binding: (id: SessionId) => (values.has(id) ? { sessionId: id, session: session(id) } : undefined),
   })
+  let draftPrepare: ((sessionId: SessionId) => Promise<void>) | undefined
+  ctx.provide('uiWorkspace', {
+    list: createSnapshotStore({ sessionDraft: { revision: 1, cwd: '/host/cwd' } }),
+    prepareSessionDraft: (prepare: (sessionId: SessionId) => Promise<void>) => {
+      draftPrepare = prepare
+      return () => { draftPrepare = undefined }
+    },
+  } as never)
+  let draftSource: DraftPermissionSource | undefined
+  ctx.provide('conversation', {
+    registerDraftPermissions: (source: DraftPermissionSource) => {
+      draftSource = source
+      return () => { if (draftSource === source) draftSource = undefined }
+    },
+  } as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   await vi.waitFor(() => { expect(catalogCalls).toBe(1) })
@@ -149,6 +177,8 @@ async function bench() {
       .find(entry => entry.component === PermissionRow),
     permissionSelect: () => ctx.slots.entries('conversation.input.permission')
       .find(entry => entry.component === PermissionSelect),
+    draftPermission: () => draftSource,
+    prepareDraft: (sessionId: SessionId) => draftPrepare?.(sessionId) ?? Promise.resolve(),
   }
 }
 
@@ -185,6 +215,30 @@ describe('ui-permission browser plugin', () => {
     await expect(selectInjected.select('auto')).resolves.toBe(true)
     expect(b.commands).toEqual(['/permission auto'])
     expect(b.catalogCalls()).toBe(1)
+  })
+
+  it('stages a draft permission locally and applies it only after materialization', async () => {
+    const b = await bench()
+    const settingsFace = b.permissionRow()!.inject?.() as unknown as PermissionRowInjected
+    await settingsFace.load()
+    expect(settingsFace.hooks.permission.getSnapshot()).toMatchObject({
+      status: 'ready', currentValue: 'workspace-write',
+    })
+    const face = b.draftPermission()!
+    face.load()
+    await vi.waitFor(() => { expect(face.store.getSnapshot()?.currentValue).toBe('workspace-write') })
+    let unchangedNotifications = 0
+    const stop = face.store.subscribe(() => { unchangedNotifications += 1 })
+    await settingsFace.load()
+    expect(unchangedNotifications).toBe(0)
+    stop()
+    expect(await face.command('/permission read-only')).toBe(true)
+    expect(face.store.getSnapshot()?.currentValue).toBe('read-only')
+    expect(b.commands).toEqual([])
+
+    b.values.set(sid('materialized'), SELECT)
+    await b.prepareDraft(sid('materialized'))
+    expect(b.commands).toEqual(['/permission read-only'])
   })
 
   it('availability follows the session projection; options mark the current value active', async () => {

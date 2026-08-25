@@ -920,7 +920,7 @@ describe('catalog-addressed navigation', () => {
 describe('create', () => {
   it('passes a preallocated id and preserves it on ordinary failure', async ({ bench }) => {
     const b = bench()
-    b.mock.remote.session.create.mockResolvedValue(ok({ sessionId: sid('fresh') }))
+    b.mock.remote.session.create.mockResolvedValue(ok({ sessionId: sid('fresh'), cwd: '/w' }))
     await expect(b.svc.create({ cwd: '/w', sessionId: sid('fresh') })).resolves.toBe('fresh')
     expect(b.mock.remote.session.create).toHaveBeenCalledExactlyOnceWith({ cwd: '/w', sessionId: 'fresh' })
     b.mock.remote.session.create.mockResolvedValue(err(new RemoteError('gateway/internal', '爆了', {})))
@@ -934,12 +934,12 @@ describe('create', () => {
 
   it('resolves with the session already listed and binding-resolvable (no flush wait)', async ({ bench }) => {
     const b = bench()
-    b.mock.remote.session.create.mockResolvedValue(ok({ sessionId: sid('born') }))
+    b.mock.remote.session.create.mockResolvedValue(ok({ sessionId: sid('born'), cwd: '/w/ws' }))
     const born = await b.svc.create({ workspaceId: 'ws' as never })
     // Synchronously after resolution — the draft hand-off contract: the
     // create echo IS the entity entering the client's view (blank row +
     // resolvable scope/binding), no notifier flush in between.
-    expect(b.svc.list.getSnapshot().byId[born]).toMatchObject({ id: 'born', blank: true })
+    expect(b.svc.list.getSnapshot().byId[born]).toMatchObject({ id: 'born', blank: true, cwd: '/w/ws' })
     expect(b.svc.binding(born)).toBeDefined()
     expect(b.svc.scope(born)).toBeDefined()
   })

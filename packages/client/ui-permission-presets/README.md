@@ -11,7 +11,11 @@ English | [中文](README.zh.md)
 
 Choose permission presets for the current Web session or future sessions. General settings changes only the future default; the composer and `/permission` pickers switch the current session. Default Web offers Read Only, Workspace Write, and Full access. Explicitly loading the experimental Auto integration adds Auto review with an `EXP` badge to current-session pickers. Visible Full access and Auto selections require their own risk acknowledgement; a complete `/permission <preset>` command executes directly. The host confirms each change through the Session projection.
 
+For the New Session composer, the plugin registers a draft source through `ctx.conversation`: the same Host-described dynamic enum as a catalog plus browser-local staging callbacks. The resident permission chip consumes that source without changing Settings or Session persistence. First-send preparation executes `/permission <preset>` against the newly materialized Session before the captured prompt is released. Starting another draft or reconnecting drops an unsent choice. Full access keeps the same risk acknowledgement in this draft path.
+
 ## Table of Contents
+
+The `/client` exports are the plugin body (`apply`/`inject`) plus the Settings-row shared types; the browser-draft controller stays package-internal.
 
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
@@ -66,7 +70,7 @@ Read these pages when the permission surface is not enough. They move from the b
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through the permission facts its two surfaces write: the Settings row causes a future session to start with whole-value knob events, while the `/permission` picker appends the selected current-session preset. Sandbox and approval consumers resolve their own knob events; selecting `auto` additionally activates the host Auto integration's independent per-call reviewer.
+Indirectly, through the permission facts written by its surfaces: the Settings row causes a future session to start with whole-value knob events (`permission/preset`, `sandbox/mode`, `approval/policy`), while the current-session and first-send draft paths append the same facts through `/permission`; those events select the sandbox mode and approval policy later tool calls resolve. Draft picker interaction itself adds no prompt content and performs no Host write before first send. Selecting `auto` additionally activates the host Auto integration's independent per-call reviewer.
 
 #### KV Cache effect
 

@@ -27,6 +27,8 @@ export type RemoteEventId = Branded<'RemoteEventId'>
 export interface RemoteEventHostInfo {
   /** Host account home used only to abbreviate displayed filesystem paths. */
   readonly home: string
+  /** Host process working directory used by unassigned New Session drafts. */
+  readonly cwd?: string
 }
 
 /** Opening item that binds later HTTP results to this active event stream. */
