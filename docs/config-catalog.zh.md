@@ -1863,6 +1863,13 @@ export interface Config {
    */
   root: string
   /**
+   * Optional deployment-owned aliases from an absolute session cwd to one
+   * literal project-directory name below {@link root}. The session header
+   * keeps the real cwd; only the physical bucket changes. Existing artifacts
+   * under the ordinary cwd-derived directory remain readable and writable.
+   */
+  projectDirectoryAliases?: ProjectDirectoryAlias[]
+  /**
    * Write runs of consecutive `assistant/chunk` delta events as packed
    * `text-chunks`/`reasoning-chunks`/`tool-call-chunks` rows (lossless,
    * ~60% smaller logs measured on a real session). Defaults to true; false
@@ -1876,6 +1883,14 @@ export interface Config {
   preparedSessionCacheSize?: number
   /** Fixed live-event coalescing window; not a backend completion deadline. */
   writeBatchMaxDelayMs?: number
+}
+
+/** One physical project-directory override owned by deployment configuration. */
+export interface ProjectDirectoryAlias {
+  /** Session cwd to match; resolved once when the backend is constructed. */
+  cwd: string
+  /** Safe literal directory name below the configured root, for example `default`. */
+  directory: string
 }
 
 /** Physical encoding selected for JSONL session artifacts. */
