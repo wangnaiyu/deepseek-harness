@@ -106,12 +106,16 @@ async function bench() {
     },
   })
   const seats = new Map<string, {
-    inject: ((sessionId: SessionId) => ModelSelectInjected) | undefined
+    inject: ((sessionId: SessionId | undefined) => ModelSelectInjected) | undefined
     locale: string | undefined
   }>()
   ctx.provide('slots', {
     inject(_name: string, callback: () => () => void) { return callback() },
-    register(options: { name: string; locale?: string; inject?: (sessionId: SessionId) => ModelSelectInjected }) {
+    register(options: {
+      name: string
+      locale?: string
+      inject?: (sessionId: SessionId | undefined) => ModelSelectInjected
+    }) {
       seats.set(options.name, { inject: options.inject, locale: options.locale })
       return () => { seats.delete(options.name) }
     },
@@ -141,6 +145,17 @@ async function bench() {
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
+  const workspaceList = createSnapshotStore({
+    sessionDraft: { revision: 1, cwd: '/host/cwd' },
+  })
+  let draftPrepare: ((sessionId: SessionId) => Promise<void>) | undefined
+  ctx.provide('uiWorkspace', {
+    list: workspaceList,
+    prepareSessionDraft: (prepare: (sessionId: SessionId) => Promise<void>) => {
+      draftPrepare = prepare
+      return () => { draftPrepare = undefined }
+    },
+  } as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   await ctx.plugin(function probe() {}).await()
@@ -164,6 +179,7 @@ async function bench() {
     address: (id: SessionId) => { addressed.add(id) },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
+    prepareDraft: (sessionId: SessionId) => draftPrepare?.(sessionId) ?? Promise.resolve(),
   }
 }
 
@@ -177,6 +193,30 @@ describe('ui-model-selection dual entry', () => {
     expect(b.seat().inject).toBeTypeOf('function')
     // Copy rides the standard locale seat.
     expect(b.seat().locale).toBe('model')
+  })
+
+  it('stages a draft model from the Host catalog and applies it only after materialization', async () => {
+    const b = await bench()
+    const draftFace = b.seat().inject!(undefined)
+    draftFace.load()
+    await vi.waitFor(() => { expect(draftFace.directory.getSnapshot().status).toBe('ready') })
+    expect(b.calls.models).toBeGreaterThan(0)
+    expect(b.calls.select).toBe(0)
+
+    expect(await draftFace.select({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })).toBe(true)
+    expect(draftFace.directory.getSnapshot().current).toEqual({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })
+    expect(b.calls.select).toBe(0)
+
+    b.mint('materialized')
+    await b.prepareDraft(sid('materialized'))
+    expect(b.calls.select).toBe(1)
+    expect(b.hostCurrent()).toEqual({
+      provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
+    })
   })
 
   it('popup options mark the host current active with the provider group in the detail', async () => {

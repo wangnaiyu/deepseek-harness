@@ -107,7 +107,7 @@ export class SessionCommandController {
       }
     }
     const agentPreset = this.agents.presetForSession(adopted.session)
-    return { sessionId, ...(agentPreset === undefined ? {} : { agentPreset }) }
+    return { sessionId, cwd, ...(agentPreset === undefined ? {} : { agentPreset }) }
   }
 
   /**

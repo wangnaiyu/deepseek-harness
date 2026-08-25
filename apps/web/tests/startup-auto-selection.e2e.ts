@@ -1,7 +1,7 @@
 /** Web acceptance that startup Session opening preserves the resident Hero tree. */
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import {
   acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type WebScaffold,
 } from './scaffold.ts'
@@ -83,7 +83,7 @@ describe('web e2e: startup auto-selection', () => {
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
 
-  it('keeps the hero and composer visible while the opening follow snapshot is pending', async () => {
+  it('restores the recent Workspace as a browser draft without opening a blank Session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-startup-auto-selection'))
     await page.addInitScript(() => {
       const phases: string[] = []
@@ -95,48 +95,21 @@ describe('web e2e: startup auto-selection', () => {
       }, 8)
     })
 
-    let releaseOpening = (): void => {}
-    const openingHeld = new Promise<void>((resolve) => { releaseOpening = resolve })
-    let openingRequested = (): void => {}
-    const openingInFlight = new Promise<void>((resolve) => { openingRequested = resolve })
-    let gated = false
-    const readObservation = scaffold.ctx.sessionQuery.observeSession
-      .bind(scaffold.ctx.sessionQuery)
-    const observe = vi.spyOn(scaffold.ctx.sessionQuery, 'observeSession')
-      .mockImplementation(async (sessionId, options) => {
-        const observation = await readObservation(sessionId, options)
-        if (gated) return observation
-        gated = true
-        openingRequested()
-        await openingHeld
-        return observation
-      })
-
     const warningsBefore = tripwire.warnings.length
-    try {
-      await page.reload({ waitUntil: 'commit' })
-      await openingInFlight
+    await page.reload({ waitUntil: 'load' })
 
-      // The frame a user sees while the session is still opening: hero phase, the
-      // hero title, and a composer that is actually painted (`settling` hides the
-      // seat with `visibility:hidden`, which Playwright reports as not visible).
-      await page.waitForSelector(ROOT_PHASE, { timeout: 15_000 })
-      expect(await page.locator(ROOT_PHASE).first().getAttribute('data-phase')).toBe('hero')
-      expect(await page.getByText('Into the Unknown').isVisible()).toBe(true)
-      expect(await page.locator('[data-composer-input]').first().isVisible()).toBe(true)
+    // Startup retargets the resident draft to the most recent Workspace. It
+    // neither requests Session history nor selects a persisted Session row.
+    await page.waitForSelector(ROOT_PHASE, { timeout: 15_000 })
+    expect(await page.locator(ROOT_PHASE).first().getAttribute('data-phase')).toBe('hero')
+    expect(await page.getByText('Into the Unknown').isVisible()).toBe(true)
+    expect(await page.locator('[data-composer-input]').first().isVisible()).toBe(true)
+    await page.locator('[data-composer-input][contenteditable="true"]')
+      .waitFor({ timeout: 15_000 })
+    expect(await page.locator('[role="treeitem"][aria-selected="true"]').count()).toBe(0)
+    acknowledgeReloadConnectionLoss(tripwire, warningsBefore)
 
-      releaseOpening()
-      await page.locator('[data-composer-input][contenteditable="true"][data-placeholder="Describe what you want to build... / commands, @ files or sessions"]')
-        .waitFor({ timeout: 15_000 })
-      acknowledgeReloadConnectionLoss(tripwire, warningsBefore)
-
-      // Settling is not merely absent from the frame sampled above: the root
-      // never entered it at any point of the load.
-      expect(await recordedPhases(page)).toEqual(['hero'])
-      expect(tripwire.pageErrors).toEqual([])
-    } finally {
-      releaseOpening()
-      observe.mockRestore()
-    }
+    expect(await recordedPhases(page)).toEqual(['hero'])
+    expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
 })

@@ -170,6 +170,15 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
     if (surface === null) throw new Error('composer surface missing')
     return surface
   }, { timeout: 10_000 })
+  // A draft deliberately has no Session-scoped image-limit projection. Use a
+  // local slash command as the first send so the draft materializes without
+  // invoking the model, then exercise the real Session composer below.
+  fireEvent.paste(textarea, {
+    clipboardData: { items: [], getData: () => '/plan' },
+  })
+  await waitFor(() => { expect(textarea.textContent).toContain('/plan') })
+  fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+  await screen.findByRole('button', { name: /Plan mode on/ }, { timeout: 10_000 })
 
   // A file drag anywhere over the page raises the full-viewport overlay whose
   // desc line carries the projected limits — copy that can only render after

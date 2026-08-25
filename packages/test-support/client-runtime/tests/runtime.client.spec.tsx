@@ -306,8 +306,22 @@ describe('workspaces', () => {
 
     await runtime.workspaces.update((draft) => { draft.phase = 'pending' })
     expect(view.container.textContent).toContain('ws:pending')
+
+    runtime.workspaces.startSession('w1' as WorkspaceId)
+    runtime.workspaces.selectDraftWorkspace('w2' as WorkspaceId)
+    await expect(runtime.workspaces.materializeSessionDraft()).resolves.toBe('session-of-draft')
+    expect(runtime.workspaces.calls).toEqual([
+      { method: 'startSession', args: ['w1'] },
+      { method: 'selectDraftWorkspace', args: ['w2'] },
+      { method: 'materializeSessionDraft', args: [] },
+    ])
+    const stub = vi.fn(() => Promise.resolve('other' as never))
+    runtime.workspaces.stub('materializeSessionDraft', stub)
+    await expect(runtime.workspaces.materializeSessionDraft()).resolves.toBe('other')
+    expect(stub).toHaveBeenCalledOnce()
     await runtime.dispose()
   })
+
 })
 
 describe('feature mount and disposal', () => {

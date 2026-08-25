@@ -3,3 +3,7 @@
     - img
     - text: workspace
   - treeitem "Ask a research subagent to now"
+  - treeitem "Ungrouped" [expanded]:
+    - img
+    - text: Ungrouped
+  - text: No sessions yet

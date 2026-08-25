@@ -328,6 +328,19 @@ export class SessionInputShell implements SessionInput {
   }
 
   /**
+   * Reset a reusable browser-only shell for an explicitly fresh draft.
+   * @returns attachment ids whose draft registrations the caller must release.
+   */
+  resetDraft(): readonly DraftAttachmentId[] {
+    const released = this.imageIds
+    this.dispatchRun({ type: 'release' })
+    this.imageIds = []
+    this.setDraft('')
+    this.notices.set(null)
+    return released
+  }
+
+  /**
    * Insert pasted plain text over the current editor selection
    * (placeholder-sanitized). The paste event's own default is suppressed by
    * the caller; PASTE_TAG makes the paste its own history boundary, so one

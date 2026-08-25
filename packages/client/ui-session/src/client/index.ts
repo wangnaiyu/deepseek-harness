@@ -141,6 +141,9 @@ type StandardMemberKind = 'hook' | 'keyed hook' | 'prop'
 type SessionSourceRecord<Roster extends SessionSourceRoster, Value> =
   Roster extends readonly string[] ? Readonly<Record<Roster[number], Value>> : never
 
+type AbsentSessionSourceRecord<Roster extends SessionSourceRoster, Value> =
+  Roster extends readonly string[] ? Readonly<Partial<Record<Roster[number], Value>>> : never
+
 /** Bare values produced by one Session-scoped source contribution. */
 export interface SessionSourceContribution<
   Hooks extends SessionSourceRoster = SessionSourceRoster,
@@ -150,6 +153,17 @@ export interface SessionSourceContribution<
   readonly hooks?: SessionSourceRecord<Hooks, HostObservable<unknown>>
   readonly keyedHooks?: SessionSourceRecord<KeyedHooks, KeyedStandardSource>
   readonly props?: SessionSourceRecord<Props, unknown>
+}
+
+/** Partial values produced before a Session binding exists. */
+export interface AbsentSessionSourceContribution<
+  Hooks extends SessionSourceRoster = SessionSourceRoster,
+  KeyedHooks extends SessionSourceRoster = SessionSourceRoster,
+  Props extends SessionSourceRoster = SessionSourceRoster,
+> {
+  readonly hooks?: AbsentSessionSourceRecord<Hooks, HostObservable<unknown>>
+  readonly keyedHooks?: AbsentSessionSourceRecord<KeyedHooks, KeyedStandardSource>
+  readonly props?: AbsentSessionSourceRecord<Props, unknown>
 }
 
 /** Static roster and per-Session resolver for one standard-props contribution. */
@@ -171,6 +185,15 @@ export interface SessionSourceDescriptor<
     NoInfer<KeyedHooks>,
     NoInfer<Props>
   >
+  /**
+   * Resolve members that genuinely exist before a Session is materialized.
+   * Omitted declared members remain undefined in the `session-maybe` scope.
+   */
+  resolveAbsent?: () => AbsentSessionSourceContribution<
+    NoInfer<Hooks>,
+    NoInfer<KeyedHooks>,
+    NoInfer<Props>
+  >
 }
 
 interface RuntimeSessionSourceContribution {
@@ -184,6 +207,7 @@ interface RuntimeSessionSourceDescriptor {
   readonly keyedHooks?: readonly string[]
   readonly props?: readonly string[]
   resolve(binding: SessionBinding): RuntimeSessionSourceContribution
+  resolveAbsent?: () => RuntimeSessionSourceContribution
 }
 
 type RuntimePendingDomain = PendingInteractionDomain<SessionPendingInteractionBase>
@@ -426,14 +450,16 @@ export class UiSession extends Service {
   }
 
   private materializeAbsent(): StandardSourceBinding {
-    const hooks: Record<string, undefined> = {}
-    const keyedHooks: Record<string, undefined> = {}
-    const props: Record<string, undefined> = {}
+    const hooks: Record<string, HostObservable<unknown> | undefined> = {}
+    const keyedHooks: Record<string, KeyedStandardSource | undefined> = {}
+    const props: Record<string, unknown> = {}
     const finalProps = new Set<string>()
     for (const descriptor of this.descriptors) {
-      declareAbsent('hook', hooks, descriptor.hooks, finalProps)
-      declareAbsent('keyed hook', keyedHooks, descriptor.keyedHooks, finalProps)
-      declareAbsent('prop', props, descriptor.props, finalProps)
+      const contribution = descriptor.resolveAbsent?.() ?? {}
+      validateContribution(descriptor, contribution)
+      copyAbsent('hook', hooks, descriptor.hooks, contribution.hooks, finalProps)
+      copyAbsent('keyed hook', keyedHooks, descriptor.keyedHooks, contribution.keyedHooks, finalProps)
+      copyAbsent('prop', props, descriptor.props, contribution.props, finalProps)
     }
     return { key: undefined, hooks, keyedHooks, props }
   }
@@ -475,15 +501,16 @@ function copyDeclared<T>(
   }
 }
 
-function declareAbsent(
+function copyAbsent<T>(
   kind: StandardMemberKind,
-  target: Record<string, undefined>,
+  target: Record<string, T | undefined>,
   declared: readonly string[] | undefined,
+  values: Readonly<Record<string, T>> | undefined,
   finalProps: Set<string>,
 ): void {
   for (const name of declared ?? []) {
     claimStandardProp(kind, name, finalProps)
-    target[name] = undefined
+    target[name] = values?.[name]
   }
 }
 
