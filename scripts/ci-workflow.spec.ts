@@ -1055,15 +1055,32 @@ describe('Issue lifecycle workflow', () => {
     expect(issueEvents.types).not.toContain('unassigned')
     expect(issueEvents.types).toContain('typed')
     expect(issueEvents.types).toContain('untyped')
+    const canonical = "${{ github.repository == 'deepseek-harness/deepseek-harness' }}"
+    const fork = "${{ github.repository != 'deepseek-harness/deepseek-harness' }}"
+    const lifecycleGate = "${{ github.repository == 'deepseek-harness/deepseek-harness' && (github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested') }}"
+    const canonicalHumanPullRequest =
+      "${{ github.repository == 'deepseek-harness/deepseek-harness' && github.event.pull_request.user.type != 'Bot' && github.event.pull_request.user.type != 'App' }}"
     const steps = lifecycleJob.steps.filter(isRecord)
+    const skipLifecycleStep = steps.find(s => s.name === 'Skip canonical Issue lifecycle in forks')
+    const lifecycleCheckoutStep = steps.find(s => s.name === 'Check out trusted policy')
     const tokenStep = steps.find(s => s.name === 'Create project token')
     const handleStep = steps.find(s => s.name === 'Handle repository event')
-    expect(tokenStep?.if).toBeUndefined()
-    expect(handleStep?.if).toBeUndefined()
+    expect(skipLifecycleStep).toMatchObject({ if: fork })
+    expect(lifecycleCheckoutStep).toMatchObject({ if: canonical })
+    expect(tokenStep).toMatchObject({ if: lifecycleGate })
+    expect(handleStep).toMatchObject({ if: lifecycleGate })
 
     // issue-policy owns PR validation; it is read-only and a real gate.
     const policyPullRequest = workflowEvent(policy, 'pull_request')
     expect(policyPullRequest.types).toContain('ready_for_review')
+    const policyJob = workflowJob(policy, 'policy')
+    if (!Array.isArray(policyJob.steps)) throw new TypeError('Issue policy job must define steps')
+    expect(policyJob.if).toBeUndefined()
+    const policySteps = policyJob.steps.filter(isRecord)
+    expect(policySteps.find(s => s.name === 'Skip canonical Issue policy in forks')).toMatchObject({ if: fork })
+    expect(policySteps.find(s => s.name === 'Check out trusted policy')).toMatchObject({ if: canonical })
+    expect(policySteps.find(s => s.name === 'Create Project read token')).toMatchObject({ if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.needs-project == 'true' }}" })
+    expect(policySteps.find(s => s.name === 'Validate pull request')).toMatchObject({ if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.needs-project == 'true' }}" })
   })
 
   it('mints Project credentials only after preflight and always revalidates current metadata', () => {
@@ -1077,13 +1094,13 @@ describe('Issue lifecycle workflow', () => {
     expect(preflightStep).toMatchObject({ shell: 'bash' })
     expect(preflightStep?.run).toContain('if [ -f .github/issue-management/selective-preflight.json ]; then')
     expect(preflightStep?.run).toContain('node .github/issue-management/policy.mjs pr-preflight')
-    expect(preflightStep?.if).toBeUndefined()
+    expect(preflightStep?.if).toBe("${{ github.repository == 'deepseek-harness/deepseek-harness' }}")
     expect(policyJob.if).toBeUndefined()
-    expect(validateStep?.if).toBe("${{ steps.preflight.outputs.legacy-automated != 'true' }}")
+    expect(validateStep?.if).toBe("${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.legacy-automated != 'true' }}")
 
     expect(tokenStep).toMatchObject({
       id: 'app-token',
-      if: "${{ steps.preflight.outputs.needs-project == 'true' }}",
+      if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.needs-project == 'true' }}",
       uses: 'actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1',
       with: {
         'client-id': '${{ vars.DSH_ISSUE_APP_CLIENT_ID }}',
