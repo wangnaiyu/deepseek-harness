@@ -650,16 +650,15 @@ describe('Python release workflows', () => {
 })
 
 describe('Issue lifecycle workflow', () => {
-  it('runs the lifecycle job on every PR/review event but gates token and board steps', () => {
+  it('runs named checks on every PR/review event but keeps forks as successful no-ops', () => {
     const lifecycle = loadWorkflow('.github/workflows/issue-lifecycle.yml')
     const policy = loadWorkflow('.github/workflows/issue-policy.yml')
     const lifecycleJob = workflowJob(lifecycle, 'lifecycle')
     if (!Array.isArray(lifecycleJob.steps)) throw new TypeError('Issue lifecycle job must define steps')
 
-    // The job has no job-level `if`, so it is listed on every pull_request /
-    // pull_request_review event and reports success instead of a gray skip. The
-    // write-capable steps are gated at step level so approved/commented reviews
-    // never mint a Project/Issue App token nor touch the board.
+    // The jobs have no job-level `if`, so they are listed on every event. Forks
+    // execute one explicit no-op step, while every canonical-repository step is
+    // gated so no fork can read App configuration or query canonical PR ids.
     expect(lifecycle.on).toHaveProperty('pull_request')
     expect(lifecycle.on).toHaveProperty('pull_request_review')
     expect(lifecycleJob.if).toBeUndefined()
@@ -672,16 +671,32 @@ describe('Issue lifecycle workflow', () => {
     expect(lifecyclePullRequest.types).not.toContain('ready_for_review')
     expect(lifecyclePullRequest.types).toContain('review_requested')
     expect(lifecycleReview.types).toEqual(['submitted'])
-    const gated = "${{ github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested' }}"
+    const canonical = "${{ github.repository == 'deepseek-harness/deepseek-harness' }}"
+    const fork = "${{ github.repository != 'deepseek-harness/deepseek-harness' }}"
+    const lifecycleGate = "${{ github.repository == 'deepseek-harness/deepseek-harness' && (github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested') }}"
+    const canonicalHumanPullRequest =
+      "${{ github.repository == 'deepseek-harness/deepseek-harness' && github.event.pull_request.user.type != 'Bot' && github.event.pull_request.user.type != 'App' }}"
     const steps = lifecycleJob.steps.filter(isRecord)
+    const skipLifecycleStep = steps.find(s => s.name === 'Skip canonical Issue lifecycle in forks')
+    const lifecycleCheckoutStep = steps.find(s => s.name === 'Check out trusted policy')
     const tokenStep = steps.find(s => s.name === 'Create project token')
     const handleStep = steps.find(s => s.name === 'Handle repository event')
-    expect(tokenStep).toMatchObject({ if: gated })
-    expect(handleStep).toMatchObject({ if: gated })
+    expect(skipLifecycleStep).toMatchObject({ if: fork })
+    expect(lifecycleCheckoutStep).toMatchObject({ if: canonical })
+    expect(tokenStep).toMatchObject({ if: lifecycleGate })
+    expect(handleStep).toMatchObject({ if: lifecycleGate })
 
     // issue-policy owns PR validation; it is read-only and a real gate.
     const policyPullRequest = workflowEvent(policy, 'pull_request')
     expect(policyPullRequest.types).toContain('ready_for_review')
+    const policyJob = workflowJob(policy, 'policy')
+    if (!Array.isArray(policyJob.steps)) throw new TypeError('Issue policy job must define steps')
+    expect(policyJob.if).toBeUndefined()
+    const policySteps = policyJob.steps.filter(isRecord)
+    expect(policySteps.find(s => s.name === 'Skip canonical Issue policy in forks')).toMatchObject({ if: fork })
+    expect(policySteps.find(s => s.name === 'Check out trusted policy')).toMatchObject({ if: canonical })
+    expect(policySteps.find(s => s.name === 'Create Project read token')).toMatchObject({ if: canonicalHumanPullRequest })
+    expect(policySteps.find(s => s.name === 'Validate pull request')).toMatchObject({ if: canonicalHumanPullRequest })
   })
 
   it('uses a read-only Project token only for human pull request policy metadata', () => {
@@ -691,12 +706,12 @@ describe('Issue lifecycle workflow', () => {
     const steps = policyJob.steps.filter(isRecord)
     const tokenStep = steps.find(step => step.name === 'Create Project read token')
     const validateStep = steps.find(step => step.name === 'Validate pull request')
-    const humanPullRequest =
-      "${{ github.event.pull_request.user.type != 'Bot' && github.event.pull_request.user.type != 'App' }}"
+    const canonicalHumanPullRequest =
+      "${{ github.repository == 'deepseek-harness/deepseek-harness' && github.event.pull_request.user.type != 'Bot' && github.event.pull_request.user.type != 'App' }}"
 
     expect(tokenStep).toMatchObject({
       id: 'app-token',
-      if: humanPullRequest,
+      if: canonicalHumanPullRequest,
       uses: 'actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1',
       with: {
         'client-id': '${{ vars.DSH_ISSUE_APP_CLIENT_ID }}',
@@ -708,7 +723,7 @@ describe('Issue lifecycle workflow', () => {
       },
     })
     expect(validateStep).toMatchObject({
-      if: humanPullRequest,
+      if: canonicalHumanPullRequest,
       env: {
         GITHUB_TOKEN: '${{ github.token }}',
         PROJECT_TOKEN: '${{ steps.app-token.outputs.token }}',
