@@ -20,9 +20,11 @@ The status projection resolves only exact same-repository `Fixes`, `Closes`, or 
 
 [Issue lifecycle](../../../../.github/workflows/issue-lifecycle.yml) remains unsubscribed from `pull_request.ready_for_review`; neither event command depends on that action. [Issue policy](../../../../.github/workflows/issue-policy.yml) retains `ready_for_review` because it owns required-check enforcement when a human pull request enters review.
 
+Both workflows keep their named jobs present in forks but complete through an explicit no-op step. Only `deepseek-harness/deepseek-harness` checks out and runs the trusted Issue policy, reads the Issue-management App configuration, queries canonical pull-request numbers, or mutates the canonical Project. A fork therefore reports successful checks without requiring canonical secrets or silently targeting canonical Issue state.
+
 ## Verification
 
-[Issue-management tests](../../../../.github/issue-management/policy.test.mjs) pin the event-to-command mapping, the repeated-review-request transition after a changes-requested command, the changes-requested regression, terminal protection, and human override preservation. [Workflow tests](../../../../scripts/ci-workflow.spec.ts) pin the subscribed events, the job-level absence of `if` plus the step-level gate on the token/board steps (so approved/commented reviews pass without minting a token), and the separate `ready_for_review` policy trigger.
+[Issue-management tests](../../../../.github/issue-management/policy.test.mjs) pin the event-to-command mapping, the repeated-review-request transition after a changes-requested command, the changes-requested regression, terminal protection, and human override preservation. [Workflow tests](../../../../scripts/ci-workflow.spec.ts) pin the subscribed events, the job-level absence of `if`, the canonical-repository gates and successful fork no-op steps, the review-state gate on token/board steps, and the separate `ready_for_review` policy trigger.
 
 ## Alternatives considered
 
@@ -39,3 +41,5 @@ The status projection resolves only exact same-repository `Fixes`, `Closes`, or 
 A repeated review request moves an automation-managed resolving Issue to `In review` even while GitHub still reports an older blocking review. A later changes-requested review returns it to `In progress`; approval, comments, dismissal, pushes, and reviewer removal leave the most recent command's status unchanged.
 
 The projection remains event-driven and does not repair an event that never runs. Replaying an old workflow run can replay its old command, and ProjectV2 still provides no atomic compare-and-swap between the latest-state read and mutation. Per-pull-request workflow concurrency and the human-ownership guard reduce these races without introducing durable lifecycle state.
+
+Forks do not enforce canonical Issue metadata or synchronize the canonical Project. Their successful no-op jobs distinguish an intentional repository boundary from missing credentials or a failed policy query.
