@@ -42,7 +42,9 @@ jobs:
   node-24:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
           || vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
@@ -54,13 +56,19 @@ jobs:
       # does not keep burning enterprise runner time on the remaining gates.
       DSH_GATE_FAIL_FAST: '1'
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       # Runner cleanup owns tool caches and fixtures, including cancelled runs.
       - name: Use runner-owned temporary storage
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: |
           echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
 
       # Fetch complete history so the archive gate can read the trusted PR base from a reused shallow checkout.
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -69,17 +77,21 @@ jobs:
       # the root partition's /tmp before the first pnpm call in this lane —
       # see .agents/notes/implemented/process/2026-08-28-ci-node-compile-cache-data-disk.md.
       - name: Redirect Node compile cache to runner temp
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
 
       - name: Configure pnpm store path
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         id: pnpm-store
         run: |
           store_root="$HOME/.local/share/pnpm/store"
@@ -91,7 +103,7 @@ jobs:
       # compression and upload on the paid latency-critical path. Skipped
       # under failover — see the coverage lane's identical rationale.
       - uses: actions/cache/restore@v4
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -99,9 +111,11 @@ jobs:
             ${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-
 
       - name: Install (immutable)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: pnpm install --frozen-lockfile
 
       - name: Run static gates
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         env:
           DSH_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: pnpm run check:ci:static
@@ -109,7 +123,9 @@ jobs:
   node-24-coverage:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
           || vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
@@ -133,12 +149,18 @@ jobs:
       # multi-minute instrumented run.
       DSH_GATE_FAIL_FAST: '1'
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       # Runner cleanup owns tool caches and fixtures, including cancelled runs.
       - name: Use runner-owned temporary storage
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: |
           echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
 
@@ -146,17 +168,21 @@ jobs:
       # the root partition's /tmp before the first pnpm call in this lane —
       # see .agents/notes/implemented/process/2026-08-28-ci-node-compile-cache-data-disk.md.
       - name: Redirect Node compile cache to runner temp
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
 
       - name: Configure pnpm store path
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         id: pnpm-store
         run: |
           store_root="$HOME/.local/share/pnpm/store"
@@ -167,7 +193,7 @@ jobs:
       # Self-hosted runners reuse the shared persistent pnpm store.
       # Hosted runners restore the remote cache into their ephemeral store.
       - uses: actions/cache/restore@v4
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -175,6 +201,7 @@ jobs:
             ${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-
 
       - name: Install dependencies and prepare bubblewrap
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: |
           pnpm install --frozen-lockfile &
           install_pid=$!
@@ -188,6 +215,7 @@ jobs:
           exit "$sandbox_status"
 
       - name: Run exhaustive coverage
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: pnpm run check:ci:coverage
 
   node-24-bench:
@@ -239,7 +267,9 @@ jobs:
   node-24-consumers:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
           || vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
@@ -258,13 +288,19 @@ jobs:
       # Failover halves snapshot concurrency for the shared 64-core VM.
       DSH_SNAPSHOT_MAX_CONCURRENCY: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '12' || '32' }}
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       # Runner cleanup owns tool caches and fixtures, including cancelled runs.
       - name: Use runner-owned temporary storage
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: |
           echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
           echo "PLAYWRIGHT_BROWSERS_PATH=${RUNNER_TEMP%/*}/ms-playwright" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
 
@@ -272,17 +308,21 @@ jobs:
       # the root partition's /tmp before the first pnpm call in this lane —
       # see .agents/notes/implemented/process/2026-08-28-ci-node-compile-cache-data-disk.md.
       - name: Redirect Node compile cache to runner temp
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
 
       - name: Configure pnpm store path
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         id: pnpm-store
         run: |
           store_root="$HOME/.local/share/pnpm/store"
@@ -296,7 +336,7 @@ jobs:
       # entry until it evicts, after which the store is cold. Self-hosted runners
       # reuse the shared persistent store instead of restoring the remote archive.
       - uses: actions/cache/restore@v4
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -305,7 +345,7 @@ jobs:
 
       # Self-hosted runners retain their own browser cache between jobs.
       - uses: actions/cache/restore@v4
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         with:
           path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
@@ -313,6 +353,7 @@ jobs:
             ${{ runner.os }}-playwright-
 
       - name: Install dependencies and prepare bubblewrap
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: |
           pnpm install --frozen-lockfile &
           install_pid=$!
@@ -345,7 +386,7 @@ jobs:
           PY
 
       - name: Install Playwright Chromium and hosted dependencies
-        if: vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX != 'selfhosted' || github.event.pull_request.user.login == 'dependabot[bot]')
         # Ephemeral runner images can carry Ubuntu mirrors whose HTTP endpoints are unreachable.
         run: |
           sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i -E 's@http://([a-z]{2}\.)?archive\.ubuntu\.com/ubuntu@https://archive.ubuntu.com/ubuntu@g; s@http://security\.ubuntu\.com/ubuntu@https://security.ubuntu.com/ubuntu@g' {} +
@@ -354,10 +395,11 @@ jobs:
       # The persistent VM image owns Playwright's Linux system packages; do
       # not mutate the shared host with apt on every failover run.
       - name: Install Playwright Chromium on the failover VM
-        if: vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]')
         run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install chromium
 
       - name: Run compatibility, snapshot, and artifact gates
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         run: pnpm run check:ci:consumers
 
 
@@ -500,7 +542,9 @@ jobs:
   windows-build:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
           || vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
@@ -511,21 +555,30 @@ jobs:
       # A failing build or site aborts the sibling gate on the same runner.
       DSH_GATE_FAIL_FAST: '1'
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
       - name: Enable Developer Mode (symlink support)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: >-
           reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
           /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
       - name: Install (immutable)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         # See 2026-08-30-windows-refs-store-block-clone-install for the
         # ReFS block-clone rationale; detect the workspace filesystem and
@@ -539,13 +592,16 @@ jobs:
             pnpm install --frozen-lockfile
           }
       - name: Run blocking Windows builds
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: pnpm run check:ci:windows-blocking
 
   windows-coverage:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
           || vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
@@ -561,7 +617,12 @@ jobs:
       # multi-minute instrumented run.
       DSH_GATE_FAIL_FAST: '1'
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
       # Checkout removes the gitignored duration history, so restore it from
@@ -571,6 +632,7 @@ jobs:
       # entries are immutable, so the save key is unique per run and the
       # restore matches the newest entry through the stable prefix.
       - name: Restore coverage duration history
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         uses: actions/cache/restore@v4
         with:
           path: .coverage-times.json
@@ -578,17 +640,21 @@ jobs:
           restore-keys: |
             coverage-times-
       - name: Enable Developer Mode (symlink support)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: >-
           reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
           /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
       - name: Install (immutable)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         # See 2026-08-30-windows-refs-store-block-clone-install for the
         # ReFS block-clone rationale; detect the workspace filesystem and
@@ -607,13 +673,14 @@ jobs:
       # transform-corpus, client ui-trajectory client-bundle) self-skip on
       # unbuilt checkouts.
       - name: Run Windows coverage
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: pnpm run check:ci:coverage
       - name: Save coverage duration history
         # Coverage flakes must not prevent the cache from building; the
         # measured durations remain useful even when a partition failed. The
         # per-run key keeps every save a fresh immutable cache entry.
-        if: ${{ !cancelled() }}
+        if: github.repository == 'deepseek-ai/deepseek-harness' && (!cancelled())
         uses: actions/cache/save@v4
         with:
           path: .coverage-times.json
@@ -622,7 +689,9 @@ jobs:
   windows-native-tests:
     if: github.event_name == 'pull_request'
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
           || vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
@@ -630,21 +699,30 @@ jobs:
     name: windows node 24 / native tests
     timeout-minutes: 60
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
       - name: Enable Developer Mode (symlink support)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: >-
           reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
           /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
       - name: Install (immutable)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         # See 2026-08-30-windows-refs-store-block-clone-install for the
         # ReFS block-clone rationale; detect the workspace filesystem and
@@ -658,6 +736,7 @@ jobs:
             pnpm install --frozen-lockfile
           }
       - name: Run Windows-specific native tests
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: >-
           pnpm exec vitest run
@@ -672,7 +751,9 @@ jobs:
     if: github.event_name == 'pull_request'
     continue-on-error: true
     runs-on: >-
-      ${{ vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
+      ${{ github.repository != 'deepseek-ai/deepseek-harness'
+          && 'ubuntu-latest'
+      || vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-16vcpu-windows-2025'
           || vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
@@ -682,21 +763,30 @@ jobs:
     env:
       DSH_PUBLINT_CONCURRENCY: '8'
     steps:
+      - name: Skip canonical larger-runner check on fork
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Forks do not inherit canonical larger runners; this lane is not validation evidence."
+
       - uses: actions/checkout@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           persist-credentials: false
       - name: Enable Developer Mode (symlink support)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: >-
           reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
           /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
       - uses: pnpm/action-setup@v4
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       - uses: actions/setup-node@v6
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         with:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
       - name: Install (immutable)
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         # See 2026-08-30-windows-refs-store-block-clone-install for the
         # ReFS block-clone rationale; detect the workspace filesystem and
@@ -710,6 +800,7 @@ jobs:
             pnpm install --frozen-lockfile
           }
       - name: Run Windows observational gates
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         shell: pwsh
         run: pnpm run check:ci:windows-observational
 
