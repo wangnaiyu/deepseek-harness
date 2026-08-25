@@ -45,6 +45,7 @@ kind: "package-reference"
 | 字段 | 默认值 | 含义 |
 |---|---|---|
 | `root` | 必填 | 所有会话文件的根目录 |
+| `projectDirectoryAliases` | `[]` | 把选定的绝对 cwd 映射到 `root` 直接下属的唯一安全目录名 |
 | `packChunks` | `true` | 把符合条件的 `assistant/chunk` 连续段写为打包行；`false` 为诊断保留每事件一行 |
 | `compression` | `'zstd'` | 物理编码：`'zstd'` 带校验和帧，或 `'none'` 换行分隔 UTF-8 文本 |
 
@@ -58,13 +59,15 @@ kind: "package-reference"
 
 ```text
 <root>/
-  --<normalized-cwd>--/          # readable project directory (or _no-cwd/)
+  --<normalized-cwd>--/          # readable project directory (or a configured alias / _no-cwd/)
     <encoded-id>/                # session-owned directory
       session.jsonl.zstd         # default: checksummed header frame + append frames
       session.jsonl              # only with compression: 'none'
 ```
 
 会话 id 在使用前被单射转义为一个安全路径段（无遍历、无冲突）。规范化 cwd 让项目目录保持可读、便于导航；规范化相同的 cwd 字符串共享项目目录，而会话 id 仍选择不同会话目录。格式拒绝诊断会点名已解析目录内固定 transcript 的绝对路径，让操作者能找到构建拒绝解读的原始日志。
+
+`projectDirectoryAliases` 只改变选定绝对 cwd 的物理寻址：不可变 header 与恢复后的 Session 仍保留真实 cwd。传统 cwd 派生目录中的现有产物仍可读，并继续在原位追加；新产物使用配置别名。
 
 ### 持久性与崩溃语义
 

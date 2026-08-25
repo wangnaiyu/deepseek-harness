@@ -45,6 +45,7 @@ Choose this backend when consumers benefit from one artifact per session — nav
 | Field | Default | Meaning |
 |---|---|---|
 | `root` | required | Root directory for all session files |
+| `projectDirectoryAliases` | `[]` | Map selected absolute cwd values to unique safe directory names directly below `root` |
 | `packChunks` | `true` | Write eligible `assistant/chunk` runs as packed rows; `false` keeps one event per line for diagnostics |
 | `compression` | `'zstd'` | Physical encoding: `'zstd'` checksummed frames, or `'none'` newline-delimited UTF-8 text |
 
@@ -58,13 +59,15 @@ Each session gets a session-owned directory under a readable project directory; 
 
 ```text
 <root>/
-  --<normalized-cwd>--/          # readable project directory (or _no-cwd/)
+  --<normalized-cwd>--/          # readable project directory (or a configured alias / _no-cwd/)
     <encoded-id>/                # session-owned directory
       session.jsonl.zstd         # default: checksummed header frame + append frames
       session.jsonl              # only with compression: 'none'
 ```
 
 Session ids are injectively escaped to one safe path segment before use (no traversal, no collision). The normalized cwd keeps the project directory readable for navigation; cwd strings that normalize alike share a project directory while session ids still select distinct session directories. Format-refusal diagnostics name the absolute path of the fixed transcript inside the resolved directories, so an operator can find the raw log a build refused to interpret.
+
+`projectDirectoryAliases` changes only physical routing for selected absolute cwd values: the immutable header and resumed Session retain the real cwd. Existing artifacts in the conventional cwd-derived directory remain readable and continue appending in place; new artifacts use the configured alias.
 
 ### Durability and crash semantics
 

@@ -29,7 +29,7 @@ import { JsonlBackendTracker, JsonlSessionHandle } from './storage.ts'
 import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionId, SessionHeader, SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
 import {
-  encodeSegment, eventLines, logPath, logSuffix, parseHeader, parseHeaderMeta, projectDir, scanLog, sessionDir,
+  encodeSegment, eventLines, logPath, logSuffix, parseHeader, parseHeaderMeta, projectDir, scanLog,
   SessionLogScanner, toHeaderLine,
   type JsonlCompression,
 } from './format.ts'
@@ -80,6 +80,13 @@ export interface Config {
    */
   root: string
   /**
+   * Optional deployment-owned aliases from an absolute session cwd to one
+   * literal project-directory name below {@link root}. The session header
+   * keeps the real cwd; only the physical bucket changes. Existing artifacts
+   * under the ordinary cwd-derived directory remain readable and writable.
+   */
+  projectDirectoryAliases?: ProjectDirectoryAlias[]
+  /**
    * Write runs of consecutive `assistant/chunk` delta events as packed
    * `text-chunks`/`reasoning-chunks`/`tool-call-chunks` rows (lossless,
    * ~60% smaller logs measured on a real session). Defaults to true; false
@@ -102,6 +109,14 @@ interface StoredLog {
   /** Exact fork-inherited prefix length stored in the header line. */
   readonly inheritedEventCount: SessionLogOffsetType
   readonly revision: PersistenceRevision
+}
+
+/** One physical project-directory override owned by deployment configuration. */
+export interface ProjectDirectoryAlias {
+  /** Session cwd to match; resolved once when the backend is constructed. */
+  cwd: string
+  /** Safe literal directory name below the configured root, for example `default`. */
+  directory: string
 }
 
 interface FileRevisionIdentity {
@@ -137,6 +152,10 @@ function isENOENT(error: unknown): boolean {
 class JsonlSessionPersistence extends SessionPersistence {
   static Config: z<Config> = z.object({
     root: z.string().required(),
+    projectDirectoryAliases: z.array(z.object({
+      cwd: z.string().required(),
+      directory: z.string().required(),
+    })).default([]),
     packChunks: z.boolean().default(DEFAULT_PACK_CHUNKS),
     compression: JsonlCompressionSchema,
   })
@@ -147,6 +166,8 @@ class JsonlSessionPersistence extends SessionPersistence {
   private root: string
   private packChunks: boolean
   private compression: JsonlCompression
+  private projectDirectoryAliases = new Map<string, string>()
+  private storedPaths = new Map<SessionId, string>()
   private rootEncodingCheck: Promise<void> | undefined
   private readonly tracker = new JsonlBackendTracker(this.name)
   /**
@@ -162,6 +183,20 @@ class JsonlSessionPersistence extends SessionPersistence {
     super(ctx)
     // Resolve once so later process.cwd() changes cannot split one backend across roots.
     this.root = resolve(config.root)
+    for (const alias of config.projectDirectoryAliases ?? []) {
+      const cwd = resolve(alias.cwd)
+      const directory = alias.directory
+      if (encodeSegment(directory) !== directory || directory === '_no-cwd' || directory.startsWith('--')) {
+        throw new Error(`project directory alias must be a safe, non-reserved path segment, got ${JSON.stringify(directory)}`)
+      }
+      if (this.projectDirectoryAliases.has(cwd)) {
+        throw new Error(`duplicate project directory alias cwd ${JSON.stringify(cwd)}`)
+      }
+      if ([...this.projectDirectoryAliases.values()].includes(directory)) {
+        throw new Error(`duplicate project directory alias target ${JSON.stringify(directory)}`)
+      }
+      this.projectDirectoryAliases.set(cwd, directory)
+    }
     this.packChunks = config.packChunks ?? DEFAULT_PACK_CHUNKS
     this.compression = config.compression ?? DEFAULT_COMPRESSION
     this.assertUsableRoot()
@@ -174,7 +209,7 @@ class JsonlSessionPersistence extends SessionPersistence {
    * @returns the artifact kind and absolute path.
    */
   private locate(meta: SessionHeader): SessionLocation {
-    return { kind: 'jsonl', path: logPath(this.root, meta.cwd, meta.id, this.compression) }
+    return { kind: 'jsonl', path: this.activeLogPath(meta.cwd, meta.id, this.compression) }
   }
 
   // --- SessionPersistence service API ---
@@ -692,9 +727,9 @@ class JsonlSessionPersistence extends SessionPersistence {
     inheritedEventCount: SessionLogOffsetType,
     events: readonly SessionEvent[],
   ): Promise<void> {
-    const project = projectDir(this.root, meta.cwd)
-    const dir = sessionDir(this.root, meta.cwd, meta.id)
-    const finalPath = logPath(this.root, meta.cwd, meta.id, this.compression)
+    const project = this.storageProjectDir(meta.cwd)
+    const dir = join(project, encodeSegment(meta.id))
+    const finalPath = this.storageLogPath(meta.cwd, meta.id, this.compression)
     await this.rejectOppositeArtifact(meta.cwd, meta.id)
     const content = await this.encodeMaterialization(meta, inheritedEventCount, events)
     /* v8 ignore next -- native Windows coverage exercises this platform dispatch; Linux covers the POSIX peer */
@@ -703,6 +738,7 @@ class JsonlSessionPersistence extends SessionPersistence {
     } else {
       await this.materializePosix(project, dir, finalPath, meta.id, content)
     }
+    this.storedPaths.set(meta.id, finalPath)
   }
 
   /* v8 ignore start -- Windows uses the Win32 durable-publish path; POSIX coverage exercises this peer. */
@@ -837,7 +873,7 @@ class JsonlSessionPersistence extends SessionPersistence {
    */
   private async appendLines(meta: SessionHeader, events: readonly SessionEvent[]): Promise<void> {
     const content = await this.encodeEventBatch(events)
-    const path = logPath(this.root, meta.cwd, meta.id, this.compression)
+    const path = this.activeLogPath(meta.cwd, meta.id, this.compression)
     const handle = await open(path, 'a')
     let closed = false
     const closeAppendHandle = async (): Promise<void> => {
@@ -877,7 +913,7 @@ class JsonlSessionPersistence extends SessionPersistence {
 
   /** Truncate the log file to `offset` bytes and fsync (discard the crash tail). */
   private async repair(meta: SessionHeader, offset: number): Promise<void> {
-    const path = logPath(this.root, meta.cwd, meta.id, this.compression)
+    const path = this.activeLogPath(meta.cwd, meta.id, this.compression)
     await truncate(path, offset)
     const handle = await open(path, 'r+')
     try {
@@ -1002,16 +1038,45 @@ class JsonlSessionPersistence extends SessionPersistence {
     if (expectedId !== undefined && meta.id !== expectedId) {
       throw new Error(`corrupt session log "${path}": requested id "${expectedId}" does not match header id "${meta.id}"`)
     }
-    let expectedPath: string
+    let expectedPaths: string[]
     try {
-      expectedPath = logPath(this.root, meta.cwd, meta.id, this.compression)
+      const configured = this.storageLogPath(meta.cwd, meta.id, this.compression)
+      const conventional = logPath(this.root, meta.cwd, meta.id, this.compression)
+      expectedPaths = configured === conventional ? [configured] : [configured, conventional]
     } catch (error) {
       throw new Error(`corrupt session log "${path}": header id cannot name a storage path`, { cause: error })
     }
-    if (path !== expectedPath && !await this.sameFile(path, expectedPath, signal)) {
-      throw new Error(`corrupt session log "${path}": header id "${meta.id}" and cwd identify "${expectedPath}"`)
+    let matches = expectedPaths.includes(path)
+    for (const expectedPath of matches ? [] : expectedPaths) {
+      if (await this.sameFile(path, expectedPath, signal)) {
+        matches = true
+        break
+      }
     }
+    if (!matches) {
+      throw new Error(`corrupt session log "${path}": header id "${meta.id}" and cwd identify ${expectedPaths.map(value => JSON.stringify(value)).join(' or ')}`)
+    }
+    this.storedPaths.set(meta.id, path)
     signal?.throwIfAborted()
+  }
+
+  /** Resolve a session cwd to its deployment-selected or conventional project directory. */
+  private storageProjectDir(cwd: string | undefined): string {
+    if (cwd === undefined) return projectDir(this.root, cwd)
+    const alias = this.projectDirectoryAliases.get(resolve(cwd))
+    return alias === undefined ? projectDir(this.root, cwd) : join(this.root, alias)
+  }
+
+  /** Resolve the configured target for one session transcript. */
+  private storageLogPath(cwd: string | undefined, id: SessionId, compression: JsonlCompression): string {
+    return join(this.storageProjectDir(cwd), encodeSegment(id), `session${logSuffix(compression)}`)
+  }
+
+  /** Keep appending a discovered legacy artifact in place; otherwise use the configured target. */
+  private activeLogPath(cwd: string | undefined, id: SessionId, compression: JsonlCompression): string {
+    const stored = this.storedPaths.get(id)
+    if (stored !== undefined && compression === this.compression) return stored
+    return this.storageLogPath(cwd, id, compression)
   }
 
   /**
@@ -1090,7 +1155,7 @@ class JsonlSessionPersistence extends SessionPersistence {
   }
 
   private async rejectOppositeArtifact(cwd: string | undefined, id: SessionId): Promise<void> {
-    const path = logPath(this.root, cwd, id, this.oppositeCompression())
+    const path = this.storageLogPath(cwd, id, this.oppositeCompression())
     if (await this.exists(path)) throw this.encodingMismatch(path)
   }
 

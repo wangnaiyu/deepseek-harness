@@ -279,6 +279,76 @@ describe('JsonlSessionPersistence: format helpers', () => {
   })
 })
 
+describe('JsonlSessionPersistence: project directory aliases', () => {
+  it('aliases one cwd to a literal project directory without changing the stored cwd', async () => {
+    const absoluteRoot = await freshRoot()
+    const ctx = new Context()
+    const fiber = await ctx.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      compression: 'none',
+      projectDirectoryAliases: [{ cwd: '/host/workbench', directory: 'default' }],
+    })
+    const aliased = meta('aliased', '/host/workbench')
+    const ordinary = meta('ordinary', '/workspace')
+    const aliasedPath = join(absoluteRoot, 'default', encodeSegment(aliased.id), 'session.jsonl')
+
+    await writeLog(ctx.sessionPersistence, aliased, oneTurnLog())
+    await writeLog(ctx.sessionPersistence, ordinary, oneTurnLog())
+    expect((await readAll(ctx.sessionPersistence, aliased.id)).meta.cwd).toBe('/host/workbench')
+    expect((await stat(aliasedPath)).isFile()).toBe(true)
+    expect((await stat(rawLogPath(absoluteRoot, ordinary.cwd, ordinary.id))).isFile()).toBe(true)
+    await fiber.dispose()
+  })
+
+  it('keeps an existing conventional cwd artifact readable after adding an alias', async () => {
+    const absoluteRoot = await freshRoot()
+    const original = new Context()
+    await original.plugin(JsonlSessionPersistence, { root: absoluteRoot, compression: 'none' })
+    const m = meta('legacy-alias', '/host/workbench')
+    await writeLog(original.sessionPersistence, m, oneTurnLog())
+    const conventionalPath = rawLogPath(absoluteRoot, m.cwd, m.id)
+    await original.fiber.dispose()
+
+    const aliased = new Context()
+    await aliased.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      compression: 'none',
+      projectDirectoryAliases: [{ cwd: '/host/workbench', directory: 'default' }],
+    })
+    const loaded = await readAll(aliased.sessionPersistence, m.id)
+    expect(loaded.meta.cwd).toBe('/host/workbench')
+    await appendBatch(aliased.sessionPersistence, m.id, [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'turn/end', seq: SessionSeq(7), time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+    ])
+    expect((await readAll(aliased.sessionPersistence, m.id)).events.map(event => event.seq))
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    expect((await stat(conventionalPath)).isFile()).toBe(true)
+    await expect(stat(join(absoluteRoot, 'default', encodeSegment(m.id), 'session.jsonl'))).rejects.toThrow()
+    await aliased.fiber.dispose()
+  })
+
+  it('rejects unsafe or duplicate project directory aliases', async () => {
+    const absoluteRoot = await freshRoot()
+    const unsafe = new Context()
+    await expect(unsafe.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      projectDirectoryAliases: [{ cwd: '/host', directory: '../default' }],
+    })).rejects.toThrow(/safe, non-reserved path segment/)
+    await unsafe.fiber.dispose()
+
+    const duplicate = new Context()
+    await expect(duplicate.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot,
+      projectDirectoryAliases: [
+        { cwd: '/host', directory: 'default' },
+        { cwd: '/host', directory: 'other' },
+      ],
+    })).rejects.toThrow(/duplicate project directory alias cwd/)
+    await duplicate.fiber.dispose()
+  })
+})
+
 describe('JsonlSessionPersistence: stored-format refusals', () => {
   let ctx: Context
   beforeEach(async () => {
