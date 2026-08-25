@@ -111,7 +111,10 @@ export function apply(ctx: ClientContext): void {
     const seatInjected = (): AgentPresetSeatInjected => ({
       hooks: { agentPresetSeat: seat.store },
       load: () => seat.load(),
-      select: (id: string) => seat.select(id),
+      select: (id: string) => {
+        scope.uiWorkspace.selectDraftAgentPreset(id)
+        return seat.select(id)
+      },
       introduced: () => { seat.introduced() },
     })
 
@@ -121,10 +124,14 @@ export function apply(ctx: ClientContext): void {
     })
 
     scope.effect(() => {
-      // Connecting a workspace either creates a blank session or reuses one,
-      // and either way the chip's pick predates it — so the stage is applied
-      // when the session arrives, not when it was made.
-      const stop = scope.sessions.list.subscribe(() => { void seat.apply() })
+      // The browser draft has no Session id. First send creates and opens its
+      // Session, then awaits this preparation before admitting the prompt, so
+      // the staged composition is guaranteed to own the first turn.
+      const stop = scope.uiWorkspace.prepareSessionDraft(() => seat.apply())
+      // Keep the general current-session observer for sessions arriving from
+      // non-draft paths. The controller coalesces this call with the awaited
+      // preparation above when both see the same first-send creation.
+      const stopCurrent = scope.sessions.list.subscribe(() => { void seat.apply() })
       // The chip opens on the deployment default, so a default changed from
       // the settings surface moves it too — otherwise the screen that starts
       // the next session keeps offering the previous default until a reload,
@@ -141,14 +148,14 @@ export function apply(ctx: ClientContext): void {
       const readRoster = (): void => { void seat.load() }
       rosterReaders.add(readRoster)
       // Stage WITHOUT applying — the still-current running session would
-      // refuse the swap and drop the stage — then start the session it lands
-      // on: the chip's list-change applier composes the blank session the
-      // workspace connect produces or reuses.
+      // refuse the swap and drop the stage — then start the browser draft it
+      // will compose during first-send preparation.
       creatorDraft = () => {
         // The introduce cue makes the chip announce the pick the user never
         // made on this screen — the stage happened back in settings.
         seat.stage('cordis', true)
         scope.uiWorkspace.startSession()
+        scope.uiWorkspace.selectDraftAgentPreset('cordis')
       }
       const chip = scope.slots.register({
         name: 'conversation.hero.agentPreset',
@@ -165,6 +172,7 @@ export function apply(ctx: ClientContext): void {
       }, AgentPresetLabel)
       return () => {
         stop()
+        stopCurrent()
         settingsMoved()
         rosterReaders.delete(readRoster)
         creatorDraft = undefined

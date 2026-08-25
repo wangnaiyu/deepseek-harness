@@ -17,7 +17,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ModelCatalogDirectory } from './catalog.ts'
-import { ModelDirectory } from './directory.ts'
+import { DraftModelDirectory, ModelDirectory } from './directory.ts'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -33,10 +34,11 @@ interface LiveState {
 
 /** The `ctx.modelDirectories` session model-selection service. */
 export class ModelDirectoryResolver extends Service {
-  static inject = ['sessions', 'remote', 'remote.session']
+  static inject = ['sessions', 'uiWorkspace', 'remote', 'remote.session']
 
   private readonly live: LiveState = { directories: new Map() }
   private readonly catalog: ModelCatalogDirectory
+  private draftDirectory: DraftModelDirectory | undefined
 
   /** Localized composer-block copy; this plugin owns the string it raises. */
   private readonly blockReason: () => string
@@ -53,10 +55,37 @@ export class ModelDirectoryResolver extends Service {
     ctx.on('connection/reset', () => {
       this.catalog.resetGeneration()
       for (const directory of this.live.directories.values()) directory.resetConnected()
+      this.draftDirectory?.resetConnected()
     })
     ctx.remote.$on('llm/adapters-updated', () => { this.catalog.refresh() })
     ctx.remote.$on('settings/document-updated', () => { this.catalog.refresh() })
     ctx.remote.$on('credentials/reference-updated', () => { this.catalog.refresh() })
+    const uiWorkspace = ctx.uiWorkspace
+    let draftRevision = uiWorkspace.list.getSnapshot().sessionDraft?.revision
+    ctx.effect(() => uiWorkspace.list.subscribe(() => {
+      const next = uiWorkspace.list.getSnapshot().sessionDraft?.revision
+      if (next !== undefined && next !== draftRevision) this.draftDirectory?.resetDraft()
+      draftRevision = next
+    }), 'ui-model-selection: browser draft generation')
+    ctx.effect(() => uiWorkspace.prepareSessionDraft(async (sessionId) => {
+      const selection = this.draftDirectory?.stagedSelection()
+      if (selection === undefined) return
+      await this.directoryFor(sessionId).select(selection)
+    }, 100), 'ui-model-selection: apply staged draft model')
+  }
+
+  /**
+   * Resolve the one browser-only draft directory (no Session id, no Session RPC).
+   * @returns the root-owned draft directory.
+   */
+  directoryForDraft(): DraftModelDirectory {
+    if (this.draftDirectory !== undefined) return this.draftDirectory
+    this.draftDirectory = new DraftModelDirectory(this.ctx.remote.session)
+    this.ctx.effect(() => () => {
+      this.draftDirectory?.dispose()
+      this.draftDirectory = undefined
+    }, 'ui-model-selection: draft directory')
+    return this.draftDirectory
   }
 
   /**

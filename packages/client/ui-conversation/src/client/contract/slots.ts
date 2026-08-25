@@ -9,11 +9,15 @@ import type {
 } from '@deepseek-ai/dsh-client-store'
 import type {
   InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
+  WorkspaceStandardSnapshot,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionPendingInteraction } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
+import type {
+  WorkspaceId, WorkspaceSnapshot,
+} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type { ComposerBlock } from './composer-blocks.ts'
 import type {
   ComposerKeyboard, DraftAttachmentId, EditSelection, InputActions, InputNotice, InputState,
@@ -155,7 +159,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.view': { kind: 'list'; scope: 'session'; owner: ConvViewOwnerProps }
     /** Selector-routed replacements for the current Session's resident composer. */
     'conversation.composer': { kind: 'chain'; scope: 'session'; owner: ComposerChainProps }
-    /** Workspace picker shown by the blank-session Hero. */
+    /**
+     * The hero-phase Workspace picker hole: rendered by ConversationRoot
+     * while the session is blank (picking another workspace switches to that
+     * browser draft's target Workspace, carrying its local draft). Root
+     * scope: the picker reads the global workspace list.
+     */
     'conversation.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
     /** Brand mark shown before the blank-session headline. */
     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
@@ -181,13 +190,16 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     /** Plan control inside the composer tool row. */
     'conversation.input.plan': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
-    /** Model selector inside the composer tool row. */
-    'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
-  }
-
-  interface GlobalStandardProps {
-    /** Workspace selector supplied by the independently loaded Workspace UI. */
-    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>
+    /**
+     * The named model-select seat at the right end of the composer tool row,
+     * left of the send button — one occupant, so taking it means rendering the
+     * whole model affordance yourself. Same `locked`-only owner share and same
+     * renders-nothing-while-empty contract as the plan seat. Note the composer
+     * deliberately keeps this seat LIVE while it refuses text for a
+     * model-related block: every such block is one the user clears by picking
+     * a model here.
+     */
+    'conversation.input.model': { kind: 'single'; scope: 'session-maybe'; owner: InputControlOwnerProps }
   }
 
   interface SessionStandardProps {
@@ -206,6 +218,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     useInput: MaybeSnapshotSelectorHook<InputState>
     /** Input actions are absent without a current Session. */
     inputActions: InputActions | undefined
+  }
+
+  interface GlobalStandardProps {
+    /** Selector hook over Workspaces plus the browser-only New Session target. */
+    useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>
   }
 }
 
@@ -258,7 +275,7 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
-  /** Connect and open a blank Session in the selected Workspace. */
+  /** Stage the selected Workspace without creating a Session; carry any current draft. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
@@ -309,7 +326,7 @@ export interface ComposerBarInjected {
   resolveDraftAttachments: ((ids: readonly DraftAttachmentId[]) => readonly ComposerAttachment[]) | undefined
   /** Restart one failed file upload; absent without a session. */
   retryFileUpload: ((id: DraftAttachmentId) => void) | undefined
-  toggleCommandMenu: ((selection: EditSelection) => void) | undefined
+  toggleCommandMenu: ((selection: EditSelection) => number | undefined) | undefined
   stop: (() => void) | undefined
   command: ((line: string) => Promise<boolean>) | undefined
   hooks: {
@@ -323,6 +340,8 @@ export interface ComposerBarInjected {
     notices: ObservableSnapshot<InputNotice | null>
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
+    /** Optional permission-plugin value for the Session-id-free browser draft. */
+    draftPermissions: ObservableSnapshot<PermissionSelect | undefined>
   }
 }
 

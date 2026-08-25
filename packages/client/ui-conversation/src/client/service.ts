@@ -20,16 +20,27 @@ import type {} from '@deepseek-ai/dsh-client-file-upload/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
   ComposerAttachment, ComposerFileAttachment, ComposerImageAttachment, DraftFileUpload,
 } from './contract/slots.ts'
+import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
 import type { QueueAction, QueueItemId } from './contract/queue.ts'
 import type { ComposerBlocks } from './contract/composer-blocks.ts'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, SessionInputResolver, SubmitAttachment, SubmitOutcome,
 } from './contract/input.ts'
 import type { InputSubmitMode } from './contract/composer-submission.ts'
+
+/** Permission plugin source staged for a Session-id-free browser draft. */
+export interface DraftPermissionSource {
+  /** Host-described options plus the browser-staged current preset. */
+  store: ObservableSnapshot<PermissionSelect | undefined>
+  /** Ensure the Host settings descriptor has been loaded. */
+  load: () => void
+  /** Stage one `/permission <preset>` line without touching the Host. */
+  command: (line: string) => Promise<boolean>
+}
 
 /**
  * The outward conversation face (`ctx.conversation`): the scope-addressed
@@ -44,6 +55,12 @@ export interface IConversation {
    * cannot import makes a session's input inert with its own reason.
    */
   readonly blocks: ComposerBlocks
+  /**
+   * Register the optional permission plugin's browser-draft source.
+   * @param source - dynamic catalog and browser-only staging callbacks.
+   * @returns disposer that removes only this source generation.
+   */
+  registerDraftPermissions(source: DraftPermissionSource): () => void
   /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
@@ -156,6 +173,10 @@ export class ConversationController extends Service implements IConversation {
   readonly blocks: ComposerBlocks
   /** Live upload state per file-kind draft; images never appear here. */
   readonly fileUploads: SnapshotStore<Record<string, DraftFileUpload>> = createSnapshotStore<Record<string, DraftFileUpload>>({})
+  /** Stable renderer source; undefined while the optional permission plugin is absent. */
+  readonly draftPermissions: SnapshotStore<PermissionSelect | undefined> = createSnapshotStore(undefined)
+  private draftPermissionSource: DraftPermissionSource | undefined
+  private stopDraftPermissionSource: (() => void) | undefined
   private readonly draftAttachments = new Map<DraftAttachmentId, ComposerAttachment>()
   private readonly fileUploadOperations = new Map<DraftAttachmentId, {
     readonly controller: AbortController
@@ -196,7 +217,43 @@ export class ConversationController extends Service implements IConversation {
       }
       this.draftAttachments.clear()
       this.fileUploads.set({})
+      this.stopDraftPermissionSource?.()
+      this.stopDraftPermissionSource = undefined
+      this.draftPermissionSource = undefined
+      this.draftPermissions.set(undefined)
     }, 'conversation draft attachments')
+  }
+
+  /**
+   * Register the optional permission plugin's browser-draft source.
+   * @param source - dynamic catalog and browser-only staging callbacks.
+   * @returns disposer that removes only this source generation.
+   */
+  registerDraftPermissions(source: DraftPermissionSource): () => void {
+    if (this.draftPermissionSource !== undefined) {
+      throw new Error('conversation.registerDraftPermissions: source already registered')
+    }
+    this.draftPermissionSource = source
+    const publish = (): void => { this.draftPermissions.set(source.store.getSnapshot()) }
+    this.stopDraftPermissionSource = source.store.subscribe(publish)
+    publish()
+    source.load()
+    return () => {
+      if (this.draftPermissionSource !== source) return
+      this.stopDraftPermissionSource?.()
+      this.stopDraftPermissionSource = undefined
+      this.draftPermissionSource = undefined
+      this.draftPermissions.set(undefined)
+    }
+  }
+
+  /**
+   * Stage a permission command through the optional browser-draft source.
+   * @param line - exact permission command line emitted by the shared chip.
+   * @returns whether the optional provider accepted the preset.
+   */
+  commandDraftPermission(line: string): Promise<boolean> {
+    return this.draftPermissionSource?.command(line) ?? Promise.resolve(false)
   }
 
   /**
@@ -305,7 +362,7 @@ export class ConversationController extends Service implements IConversation {
    * @param files - browser files to register.
    * @returns ordered draft descriptors.
    */
-  createDrafts(sessionId: SessionId, files: readonly File[]): readonly ComposerAttachment[] {
+  createDrafts(sessionId: SessionId | undefined, files: readonly File[]): readonly ComposerAttachment[] {
     return files.map((file) => {
       if (isImageMediaType(file.type)) {
         const attachment = browserDraftAttachment(file)
@@ -319,7 +376,7 @@ export class ConversationController extends Service implements IConversation {
         file,
       }
       this.draftAttachments.set(attachment.id, attachment)
-      this.beginFileUpload(sessionId, attachment)
+      if (sessionId !== undefined) this.beginFileUpload(sessionId, attachment)
       return attachment
     })
   }
@@ -346,6 +403,16 @@ export class ConversationController extends Service implements IConversation {
       const attachment = this.draftAttachments.get(id)
       if (attachment?.kind === 'file') this.beginFileUpload(sessionId, attachment)
     }
+  }
+
+  /**
+   * Bind browser-only file drafts after Session materialization and await their uploads.
+   * @param sessionId - materialized target Session.
+   * @param ids - carried attachment identities.
+   */
+  async prepareDraftFiles(sessionId: SessionId, ids: readonly DraftAttachmentId[]): Promise<void> {
+    this.rebindDraftFiles(sessionId, ids)
+    await Promise.all(ids.map(id => this.fileUploadOperations.get(id)?.done))
   }
 
   private beginFileUpload(sessionId: SessionId, attachment: ComposerFileAttachment): void {

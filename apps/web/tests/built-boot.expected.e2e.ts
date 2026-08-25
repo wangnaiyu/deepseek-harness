@@ -34,7 +34,10 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   const fixtureGroup = (await within(tree).findAllByText('fixture'))
     .map(el => el.closest<HTMLElement>('[role="treeitem"]'))
     .find(el => el?.getAttribute('aria-expanded') !== null)
-  if (fixtureGroup === undefined) throw new Error('fixture Workspace group missing')
+  if (fixtureGroup === undefined || fixtureGroup === null) throw new Error('fixture Workspace group missing')
+  // Startup now stages a browser draft instead of creating/selecting a blank
+  // Session, so no real row drives automatic group expansion.
+  if (fixtureGroup.getAttribute('aria-expanded') !== 'true') fireEvent.click(fixtureGroup)
 
   // The resident fixture has both a question and an approval; composer routing
   // exposes the question first, and the assembled workspace plugin mirrors that
