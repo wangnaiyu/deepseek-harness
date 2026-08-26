@@ -91,11 +91,13 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     ctx.effect(() => inputTriggers.registerSource({
       trigger: '/',
       name: 'command',
-      candidates: (session, req) => this.candidates(session, req),
+      candidates: (target, req) => target.kind !== 'draft' ? this.candidates(target, req) : Promise.resolve([]),
       onPick: pick => this.dispatch(pick),
-      matchSpace: (session, token) => this.matchSpace(session, token),
-      matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
-      warm: (session) => { this.directory.warm(session.sessionId) },
+      matchSpace: (target, token) => target.kind !== 'draft' ? this.matchSpace(target, token) : undefined,
+      matchEnter: (target, line, signal, envelope) => target.kind !== 'draft'
+        ? this.matchEnter(target, line, signal, envelope)
+        : Promise.resolve(undefined),
+      warm: (target) => { if (target.kind !== 'draft') this.directory.warm(target.sessionId) },
     }), 'command: slash source')
     ctx.remote.$on('commands/change', () => { this.directory.invalidateAll() })
     // A preset switch changes which commands one session's agent resolves and
@@ -235,6 +237,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
 
   /** Decision table, menu column: contribution/decorated-host → popup or action; host input → claim; host bare → detached execute. */
   private dispatch(pick: InputTriggerPick): PickOutcome {
+    if (pick.session.kind === 'draft') return undefined
     const name = pick.candidate.name
     const contribution = this.live.contributions.get(name)
     if (contribution !== undefined && contribution.available(pick.session)) {
