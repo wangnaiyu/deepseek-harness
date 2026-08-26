@@ -30,7 +30,7 @@
  * accent row derived only from each logged call/result slice.
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
-import type { ConnectionHandle, SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ConnectionHandle, DraftSkillDescriptor, SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -47,11 +47,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** One session's catalog fetch: the shared promise plus its own abort handle. */
 interface CatalogFetch {
-  readonly promise: Promise<readonly SkillEntry[]>
+  readonly promise: Promise<readonly SessionSkillEntry[]>
   readonly abort: AbortController
   /** Settled catalog for synchronous lexicon reads (unset while in flight or on failure). */
-  settled?: readonly SkillEntry[]
+  settled?: readonly SessionSkillEntry[]
 }
+
+type SessionSkillEntry = SkillEntry & Partial<Pick<DraftSkillDescriptor, 'origin' | 'iconId'>>
 
 /** Required services: reference source faces plus the tool-row and locale registries. */
 export const inject = ['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote']
@@ -67,13 +69,18 @@ export function apply(ctx: ClientContext): void {
     SkillRow,
   ))
 
-  const skills = (ctx.get('connection') as ConnectionHandle).api.skills
+  const legacySkills = (ctx.get('connection') as ConnectionHandle).api.skills
   const sessions = ctx.get('sessions') as ISessions
   // Session-keyed catalog cache; single-flight per key. Plugin-closure state:
   // the fiber effect below is its teardown boundary.
   const fetches = new Map<SessionId, CatalogFetch>()
   // Per-session lexicon invalidation listeners (subscribeLexicon consumers).
   const lexiconListeners = new Map<SessionId, Set<() => void>>()
+  let formal: (typeof ctx.remote)['composerCatalog'] | undefined
+  ctx.inject(['remote.composerCatalog'], (scope) => {
+    formal = scope.remote.composerCatalog
+    return () => { formal = undefined }
+  })
 
   const notifyLexicon = (sessionId: SessionId): void => {
     for (const listener of [...(lexiconListeners.get(sessionId) ?? [])]) {
@@ -88,13 +95,18 @@ export function apply(ctx: ClientContext): void {
     }
   }
 
-  const fetchCatalog = (sessionId: SessionId): Promise<readonly SkillEntry[]> => {
+  const fetchCatalog = (sessionId: SessionId): Promise<readonly SessionSkillEntry[]> => {
     if (sessions.subagentAddress(sessionId) !== undefined) return Promise.resolve([])
     const existing = fetches.get(sessionId)
     if (existing !== undefined) return existing.promise
     const abort = new AbortController()
     const promise = (async () => {
-      const { result } = await skills.list({ sessionId }, abort.signal)
+      if (formal !== undefined) {
+        const result = await formal.listSession({ sessionId })
+        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+        return result.value.skills
+      }
+      const { result } = await legacySkills.list({ sessionId }, abort.signal)
       if (!result.ok) throw new Error(`skill.list failed: ${result.error.code}: ${result.error.message}`)
       return result.value.skills
     })()
@@ -134,6 +146,7 @@ export function apply(ctx: ClientContext): void {
     trigger: '/',
     name: 'skill',
     order: 2,
+    showGroupTitle: false,
     async candidates(target, { query, signal }) {
       if (target.kind === 'draft') return []
       const skills = await fetchCatalog(target.sessionId)
@@ -146,6 +159,9 @@ export function apply(ctx: ClientContext): void {
           // The user-only marker rides the description (the menu's only
           // secondary text); `hint` is the claim-state ghost text, not a badge.
           description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
+          origin: skill.origin?.label ?? 'DSH',
+          section: 'Skills',
+          ...skill.iconId === undefined ? {} : { icon: skill.iconId },
         }))
     },
     warm(target) {

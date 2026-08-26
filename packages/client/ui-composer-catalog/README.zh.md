@@ -8,6 +8,8 @@
 
 每个草稿 target revision 的 Host 请求只会 single-flight 一次。Workspace 和已暂存 Agent preset 的变化都会更新 target，但不会清空编辑器；对话接线层会关闭旧菜单，因此其已中止请求不能发布到新 target。传输失败会留下可重试的 source 行；Host 包含的分区错误则在成功行旁展示，重试前只会使该 source 失效，不会隐藏其他成功 source。选择只会向草稿拼接文本：Command 为 `/<command> `，Skill 为规范 `/skill <name> `。已结算目录会同时发布规范与旧兼容词形，用于输入装饰的纯派生显示。Host 解析和确定性 Skill 注入仍由 `dsh-tool-skill` 在 `agent/pre-step` 拥有。
 
+首次发送时，会话层先实体化一个 Session，再由本 source 在转交文本前比较缓存的草稿目录与新鲜的正式 `listSession` 结果。已选择能力若消失、可信来源或调用策略改变，或跨越 Command／Skill 冲突边界，提交会被拒绝且浏览器草稿保持不变。Host `session.prompt` 还会在持久化前独立复核规范 Skill 的可用性，覆盖手输文本和非 Web Client。
+
 ## 模型体验
 
 无，因为本包只改变浏览器发现与草稿文本；它不加载 Skill 指令、不创建 Session、不发送 prompt，也不注册模型可见工具。
@@ -18,4 +20,4 @@
 
 ## 已知限制与暂缓事项
 
-- Session 目录仍使用现有 Command 和 Skill sources；Session 实体化后的 source/origin 统一仍暂缓。
+- 纯手输文本没有历史菜单选择身份；它按当前正式 Session 目录校验。只有草稿目录快照中包含被寻址能力时，才比较来源是否变化。

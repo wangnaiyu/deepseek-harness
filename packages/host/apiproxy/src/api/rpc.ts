@@ -34,6 +34,10 @@ export interface RpcErrorDetailsMap {
   'cancelled': {}
   'session-not-found': { sessionId: SessionId }
   'model-unavailable': { provider: string; model: string }
+  /** Formal Session Skill discovery could not complete, so admission failed closed. */
+  'skill-catalog-unavailable': { reason?: string }
+  /** A canonical `/skill <name>` no longer resolves as user-invocable. */
+  'skill-unavailable': { name: string }
   'session-conflict': { sessionId: SessionId; requestedCwd: string; existingCwd?: string }
   'invalid-time-zone': { value: string }
   'workspace-attach-failed': { sessionId: SessionId; workspaceId: string }

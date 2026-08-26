@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-skill（技能）调用 source 的浏览器端：把 `/` 触发的 `skill` source 注册进 `ctx.inputTriggers`。普通会话的候选来自 `skill.list` RPC，以每次调用的 `ClientSessionContext` 投影中的 `{sessionId}` 寻址，host 从会话 header 解析 `cwd`。宿主提供每一个用户可调用的 skill；`modelInvocable: false` 的条目（即 `disable-model-invocation` skill，此路径是其唯一入口）会以当前语言把仅限用户标记作为描述前缀带上。由目录寻址的可继续 subagent 在客户端解析为没有 skill 候选，因为现有 skill RPC 要求会话已挂载；查看其持久化历史不得激活它。目录按普通会话缓存，拉取走 single-flight；scope 创建时的 `warm` 钩子预热该会话的缓存项，转发的 owner 事件 `agent-preset/selected` 丢弃该会话这一项（目录属于 preset，而空会话可能在预热之后才切换），`connection/reset` 清空全部缓存。结果按 `startsWith(query)` 过滤。
+skill（技能）调用 source 的浏览器端：把 `/` 触发的 `skill` source 注册进 `ctx.inputTriggers`。普通会话候选来自正式 `composerCatalog.listSession({sessionId})` 投影，因此 `Skills` 分区和行尾来源标签与首次发送准入使用同一最终 scope。宿主提供每一个用户可调用的 skill；`modelInvocable: false` 条目会以当前语言把仅限用户标记作为描述前缀带上。由目录寻址的可继续 subagent 在客户端没有本地候选。目录按普通会话缓存并走 single-flight；`agent-preset/selected` 丢弃该会话的缓存项，`connection/reset` 清空全部缓存。结果按 `startsWith(query)` 过滤。
 
 pick 会落下规范字面文本 `/skill <name> `，发出的提示词中也是同一段字面文本（[slash 流水线 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-25-web-input-machine-and-slash-pipeline.zh.md)）——本 source 不实现任何裁决钩子，也没有引用 codec。确定性在宿主侧：pre-step 手势边界（`dsh-tool-skill`）识别用户消息中任意位置、以空白为界、指名用户可调用 skill 的 `/skill <name>` token，并为每个入口注入渲染后的 `<skill_content>`，因此菜单 pick、手动键入的 token 与 TUI/ACP（Agent Client Protocol）提示词都以同一种方式加载 skill。Command 和 Skill 现在可以共用业务名称，因为只有显式 Skill 语法才会寻址这条路径；旧 `/<name>` Skill 手势仅在有效命令不存在同名项时继续兼容。列表 RPC 使用插件注册时捕获的根上下文连接——source 绝不从每次调用的参数上读取服务；草稿 chip 视觉由 `lexicon` 扫描派生。
 

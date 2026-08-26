@@ -23,7 +23,7 @@ import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import { SessionQueryError, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
 import { SubagentError } from '@deepseek-ai/dsh-subagent'
 import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai/dsh-subagent'
-import { isUserInvocable } from '@deepseek-ai/dsh-skill'
+import { explicitSkillNames, isUserInvocable } from '@deepseek-ai/dsh-skill'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import {
   workspaceDomainState, workspaceRecord, WorkspaceId as brandWorkspaceId,
@@ -1807,6 +1807,51 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     return { agent }
   }
 
+  /** Revalidate canonical user Skill gestures before the prompt becomes durable. */
+  async function explicitSkillAdmission(
+    agent: Agent,
+    content: readonly PromptContentPart[],
+  ): Promise<RpcError | undefined> {
+    const names: string[] = []
+    for (const part of content) {
+      if (part.type !== 'text') continue
+      for (const name of explicitSkillNames(part.text)) {
+        if (!names.includes(name)) names.push(name)
+      }
+    }
+    if (names.length === 0) return undefined
+    const presets = ctx.get('agentPresets')
+    const registry = presets?.serviceFor(agent, 'skills') ?? ctx.get('skills')
+    if (registry === undefined) {
+      return {
+        code: 'skill-catalog-unavailable',
+        message: 'Skill catalog is unavailable for this Session; the prompt was not sent.',
+        details: {},
+      }
+    }
+    let skills
+    try {
+      skills = await registry.list({ cwd: agent.session.header.cwd, scope: agent })
+    } catch (error: unknown) {
+      return {
+        code: 'skill-catalog-unavailable',
+        message: 'Skill catalog could not be revalidated; the prompt was not sent.',
+        details: { reason: String(error) },
+      }
+    }
+    for (const name of names) {
+      const skill = skills.find(candidate => candidate.name === name)
+      if (skill === undefined || !isUserInvocable(skill)) {
+        return {
+          code: 'skill-unavailable',
+          message: `Skill "${name}" is unknown, no longer available, or not user-invocable; the prompt was not sent.`,
+          details: { name },
+        }
+      }
+    }
+    return undefined
+  }
+
   /** Missing-service report shared by the settings domain (skills-domain stance). */
   function settingsAbsent(): RpcError {
     return { code: 'internal', message: 'settings service is absent: this deployment does not mount a settings provider (e.g. @deepseek-ai/dsh-settings-file) in its composition', details: {} }
@@ -2373,6 +2418,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const resolved = await turnAgentFor<{ accepted: true }>(request, sessionId)
         if ('refused' in resolved) return resolved.refused
         const agent = resolved.agent
+        const skillError = await explicitSkillAdmission(agent, content)
+        if (skillError !== undefined) return err(request, skillError)
         // Request identity and optional browser zone ride the exact durable user message.
         const source: MessageSource = {
           kind: 'user',

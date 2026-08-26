@@ -216,7 +216,14 @@ export class ConversationController extends Service implements IConversation {
     const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
     const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
     const result = await session.prompt(content, mode, signal)
-    if (!result.ok) return { kind: 'error' }
+    if (!result.ok) {
+      // promptError remains the general Session failure projection. Skill
+      // admission also rides the input-machine notice channel so a rejected
+      // first prompt is visible across the draft -> blank-Session render race.
+      return result.error.code === 'skill-unavailable' || result.error.code === 'skill-catalog-unavailable'
+        ? { kind: 'error', text: `${result.error.message} (${result.error.code})` }
+        : { kind: 'error' }
+    }
     this.releaseDraftImages(attachments)
     return { kind: 'success' }
   }

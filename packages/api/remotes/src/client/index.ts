@@ -13,7 +13,10 @@ import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 
 export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
-export type { DraftComposerCatalog, DraftComposerCatalogRequest } from '@deepseek-ai/dsh-host-composer-catalog/types'
+export type {
+  DraftCatalogError, DraftCatalogOrigin, DraftCommandDescriptor, DraftComposerCatalog,
+  DraftComposerCatalogRequest, DraftSkillDescriptor, SessionComposerCatalogRequest,
+} from '@deepseek-ai/dsh-host-composer-catalog/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'
 export type {} from '@deepseek-ai/dsh-file-reference/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'

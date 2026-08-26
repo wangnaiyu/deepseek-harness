@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy":
-    - button "/user-invoke-demo and confirm the fixtur" [disabled]
+    - button "/skill user-invoke-demo and confirm the" [disabled]
   - img
   - text: Standard mode
   - button "Session log":
@@ -9,7 +9,7 @@
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
-- text: /user-invoke-demo and confirm the fixture wiring {{clock}}
+- text: /skill user-invoke-demo and confirm the fixture wiring {{clock}}
 - button "Copy":
   - img
 - button "Context injection @deepseek-ai/dsh-system-prompt":

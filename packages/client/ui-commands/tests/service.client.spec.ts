@@ -39,6 +39,7 @@ interface BenchOptions {
   commands?: (payload: { sessionId: SessionId }) => Promise<{ commands: CommandDescriptor[] }>
   execute?: (payload: { sessionId: SessionId; line: string }) => Promise<ExecuteValue>
   addressed?: SessionId
+  formalCommands?: CommandDescriptor[]
 }
 
 /**
@@ -68,6 +69,7 @@ async function bench(opts: BenchOptions = {}) {
   const registered = new Map<string, InputTriggerSource>()
   const listCalls: Array<{ sessionId: SessionId }> = []
   const executeCalls: Array<{ sessionId: SessionId; line: string; images: readonly SubmitImageAttachment[] }> = []
+  const formalCalls: Array<{ sessionId: SessionId }> = []
   // The service reads the generated commands Remote, which delivers the
   // carrier's outcome, so a programmed failure answers the error branch.
   const commandsRemote = {
@@ -113,8 +115,18 @@ async function bench(opts: BenchOptions = {}) {
       : undefined,
   })
   const forwarded = new Map<string, Array<(...args: never[]) => void>>()
+  const composerCatalog = opts.formalCommands === undefined ? undefined : {
+    listSession: async (payload: { sessionId: SessionId }) => {
+      formalCalls.push(payload)
+      return {
+        ok: true as const,
+        value: { revision: 'formal', commands: opts.formalCommands!, skills: [] },
+      }
+    },
+  }
   ctx.provide('remote', {
     commands: commandsRemote,
+    ...composerCatalog === undefined ? {} : { composerCatalog },
     $on: (event: string, listener: (...args: never[]) => void) => {
       const listeners = forwarded.get(event) ?? []
       listeners.push(listener)
@@ -126,6 +138,7 @@ async function bench(opts: BenchOptions = {}) {
     },
   })
   ctx.provide('remote.commands', commandsRemote)
+  if (composerCatalog !== undefined) ctx.provide('remote.composerCatalog', composerCatalog)
   const executions: Array<{ sessionId: SessionId; name: string; result: CommandResult }> = []
   ctx.on('command/executed', (sessionId, name, result) => {
     executions.push({ sessionId, name, result })
@@ -155,7 +168,7 @@ async function bench(opts: BenchOptions = {}) {
   const warm = async (session: ClientSessionContext) => {
     await source.candidates(session, { query: '', position: 'leading', signal: new AbortController().signal })
   }
-  return { ctx, fiber, command, source, mint, warm, listCalls, executeCalls, executions, registered, notices }
+  return { ctx, fiber, command, source, mint, warm, listCalls, formalCalls, executeCalls, executions, registered, notices }
 }
 
 function menuPick(source: InputTriggerSource, name: string, session: ClientSessionContext, end?: number) {
@@ -220,7 +233,18 @@ describe('candidates', () => {
     const { source, listCalls } = await bench()
     const list = await source.candidates(proj('s1'), req('g'))
     expect(listCalls).toEqual([{ sessionId: sid('s1') }])
-    expect(list).toEqual([{ name: 'goal', description: 'leadingInput kind', hint: 'goal text' }])
+    expect(list).toEqual([{ name: 'goal', description: 'leadingInput kind', hint: 'goal text', origin: 'DSH' }])
+  })
+
+  it('uses the formal Session catalog and exposes trusted origin rows', async () => {
+    const { source, listCalls, formalCalls } = await bench({
+      formalCommands: [{ name: 'analyze', description: 'PTO analysis', origin: { kind: 'pto', label: 'PTO' } }],
+    })
+    const list = await source.candidates(proj('s1'), req(''))
+    expect(formalCalls).toEqual([{ sessionId: sid('s1') }])
+    expect(listCalls).toEqual([])
+    expect(source.showGroupTitle).toBe(false)
+    expect(list).toEqual([{ name: 'analyze', description: 'PTO analysis', origin: 'PTO' }])
   })
 
   it('matches case-insensitive subsequences and ranks prefixes, boundaries, adjacency, gaps, then source order', async () => {
