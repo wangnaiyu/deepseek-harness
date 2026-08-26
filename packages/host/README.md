@@ -1,5 +1,5 @@
 ---
-description: "Package map for the web GUI host half: the HTTP and SPA servers, workspace-directory picking implementations, the open-in-app launch routes, and the plugin inventory projection."
+description: "Package map for the web GUI host half: the HTTP and SPA servers, workspace-directory picking implementations, the open-in-app launch routes, and the composer catalog and composer catalog and plugin inventory projectionss."
 kind: "package-group"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The `host/` group provides the web GUI's plain HTTP server, the SPA dist server that serves the built Web shell, the workspace-directory picking seam with its native, browse, and adaptive composition packages, the open-in-app application probe and launch routes, and the read-only plugin inventory projection. All eight packages are product packages; the browser transport lives in [`client/`](../client/README.md), and the composed application is [`apps/cli`](../../apps/cli/README.md) booting the [`dsh-base` bundle](../bundle/base/cordis.patch.yml) that serves the web app under `apps/web/`. The picker backends replace one another behind the shared seam.
+The `host/` group provides the web GUI's plain HTTP server, the SPA dist server that serves the built Web shell, the workspace-directory picking seam with its native, browse, and adaptive composition packages, the open-in-app application probe and launch routes, and the read-only composer catalog and composer catalog and plugin inventory projectionss. All eight packages are product packages; the browser transport lives in [`client/`](../client/README.md), and the composed application is [`apps/cli`](../../apps/cli/README.md) booting the [`dsh-base` bundle](../bundle/base/cordis.patch.yml) that serves the web app under `apps/web/`. The picker backends replace one another behind the shared seam.
 
 ## Table of Contents
 
@@ -33,6 +33,7 @@ Eight packages play the host roles; each package README owns its contract and co
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend, including for remote clients | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive chooser that mounts the matching backend at boot | mounts a backend |
 | [`open-in-app/`](open-in-app/README.md) | Application probe, icon, and launch routes opening the workspace directory in an installed application | consumes `ctx.webServer` |
+| [`composer-catalog/`](composer-catalog/README.md) | Read-only new-session draft capability projection | Remote `composerCatalog/listDraft` |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
 
 -----

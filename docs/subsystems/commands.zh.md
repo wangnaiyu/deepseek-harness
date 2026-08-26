@@ -42,6 +42,13 @@ interface CommandDefinition {
   /** Optional free-form input hint advertised to capable clients. */
   readonly input?: CommandInputDescriptor
   /**
+   * Opaque provider identity used by trusted Host discovery projections to
+   * resolve product ownership. Omission leaves ownership to the registration
+   * layer: global definitions are deployment-owned and scoped definitions are
+   * owned by the viewing agent composition.
+   */
+  readonly provider?: string
+  /**
    * Whether `command/run` records `rawInput`. Defaults to true. A command
    * whose domain event owns the payload sets this false to avoid duplicating
    * that payload in the session log.
@@ -94,7 +101,7 @@ type CommandResult =
 
 ## 发现与解析视图
 
-作用域解析后，适配器会获得不含处理器的不可变描述符。`parseCommand()` 在注册表解析前返回 `ParsedCommand`；语法有效的输入仍可能指向不可用的命令。
+作用域解析后，适配器会获得不含处理器的不可变描述符。需要归属信息的 Host projection（宿主投影）使用 `listDiscoveryForScope()` 保留最终胜出的注册 layer 与可选 provider identity，同时不通过普通描述符暴露两者。`parseCommand()` 在注册表解析前返回 `ParsedCommand`；语法有效的输入仍可能指向不可用的命令。
 
 ```ts type-equiv
 /** Handler-free immutable command view returned to UI adapters. */
@@ -107,6 +114,18 @@ interface CommandDescriptor {
   readonly description: string
   /** Optional free-form input hint advertised to capable clients. */
   readonly input?: CommandInputDescriptor
+}
+```
+
+```ts type-equiv
+/** Registration-layer fact retained beside one effective discovery descriptor. */
+interface CommandDiscoveryEntry {
+  /** Handler-free command metadata. */
+  readonly descriptor: CommandDescriptor
+  /** Layer that supplied the effective same-name winner. */
+  readonly layer: 'global' | 'scoped'
+  /** Opaque provider identity supplied by the winning definition. */
+  readonly provider?: string
 }
 ```
 
@@ -157,6 +176,32 @@ registerFileReceiptResolver(resolver: CommandFileReceiptResolver): () => void
 @Remote list(agent: Agent): readonly CommandDescriptor[]
 
 /**
+ * List immutable descriptors from the unscoped registration layer only.
+ * Host discovery consumers use this without creating an Agent or Session.
+ * @returns name-sorted global command descriptors.
+ */
+listGlobalDescriptors(): readonly CommandDescriptor[]
+
+/**
+ * List effective immutable descriptors for a host-addressed scope chain.
+ * The caller obtains the opaque key from the scope owner; this method reads
+ * registrations only and does not create an Agent or Session.
+ * @param scope - viewing scope key, or `undefined` for the global view.
+ * @returns name-sorted descriptors after scope-chain shadowing.
+ */
+listForScope(scope: ScopeKey | undefined): readonly CommandDescriptor[]
+
+/**
+ * List effective command descriptors together with their winning
+ * registration layer and opaque provider identity. Host discovery consumers
+ * use these facts instead of comparing descriptor values, which can be
+ * identical across a scoped override and its global fallback.
+ * @param scope - viewing scope key, or `undefined` for the global view.
+ * @returns name-sorted immutable discovery entries.
+ */
+listDiscoveryForScope(scope: ScopeKey | undefined): readonly CommandDiscoveryEntry[]
+
+/**
  * Resolve one effective command definition.
  * @param agent - exact receiving agent and scoped-layer key.
  * @param name - command name without a slash.
@@ -195,7 +240,7 @@ find(agent: Agent, name: string): CommandDefinition | undefined
 @Remote async execute( agent: Agent, line: string, submittedAttachments: readonly CommandSubmitAttachment[], signal: AbortSignal, ): Promise<CommandExecution | undefined>
 ```
 
-Types: [Agent](core.zh.md)
+Types: [Agent](core.zh.md) · [ScopeKey](scope.md)
 
 Source: [`packages/interaction/commands/src/index.ts`](../../packages/interaction/commands/src/index.ts)
 
