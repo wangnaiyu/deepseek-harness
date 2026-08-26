@@ -9,7 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package powers the input trigger pipeline of the Web GUI: it detects `/` and `@` typed under the caret, shows a grouped candidate menu, and routes a pick to the registered source. Sources register through `ctx.inputTriggers` — the `/` command source (ui-commands), the `@` file and session reference sources (ui-reference), and any business package — and the conversation wiring drives the pipeline per session. Typing a trigger seeds every source registered for it; a chrome launcher can also open exactly one source over the current selection. The pipeline is presentation-only: picks produce command claims or reference inserts whose consequences belong to the consuming host and input packages.
+This package powers the input trigger pipeline of the Web GUI: it detects `/` and `@` typed under the caret, shows a grouped candidate menu, and routes a pick to the registered source. `ctx.inputTriggers` owns the source roster, one controller per Session scope, and one explicitly bound browser-draft controller. Sources receive an `InputTriggerTarget`; legacy sources remain Session-only unless they opt into draft targets. Typing seeds every eligible source, while launchers may open one source or an entire trigger roster. Draft picks apply the same span-CAS outcomes directly to the resident input machine without creating a Session.
+
+The pure core owns detection and menu reduction. Failed sources remain isolated and retryable; successful sources can return contained section issues alongside candidates. MenuView occupies the `session-maybe` input overlay, retaining upstream breadcrumb/drill behavior while adding bounded descriptions, trusted origins, and retry rows. The pipeline stays presentation-only: consuming packages own command claims, text changes, and reference insertion.
 
 ## Table of Contents
 

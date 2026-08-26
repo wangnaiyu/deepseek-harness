@@ -152,6 +152,7 @@ export function apply(ctx: ClientContext): void {
     name: 'cordis',
     order: 1,
     candidates(session, { query }) {
+      if (session.kind === 'draft') return Promise.resolve([])
       const rows = rowsOf(session.sessionId, query)
       return Promise.resolve(rows.map((row) => {
         const packageId = row.nextPackageId ?? row.currentPackageId ?? row.packages.at(-1)?.packageId
@@ -163,7 +164,7 @@ export function apply(ctx: ClientContext): void {
       }))
     },
     warm() { inventory.refresh() },
-    lexicon(session) { return rowsOf(session.sessionId, '').map(row => String(row.pluginId)) },
+    lexicon(session) { return session.kind === 'draft' ? [] : rowsOf(session.sessionId, '').map(row => String(row.pluginId)) },
     subscribeLexicon(_session, listener) { return inventory.subscribe(listener) },
     onPick({ candidate }) { return { text: `@${candidate.name} ` } },
   }

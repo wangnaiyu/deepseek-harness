@@ -138,8 +138,9 @@ export function apply(ctx: ClientContext): void {
     trigger: '/',
     name: 'skill',
     order: 2,
-    async candidates(session, { query, signal }) {
-      const skills = await fetchCatalog(session.sessionId)
+    async candidates(target, { query, signal }) {
+      if (target.kind === 'draft') return []
+      const skills = await fetchCatalog(target.sessionId)
       // Superseded keystroke: the shared fetch stays warm, this caller yields.
       if (signal.aborted) return []
       return skills
@@ -151,16 +152,17 @@ export function apply(ctx: ClientContext): void {
           description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
         }))
     },
-    warm(session) {
+    warm(target) {
       // Fire-and-forget scope-birth prewarm; the shared fetch reports
       // through candidates.
-      fetchCatalog(session.sessionId).catch(() => {})
+      if (target.kind !== 'draft') fetchCatalog(target.sessionId).catch(() => {})
     },
-    lexicon(session) {
-      return fetches.get(session.sessionId)?.settled?.map(skill => skill.name)
+    lexicon(target) {
+      return target.kind !== 'draft' ? fetches.get(target.sessionId)?.settled?.map(skill => skill.name) : []
     },
-    subscribeLexicon(session, listener) {
-      const key = session.sessionId
+    subscribeLexicon(target, listener) {
+      if (target.kind === 'draft') return () => {}
+      const key = target.sessionId
       const listeners = lexiconListeners.get(key) ?? new Set()
       listeners.add(listener)
       lexiconListeners.set(key, listeners)
