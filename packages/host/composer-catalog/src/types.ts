@@ -44,6 +44,11 @@ export interface DraftComposerCatalogRequest {
   readonly agentPreset?: string
 }
 
+/** Existing Session identity accepted by the formal capability resolver. */
+export interface SessionComposerCatalogRequest {
+  readonly sessionId: string
+}
+
 /** Point-in-time capability catalog for a draft with no Session. */
 export interface DraftComposerCatalog {
   readonly revision: string
