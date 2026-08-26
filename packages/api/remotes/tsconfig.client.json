@@ -42,6 +42,9 @@
       "path": "../../feedback/message-feedback"
     },
     {
+      "path": "../../host/composer-catalog"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {

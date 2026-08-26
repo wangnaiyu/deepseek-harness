@@ -39,7 +39,9 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { discoverPresets, SHIPPED_PRESET_ROOT, USER_PRESET_DIR } from './discovery.ts'
 import { copyComposition, deleteComposition, presetExists, readComposition } from './authoring.ts'
-import { livePresetMounts, mountPreset, serviceForAgent, standingMountFor } from './mount.ts'
+import {
+  livePresetMounts, mountPreset, serviceForAgent, serviceForStandingKey, standingMountFor,
+} from './mount.ts'
 import {
   fileComposition, mountedCompositionRows,
   type AgentPresetComposition,
@@ -77,7 +79,8 @@ export {
   METADATA_FILE, readPresetMetadata, renderPresetMetadata, type PresetMetadata,
 } from './metadata.ts'
 export {
-  inactiveRows, leakedServices, livePresetMounts, mountPreset, serviceForAgent, standingMountFor,
+  inactiveRows, leakedServices, livePresetMounts, mountPreset, serviceForAgent,
+  serviceForStandingKey, standingMountFor,
   type JoinedPresetMount, type PresetMount,
 } from './mount.ts'
 export { copyComposition, deleteComposition, readComposition, writableRoot } from './authoring.ts'
@@ -741,6 +744,21 @@ export class AgentPresets extends TypertRemoteService {
   async standingKeyFor(id?: string): Promise<ScopeKey> {
     const preset = await this.resolveMountable(id)
     return (await this.ensureStanding(preset)).key
+  }
+
+  /**
+   * Resolve one service from an already ensured standing composition without
+   * an Agent. An absent service returns `undefined` rather than falling back
+   * to the host root.
+   * @param standingKey - opaque key returned by {@link standingKeyFor}.
+   * @param name - service name as the preset's rows resolve it.
+   * @returns the standing service instance, or undefined when not mounted by the preset.
+   */
+  serviceForStanding<K extends string & keyof Context>(
+    standingKey: ScopeKey,
+    name: K,
+  ): Context[K] | undefined {
+    return serviceForStandingKey(this.ctx, standingKey, name)
   }
 
   /** Resolve (or create, single-flight) the standing mount of one preset. */

@@ -87,6 +87,55 @@ describe('CommandRuntime', () => {
     expect(ctx.commands.list(agent).map(item => item.name)).toEqual(['alpha', 'middle', 'zeta'])
   })
 
+  it('lists global and standing-scope descriptors without an agent', async () => {
+    const ctx = await mount()
+    const standingKey = { preset: 'reviewer' }
+    const standing = createScope(ctx, standingKey)
+    ctx.commands.register(command('shared', 'global'))
+    ctx.commands.register(command('global-only'))
+    await standing.ctx.plugin(Object.assign((inner: Context) => {
+      inner.commands.register({ ...command('shared', 'standing'), description: 'standing shared' })
+      inner.commands.register(command('preset-only'))
+    }, { inject: ['commands'] }))
+
+    const global = ctx.commands.listGlobalDescriptors()
+    const scoped = ctx.commands.listForScope(standingKey)
+
+    expect(global.map(item => item.name)).toEqual(['global-only', 'shared'])
+    expect(scoped.map(item => item.name)).toEqual(['global-only', 'preset-only', 'shared'])
+    expect(scoped.find(item => item.name === 'shared')?.description).toBe('standing shared')
+    expect(Object.isFrozen(global)).toBe(true)
+    expect(Object.isFrozen(scoped)).toBe(true)
+  })
+
+  it('reports the winning layer and provider when scoped and global descriptors are identical', async () => {
+    const ctx = await mount()
+    const standingKey = { preset: 'code' }
+    const standing = createScope(ctx, standingKey)
+    const plan = {
+      name: 'plan',
+      description: 'Toggle plan mode',
+      input: { hint: '<on|off>' },
+      handler: () => ({ kind: 'success' as const }),
+    }
+    ctx.commands.register({ ...plan, provider: 'dsh.plan' })
+    await standing.ctx.plugin(Object.assign((inner: Context) => {
+      inner.commands.register(plan)
+    }, { inject: ['commands'] }))
+
+    expect(ctx.commands.listDiscoveryForScope(undefined)).toEqual([{
+      descriptor: { name: 'plan', description: 'Toggle plan mode', input: { hint: '<on|off>' } },
+      layer: 'global',
+      provider: 'dsh.plan',
+    }])
+    expect(ctx.commands.listDiscoveryForScope(standingKey)).toEqual([{
+      descriptor: { name: 'plan', description: 'Toggle plan mode', input: { hint: '<on|off>' } },
+      layer: 'scoped',
+    }])
+    expect(Object.isFrozen(ctx.commands.listDiscoveryForScope(standingKey))).toBe(true)
+    expect(Object.isFrozen(ctx.commands.listDiscoveryForScope(standingKey)[0])).toBe(true)
+  })
+
   it('uses agent-scoped shadows and removes them with their scope', async () => {
     const ctx = await mount()
     const { scope, agent } = await mintAgentScope(ctx, 'a')
@@ -168,6 +217,10 @@ describe('CommandRuntime', () => {
       ...command('input-type'),
       input: null,
     } as unknown as CommandDefinition)).toThrow('command "input-type" input hint must be a string')
+    expect(() => ctx.commands.register({
+      ...command('provider-type'),
+      provider: ' ',
+    })).toThrow('command "provider-type" provider must be a non-empty string when supplied')
   })
 
   it('passes exact invocation context and detaches valid handler results', async () => {
