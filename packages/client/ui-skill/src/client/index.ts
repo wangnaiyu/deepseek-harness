@@ -34,10 +34,12 @@
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type { DraftSkillDescriptor, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type {
+  InputTriggerCandidate, InputTriggerCandidateIcon, InputTriggerServiceContract, InputTriggerSource,
+} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -63,10 +65,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** One session's catalog fetch: the shared promise plus its own abort handle. */
 interface CatalogFetch {
-  readonly promise: Promise<readonly SkillEntry[]>
+  readonly promise: Promise<readonly SessionSkillEntry[]>
   readonly abort: AbortController
   /** Settled catalog for synchronous lexicon reads (unset while in flight or on failure). */
-  settled?: readonly SkillEntry[]
+  settled?: readonly SessionSkillEntry[]
+}
+
+type SessionSkillEntry = SkillEntry & Partial<Pick<DraftSkillDescriptor, 'origin' | 'iconId'>>
+
+/** Admit only icon identifiers the shared reference glyph set can render. */
+function candidateIcon(iconId: string | undefined): InputTriggerCandidateIcon | undefined {
+  return iconId === 'file' || iconId === 'folder' || iconId === 'session' ? iconId : undefined
 }
 
 /** Required services: reference source faces plus the tool-row and locale registries. */
@@ -83,13 +92,18 @@ export function apply(ctx: ClientContext): void {
     SkillRow,
   ))
 
-  const skills = ctx.remote.skills
+  const legacySkills = ctx.remote.skills
   const sessions = ctx.sessions
   // Session-keyed catalog cache; single-flight per key. Plugin-closure state:
   // the fiber effect below is its teardown boundary.
   const fetches = new Map<SessionId, CatalogFetch>()
   // Per-session lexicon invalidation listeners (subscribeLexicon consumers).
   const lexiconListeners = new Map<SessionId, Set<() => void>>()
+  let formal: (typeof ctx.remote)['composerCatalog'] | undefined
+  ctx.inject(['remote.composerCatalog'], (scope) => {
+    formal = scope.remote.composerCatalog
+    return () => { formal = undefined }
+  })
 
   const notifyLexicon = (sessionId: SessionId): void => {
     for (const listener of [...(lexiconListeners.get(sessionId) ?? [])]) {
@@ -118,7 +132,12 @@ export function apply(ctx: ClientContext): void {
         if (state.openState !== 'open') {
           throw state.openError ?? new Error(`session "${sessionId}" is not open`)
         }
-        const result = await skills.list({ sessionId }, abort.signal)
+      if (formal !== undefined) {
+        const result = await formal.listSession({ sessionId })
+        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+        return result.value.skills
+      }
+        const result = await legacySkills.list({ sessionId }, abort.signal)
         abort.signal.throwIfAborted()
         if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`)
         return result.value.skills
@@ -160,21 +179,26 @@ export function apply(ctx: ClientContext): void {
     trigger: '/',
     name: 'skill',
     order: 2,
+    showGroupTitle: false,
     async candidates(session, { query, signal }) {
       if (session.kind === 'draft') return []
       if (sessions.subagentAddress(session.sessionId) !== undefined) return []
       const skills = await fetchCatalog(session.sessionId).promise
       // Superseded keystroke: the shared fetch stays warm, this caller yields.
       if (signal.aborted) return []
-      // The same ranking as the command group of this menu: case-insensitive
-      // ordered subsequence, prefix hits first.
       return rankByName(skills, query)
-        .map(skill => ({
-          name: skill.name,
-          // The user-only marker rides the description (the menu's only
-          // secondary text); `hint` is the claim-state ghost text, not a badge.
-          description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
-        }))
+        .map((skill): InputTriggerCandidate => {
+          const icon = candidateIcon(skill.iconId)
+          return {
+            name: skill.name,
+            // The user-only marker rides the description (the menu's only
+            // secondary text); `hint` is the claim-state ghost text, not a badge.
+            description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
+            origin: skill.origin?.label ?? 'DSH',
+            section: 'Skills',
+            ...icon === undefined ? {} : { icon },
+          }
+        })
     },
     warm(target) {
       // Fire-and-forget scope-birth prewarm; the shared fetch reports

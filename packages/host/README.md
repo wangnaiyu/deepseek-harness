@@ -33,7 +33,7 @@ The packages play the host roles; each package README owns its contract and conf
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend, including for remote clients | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive chooser that mounts the matching backend at boot | mounts a backend |
 | [`open-in-app/`](open-in-app/README.md) | Application probe, icon, and launch routes opening the workspace directory in an installed application | consumes `ctx.webServer` |
-| [`composer-catalog/`](composer-catalog/README.md) | Read-only new-session draft capability projection | Remote `composerCatalog/listDraft` |
+| [`composer-catalog/`](composer-catalog/README.md) | Read-only draft and formal-Session capability projections | Remote `composerCatalog/listDraft`, `composerCatalog/listSession` |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
 | [`product-telemetry-otel/`](product-telemetry-otel/README.md) | Explicit product usage events over OTLP/HTTP | `ctx.productTelemetry` |
 

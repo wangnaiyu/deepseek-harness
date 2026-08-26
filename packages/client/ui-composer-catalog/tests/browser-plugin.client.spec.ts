@@ -22,6 +22,9 @@ async function bench(
   result: () => Promise<
     { ok: true; value: DraftComposerCatalog } | { ok: false; error: { code: string; message: string } }
   >,
+  sessionResult: () => Promise<
+    { ok: true; value: DraftComposerCatalog } | { ok: false; error: { code: string; message: string } }
+  > = result,
 ) {
   const ctx = new Context()
   let source: InputTriggerSource | undefined
@@ -32,12 +35,19 @@ async function bench(
       return () => { disposed = true }
     },
   })
-  const composerCatalog = { listDraft: vi.fn(result) }
+  const composerCatalog = { listDraft: vi.fn(result), listSession: vi.fn(sessionResult) }
   ctx.provide('remote', { composerCatalog })
   ctx.provide('remote.composerCatalog', composerCatalog)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
-  return { ctx, fiber, source: source!, listDraft: composerCatalog.listDraft, disposed: () => disposed }
+  return {
+    ctx,
+    fiber,
+    source: source!,
+    listDraft: composerCatalog.listDraft,
+    listSession: composerCatalog.listSession,
+    disposed: () => disposed,
+  }
 }
 
 const target = (revision = '1:workspace') => ({
@@ -101,6 +111,38 @@ describe('draft composer catalog source', () => {
     })
     expect(pick(rows[0]!)).toEqual({ text: '/analyze ' })
     expect(pick(rows[1]!)).toEqual({ text: '/skill analyze ' })
+  })
+
+  it('rejects draft-to-Session disappearance, source changes, and conflict changes', async () => {
+    const vanished: DraftComposerCatalog = {
+      revision: 'final',
+      commands: [{ name: 'plan', description: 'Plan work', origin: { kind: 'agent', label: 'Agent' } }],
+      skills: [{ name: 'mine', description: 'Personal', modelInvocable: true, origin: { kind: 'plugin', label: 'Other' } }],
+    }
+    const b = await bench(
+      () => Promise.resolve({ ok: true, value: catalog }),
+      () => Promise.resolve({ ok: true, value: vanished }),
+    )
+    await b.source.candidates(target(), req())
+    const signal = new AbortController().signal
+    await expect(b.source.admitMaterialized?.(target(), { sessionId: 's1' as never }, '/skill evidence', signal))
+      .rejects.toThrow('no longer available')
+    await expect(b.source.admitMaterialized?.(target(), { sessionId: 's1' as never }, '/skill mine', signal))
+      .rejects.toThrow('changed source or invocation policy')
+
+    const conflict: DraftComposerCatalog = {
+      revision: 'conflict',
+      commands: [{ name: 'evidence', description: 'New command', origin: { kind: 'pto', label: 'PTO' } }],
+      skills: catalog.skills,
+    }
+    const c = await bench(
+      () => Promise.resolve({ ok: true, value: catalog }),
+      () => Promise.resolve({ ok: true, value: conflict }),
+    )
+    await c.source.candidates(target(), req())
+    await expect(c.source.admitMaterialized?.(target(), { sessionId: 's2' as never }, '/evidence now', signal))
+      .rejects.toThrow('conflict changed')
+    expect(b.listSession).toHaveBeenCalledWith({ sessionId: 's1' })
   })
 
   it('drops a failed cache entry so retry reaches the Host again', async () => {

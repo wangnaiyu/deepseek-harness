@@ -1,9 +1,9 @@
 // Web e2e scenario: a user invokes a disable-model-invocation skill through
-// the composer (issue #1470). The entered `/name args` line claims into
-// skill.invoke: the real host forwards the gesture as an ordinary user
-// prompt, injects the rendered body as instructions context named after the
-// skill, and starts a turn answered by the replay adapter. Chat shows the
-// gesture bubble and reply; the Session retains the injected instructions.
+// the composer (issue #1470). A vanished first-send Skill is rejected while
+// its draft stays editable; the valid canonical gesture then reaches the real
+// host as an ordinary user prompt, injects the rendered body as instructions
+// context named after the skill, and starts a turn answered by the replay adapter. The transcript shows
+// the gesture bubble, the collapsed context-injection row, and the reply.
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -100,21 +100,30 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     if (failures.length > 1) throw new AggregateError(failures, 'skill-user-invoke e2e cleanup failed')
   })
 
-  it('claims /name args into a gesture bubble, logged instructions, and a replayed answer', async () => {
+  it('rejects a vanished first-send Skill, then runs the corrected canonical gesture', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-user-invoke'))
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.waitFor({ timeout: 15_000 })
 
-    // The draft has no Agent-bound suggestion catalog. A typed skill command
-    // may itself be the first send and is re-adjudicated after materialization.
+    // The first send materializes exactly one blank Session, then formal
+    // Session admission rejects a vanished Skill and leaves the text intact.
+    await composer.fill('/skill vanished-skill analyze this')
+    await composer.press('Enter')
+    await expect.poll(() => composer.inputValue()).toBe('/skill vanished-skill analyze this')
+    await page.getByRole('alert').filter({ hasText: 'vanished-skill' })
+      .waitFor({ timeout: 15_000 })
+
+    // The same retained composer can be corrected and sent; no silent model
+    // prompt was created by the failed attempt.
     const settled = scaffold.whenTurnSettled()
-    await composer.fill(`/${SKILL_NAME} ${ARGS_TEXT}`)
+    await composer.fill(`/skill ${SKILL_NAME} ${ARGS_TEXT}`)
     await composer.press('Enter')
 
-    // The gesture stays an ordinary user bubble with the skill chip and trailing text.
+    // The gesture stays an ordinary user bubble (decorated canonical
+    // introducer plus ordinary name/arguments), ahead of the injected context.
     const bubble = page.locator('[data-ref-chip="skill"]').first()
     await bubble.waitFor({ timeout: 15_000 })
-    expect(await bubble.textContent()).toBe(`/${SKILL_NAME}`)
+    expect(await bubble.textContent()).toBe('/skill')
 
     await page.getByText('USER_INVOKE_REPLY', { exact: false }).first().waitFor({ timeout: 20_000 })
     const sessionId = await settled

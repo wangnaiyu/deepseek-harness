@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Typing a `/` command opens a registered popup, a client action, a host command's input, or direct execution; a command line is never silently downgraded to a plain prompt. Business packages register popupSelect specs (`/model`, `/permission`) or actions through `ctx.commandUi`, or decorate existing host commands with either kind while preserving their catalog rows and argument claims. Space and Enter resolve the line against the session's directory: a host descriptor with `input` is `leadingInput`, a registered `CommandUiSpec` is `popupSelect` or `action`, and everything else is `execute`.
 
+`CommandDirectory` (`src/client/directory.ts`) is the one wire-derived cache, keyed by session. Ordinary sessions fetch through the formal `composerCatalog.listSession({sessionId})` projection, so menu rows use the same final scope and trusted origin labels as first-send admission; the command source suppresses its group title. The source's scope-birth `warm` hook prewarms the session's entry. Catalog-addressed continuable children resolve an empty command directory locally. Entries are soft-invalidated by the forwarded `commands/change` owner event and by forwarded `agent-preset/selected` for that one session, hard-invalidated by `connection/reset`, and epoch-guarded. `matchSpace` answers synchronously from this cache only; `matchEnter` strong-waits it and rejects on warmup failure — a `/` line is never silently downgraded to a plain prompt.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)
