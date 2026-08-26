@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import CommandRuntime, { type CommandDefinition } from '@deepseek-ai/dsh-commands'
-import SessionStore from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-presets'
 import { createScope, type ScopeKey } from '@deepseek-ai/dsh-scope'
 import SkillRegistry, { type SkillCandidate, type SkillLookupOptions, type SkillProvider } from '@deepseek-ai/dsh-skill'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
@@ -68,6 +70,8 @@ async function harness(options: HarnessOptions = {}): Promise<{
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
+  ctx.sessionProjections.register(agentPresetProjectionDefinition)
   await ctx.plugin(CommandRuntime)
   await ctx.plugin(SkillRegistry)
   const standingKey = { preset: 'code' }
@@ -82,10 +86,15 @@ async function harness(options: HarnessOptions = {}): Promise<{
     }))
   }
   const workspaceId = WorkspaceId('workspace-1')
+  const workspace = {
+    id: workspaceId,
+    path: '/work/reviewer',
+    title: 'Reviewer Workspace',
+    sessionIds: [SessionId('session-final')],
+  }
   ctx.provide('workspaceRegistry', {
-    get: (id: WorkspaceId) => id === workspaceId
-      ? { id, path: '/work/reviewer', title: 'Reviewer Workspace' }
-      : undefined,
+    get: (id: WorkspaceId) => id === workspaceId ? workspace : undefined,
+    list: () => [workspace],
   } as never)
   const standingKeyFor = vi.fn(() => options.presetFailure === undefined
     ? Promise.resolve(standingKey)
@@ -94,6 +103,7 @@ async function harness(options: HarnessOptions = {}): Promise<{
     standingKeyFor,
     serviceForStanding: vi.fn((_key: ScopeKey, name: string) =>
       name === 'skills' ? options.isolatedSkills : undefined),
+    serviceFor: vi.fn(() => undefined),
   } as never)
   await ctx.plugin(ComposerCatalogGateway, options.config)
   return {
@@ -106,7 +116,7 @@ async function harness(options: HarnessOptions = {}): Promise<{
 }
 
 describe('ComposerCatalogGateway', () => {
-  it('publishes one direct listDraft Remote method', async () => {
+  it('publishes direct draft and formal Session catalog methods', async () => {
     const { catalog } = await harness()
     expect(catalog.typertRemote).toMatchObject({
       serviceKey: 'composerCatalog',
@@ -114,6 +124,7 @@ describe('ComposerCatalogGateway', () => {
     })
     expect(remoteMethods(catalog)).toEqual([
       { method: 'listDraft', invocation: { kind: 'direct' } },
+      { method: 'listSession', invocation: { kind: 'direct' } },
     ])
   })
 
@@ -173,6 +184,44 @@ describe('ComposerCatalogGateway', () => {
     expect(Object.isFrozen(result)).toBe(true)
     expect(Object.isFrozen(result.commands)).toBe(true)
     expect(Object.isFrozen(result.skills)).toBe(true)
+  })
+
+  it('projects the formal Session scope and Workspace origin without creating another Session', async () => {
+    const list = vi.fn(() => Promise.resolve([
+      candidate('filesystem', 'workspace-final', 'project-dsh'),
+      candidate('filesystem', 'pto-final', 'bundled'),
+    ]))
+    const { ctx, catalog, standingKey } = await harness({
+      config: { providerOrigins: [{ provider: 'filesystem', source: 'bundled', kind: 'pto' }] },
+      providers: [provider('filesystem', list)],
+    })
+    ctx.commands.register(command('global'))
+    const standing = createScope(ctx, standingKey)
+    await standing.ctx.plugin(Object.assign((inner: Context) => {
+      inner.commands.register(command('session-command'))
+    }, { inject: ['commands'] }))
+    ctx.sessions.create(SessionId('session-final'), {
+      meta: { cwd: '/work/reviewer', agentPreset: 'code' },
+    })
+
+    const before = ctx.sessions.list()
+    const result = await catalog.listSession({ sessionId: 'session-final' })
+
+    expect(ctx.sessions.list()).toEqual(before)
+    expect(result.commands).toEqual([
+      expect.objectContaining({ name: 'global', origin: { kind: 'dsh', label: 'DSH' } }),
+      expect.objectContaining({ name: 'session-command', origin: { kind: 'agent', label: 'Agent' } }),
+    ])
+    expect(result.skills.map(skill => [skill.name, skill.origin.label])).toEqual([
+      ['pto-final', 'PTO'],
+      ['workspace-final', 'Reviewer Workspace'],
+    ])
+  })
+
+  it('rejects a missing formal Session', async () => {
+    const { catalog } = await harness()
+    await expect(catalog.listSession({ sessionId: 'missing' }))
+      .rejects.toThrow("composer catalog session 'missing' does not exist")
   })
 
   it('keeps ungrouped discovery global and passes a real undefined cwd', async () => {

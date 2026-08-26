@@ -23,8 +23,8 @@ import { WeakMapWithValues } from '@deepseek-ai/dsh-util-values'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerPick,
-  SubmitAttachment, SubmitEnvelope, SubmitOutcome,
+  CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerCandidateIcon, InputTriggerPick,
+  SubmitEnvelope, SubmitAttachment, SubmitOutcome,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
 import type { CommandDescriptor } from './directory.ts'
@@ -56,6 +56,11 @@ function submittedCommandName(line: string): string {
   return (separator === -1 ? trimmed : trimmed.slice(0, separator)).slice(1)
 }
 
+/** Admit only icon identifiers the shared reference glyph set can render. */
+function candidateIcon(iconId: string | undefined): InputTriggerCandidateIcon | undefined {
+  return iconId === 'file' || iconId === 'folder' || iconId === 'session' ? iconId : undefined
+}
+
 /** Live mutable state in one holder (service methods run behind the caller-ctx tracker). */
 interface LiveState {
   readonly contributions: Map<string, CommandContribution>
@@ -85,8 +90,18 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const locale = ctx.get('locale')
     if (locale === undefined) throw new Error('ui-commands: locale service unavailable')
     this.t = locale.bind('command')
+    let formal: (typeof ctx.remote)['composerCatalog'] | undefined
+    ctx.inject(['remote.composerCatalog'], (scope) => {
+      formal = scope.remote.composerCatalog
+      return () => { formal = undefined }
+    })
     this.directory = new CommandDirectory(async (sessionId) => {
       if (this.sessions().subagentAddress(sessionId) !== undefined) return []
+      if (formal !== undefined) {
+        const result = await formal.listSession({ sessionId })
+        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+        return result.value.commands
+      }
       const result = await ctx.remote.commands.list(sessionId)
       if (!result.ok) throw new Error(`command.list failed: ${result.error.code}: ${result.error.message}`)
       return result.value
@@ -96,6 +111,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     ctx.effect(() => inputTriggers.registerSource({
       trigger: '/',
       name: 'command',
+      showGroupTitle: false,
       candidates: (target, req) => target.kind !== 'draft' ? this.candidates(target, req) : Promise.resolve([]),
       onPick: pick => this.dispatch(pick),
       matchSpace: (target, token) => target.kind !== 'draft' ? this.matchSpace(target, token) : undefined,
@@ -209,9 +225,12 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const seen = new Set<string>()
     for (const c of list) {
       seen.add(c.name)
+      const icon = candidateIcon(c.iconId)
       rows.push({
         name: c.name,
         ...(builtinRowFace(c, this.t) ?? { description: c.description }),
+        origin: c.origin?.label ?? 'DSH',
+        ...icon === undefined ? {} : { icon },
         ...(c.input !== undefined ? { hint: c.input.hint } : {}),
       })
     }
@@ -221,7 +240,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
         throw new Error(`ui-commands: contribution /${contribution.name} collides with a host command`)
       }
       rows.push({
-        name: contribution.name,
+        name: contribution.name, origin: 'DSH',
         ...(contribution.label === undefined ? {} : { label: contribution.label() }),
         ...(contribution.description === undefined ? {} : { description: contribution.description() }),
         ...(contribution.icon === undefined ? {} : { icon: contribution.icon }),

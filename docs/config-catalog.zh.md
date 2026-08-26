@@ -1031,7 +1031,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-host-composer-catalog`
 
-需要：`commands` · `skills` · `workspaceRegistry` · `agentPresets`
+需要：`commands` · `skills` · `workspaceRegistry` · `agentPresets` · `sessionProjections`
 
 ```ts config-catalog
 /** Draft catalog product-origin configuration. */
@@ -1053,7 +1053,7 @@ export interface ProviderOriginConfig {
 }
 ```
 
-来源：[`packages/host/composer-catalog/src/index.ts:43`](../packages/host/composer-catalog/src/index.ts)
+来源：[`packages/host/composer-catalog/src/index.ts:47`](../packages/host/composer-catalog/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
@@ -3330,7 +3330,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
+来源：[`packages/skill/tool-skill/src/index.ts:63`](../packages/skill/tool-skill/src/index.ts)
 
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 
