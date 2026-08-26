@@ -40,6 +40,13 @@ interface CommandDefinition {
   /** Optional free-form input hint advertised to capable clients. */
   readonly input?: CommandInputDescriptor
   /**
+   * Opaque provider identity used by trusted Host discovery projections to
+   * resolve product ownership. Omission leaves ownership to the registration
+   * layer: global definitions are deployment-owned and scoped definitions are
+   * owned by the viewing agent composition.
+   */
+  readonly provider?: string
+  /**
    * Whether `command/run` records `rawInput`. Defaults to true. A command
    * whose domain event owns the payload sets this false to avoid duplicating
    * that payload in the session log.
@@ -92,7 +99,7 @@ type CommandResult =
 
 ## Discovery and parsing views
 
-Adapters receive handler-free immutable descriptors after scope resolution. `parseCommand()` returns `ParsedCommand` before registry resolution; syntax-valid input can still name an unavailable command.
+Adapters receive handler-free immutable descriptors after scope resolution. Host projections that need ownership use `listDiscoveryForScope()` to retain the winning registration layer and optional provider identity without exposing either through the ordinary descriptor. `parseCommand()` returns `ParsedCommand` before registry resolution; syntax-valid input can still name an unavailable command.
 
 ```ts type-equiv
 /** Handler-free immutable command view returned to UI adapters. */
@@ -103,6 +110,18 @@ interface CommandDescriptor {
   readonly description: string
   /** Optional free-form input hint advertised to capable clients. */
   readonly input?: CommandInputDescriptor
+}
+```
+
+```ts type-equiv
+/** Registration-layer fact retained beside one effective discovery descriptor. */
+interface CommandDiscoveryEntry {
+  /** Handler-free command metadata. */
+  readonly descriptor: CommandDescriptor
+  /** Layer that supplied the effective same-name winner. */
+  readonly layer: 'global' | 'scoped'
+  /** Opaque provider identity supplied by the winning definition. */
+  readonly provider?: string
 }
 ```
 
@@ -146,6 +165,32 @@ register(definition: CommandDefinition): () => void
 @Remote list(agent: Agent): readonly CommandDescriptor[]
 
 /**
+ * List immutable descriptors from the unscoped registration layer only.
+ * Host discovery consumers use this without creating an Agent or Session.
+ * @returns name-sorted global command descriptors.
+ */
+listGlobalDescriptors(): readonly CommandDescriptor[]
+
+/**
+ * List effective immutable descriptors for a host-addressed scope chain.
+ * The caller obtains the opaque key from the scope owner; this method reads
+ * registrations only and does not create an Agent or Session.
+ * @param scope - viewing scope key, or `undefined` for the global view.
+ * @returns name-sorted descriptors after scope-chain shadowing.
+ */
+listForScope(scope: ScopeKey | undefined): readonly CommandDescriptor[]
+
+/**
+ * List effective command descriptors together with their winning
+ * registration layer and opaque provider identity. Host discovery consumers
+ * use these facts instead of comparing descriptor values, which can be
+ * identical across a scoped override and its global fallback.
+ * @param scope - viewing scope key, or `undefined` for the global view.
+ * @returns name-sorted immutable discovery entries.
+ */
+listDiscoveryForScope(scope: ScopeKey | undefined): readonly CommandDiscoveryEntry[]
+
+/**
  * Resolve one effective command definition.
  * @param agent - exact receiving agent and scoped-layer key.
  * @param name - command name without a slash.
@@ -182,7 +227,7 @@ find(agent: Agent, name: string): CommandDefinition | undefined
 @Remote async execute( agent: Agent, line: string, images: readonly EncodedImageAttachment[], signal: AbortSignal, ): Promise<CommandExecution | undefined>
 ```
 
-Types: [Agent](core.md) · [EncodedImageAttachment](attachment.md)
+Types: [Agent](core.md) · [EncodedImageAttachment](attachment.md) · [ScopeKey](scope.md)
 
 Source: [`packages/interaction/commands/src/index.ts`](../../packages/interaction/commands/src/index.ts)
 

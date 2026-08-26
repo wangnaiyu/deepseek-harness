@@ -359,6 +359,11 @@
     },
     {
       "doc": "docs/subsystems/commands.md",
+      "symbol": "CommandDiscoveryEntry",
+      "source": "packages/interaction/commands/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/commands.md",
       "symbol": "ParsedCommand",
       "source": "packages/interaction/commands/src/index.ts"
     },
