@@ -6,7 +6,7 @@
 
 输入框前置 `+` launcher 与键入 `/` 共用同一个草稿 controller 和 source。Commands 位于第一个无标题分区；Skills 随后位于 `Skills` 标题下。每行预留左侧图标位，并显示名称、受限制的单行描述与最右侧的可信产品来源。搜索同时匹配名称、描述和来源。完整描述与来源仍可通过 title 与 accessible-label 文本访问。
 
-每个草稿 target revision 的 Host 请求只会 single-flight 一次。Workspace 和已暂存 Agent preset 的变化都会更新 target，但不会清空编辑器；对话接线层会关闭旧菜单，因此其已中止请求不能发布到新 target。传输失败会留下可重试的 source 行；Host 包含的分区错误则在成功行旁展示，重试前只会使该 source 失效，不会隐藏其他成功 source。选择只会向草稿拼接文本：Command 为 `/<command> `，Skill 为预留的 `/skill <name> ` 写法。本包不实现该显式 Skill 手势的 Host 解析或执行。
+每个草稿 target revision 的 Host 请求只会 single-flight 一次。Workspace 和已暂存 Agent preset 的变化都会更新 target，但不会清空编辑器；对话接线层会关闭旧菜单，因此其已中止请求不能发布到新 target。传输失败会留下可重试的 source 行；Host 包含的分区错误则在成功行旁展示，重试前只会使该 source 失效，不会隐藏其他成功 source。选择只会向草稿拼接文本：Command 为 `/<command> `，Skill 为规范 `/skill <name> `。已结算目录会同时发布规范与旧兼容词形，用于输入装饰的纯派生显示。Host 解析和确定性 Skill 注入仍由 `dsh-tool-skill` 在 `agent/pre-step` 拥有。
 
 ## 模型体验
 
@@ -18,5 +18,4 @@
 
 ## 已知限制与暂缓事项
 
-- 显式 `/skill <name>` 提交与 Host pre-step 解析属于下一实施阶段。
 - Session 目录仍使用现有 Command 和 Skill sources；Session 实体化后的 source/origin 统一仍暂缓。

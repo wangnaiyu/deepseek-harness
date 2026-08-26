@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
+import type { CommandRuntime } from '@deepseek-ai/dsh-commands'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionSeq, type UserMessage } from '@deepseek-ai/dsh-session'
@@ -160,9 +161,10 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
   ctx.tools.register(skillTool)
 
-  // User-explicit skill invocation: a claimed user message whose first line
-  // starts with `/<name>` naming a user-invocable skill is a deterministic
-  // load gesture. The rendered body enters this step as injected
+  // User-explicit skill invocation: `/skill <name>` is the canonical,
+  // cross-client gesture. A legacy `/<name>` token remains compatible only
+  // when the effective command registry has no same-name command. The
+  // rendered body enters this step as injected
   // instructions context appended after every other injection — background
   // first (workspace rules, runtime policy, the catalog), the material the
   // model must act on last, closest to its answer. Registration order makes
@@ -170,8 +172,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   // listener, so the waterfall hands it the catalog-bearing list to extend.
   // Only `source.kind === 'user'` messages are scanned — external text
   // cannot forge the gesture — and a token naming no user-invocable skill
-  // stays ordinary prose (the command registry is a different closed
-  // namespace, resolved client-side before a line ever becomes a prompt).
+  // stays ordinary prose. Command-conflict filtering also runs here so a
+  // client that sends prompts directly gets the same legacy interpretation
+  // as the browser command adjudicator.
   // This is the only entry point for `disable-model-invocation` skills; the
   // catalog and the `skill` tool below never see them.
   ctx.on('agent/pre-step', async (
@@ -180,7 +183,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   ): Promise<PreStepDecision> => {
     const decision = await next()
     if (decision.kind === 'reject') return decision
-    const names = invokedSkillNames(messages)
+    const commands: CommandRuntime | undefined = agent.ctx.get('commands') ?? ctx.get('commands')
+    const names = invokedSkillNames(messages, agent, commands)
     if (names.length === 0) return decision
     signal.throwIfAborted()
     const lookup = { cwd: agent.session.header.cwd, signal, scope: agent }
@@ -398,30 +402,38 @@ function assertPositiveInteger(name: string, value: number, minimum = 1): void {
   }
 }
 
-/**
- * A whitespace-bounded `/name` token (the public skill-name grammar) anywhere
- * in the text — the same word-boundary shape the transcript chip decoration
- * uses, so a gesture reads as one wherever it sits in the sentence. A second
- * `/` or any non-boundary character breaks the match, which keeps file paths
- * (`/usr/bin`) and fractions (`5/8`) out.
- */
-const SKILL_GESTURE = /(^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
+/** Canonical `/skill <name>` or legacy `/<name>` token, bounded by whitespace. */
+const SKILL_GESTURE = /(^|\s)\/(?:(skill)[\t ]+)?([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
 
 /**
- * `/name` gesture tokens from the claimed user messages, deduplicated in
- * first-seen order. Every text block of direct user input is scanned; no
- * other source can forge a gesture.
+ * Skill gesture tokens from claimed user messages, deduplicated in first-seen
+ * order. Canonical `/skill <name>` always addresses the Skill namespace.
+ * Legacy `/<name>` remains accepted only when no effective same-name command
+ * exists. Every text block of direct user input is scanned; no other source
+ * can forge a gesture.
  * @param messages - the step's claimed batch.
+ * @param agent - exact receiving agent and command scope.
+ * @param commands - optional effective command registry.
  * @returns candidate skill names, unvalidated against the registry.
  */
-function invokedSkillNames(messages: readonly UserMessage[]): string[] {
+function invokedSkillNames(
+  messages: readonly UserMessage[],
+  agent: Agent,
+  commands: CommandRuntime | undefined,
+): string[] {
   const names: string[] = []
   for (const message of messages) {
     if ((message.source as { kind?: unknown }).kind !== 'user') continue
     for (const block of message.content) {
       if (block.type !== 'text') continue
       for (const match of block.text.matchAll(SKILL_GESTURE)) {
-        const name = match[2]
+        const explicit = match[2] !== undefined
+        const name = match[3]
+        // `/skill` is a reserved introducer. Without its name operand it is
+        // neither a legacy invocation of a skill literally named "skill" nor
+        // a partial claim that this boundary can execute.
+        if (!explicit && name === 'skill') continue
+        if (!explicit && name !== undefined && commands?.find(agent, name) !== undefined) continue
         if (name !== undefined && !names.includes(name)) names.push(name)
       }
     }

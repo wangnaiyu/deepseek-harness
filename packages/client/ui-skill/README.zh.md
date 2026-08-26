@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-client-ui-skill` 让用户通过在编辑器中键入 `/name` 来调用 skill：建议菜单从 `skills/list` Remote 提供用户可调用的 skill 候选，选择一项会落下字面文本 `/name `，宿主随后将其加载为 skill 的指令。加载是确定性的：宿主的 pre-step 边界（`dsh-tool-skill`）识别发出消息中以空白为界的 `/name` token，并为每个入口注入渲染后的 `<skill_content>`，因此菜单 pick、手动键入的 token 与 TUI/ACP 提示词都以同一种方式加载 skill。已结算的 skill 调用在对话中渲染为可展开的 `Instructions` 卡片，只从冻结的调用/结果切片派生。
+`dsh-client-ui-skill` 让用户通过规范的 `/skill <name>` 编辑器手势调用 skill。建议菜单从 `skills/list` Remote 提供用户可调用的 skill 候选，选择一项会落下每种客户端都能发送的同一段字面文本。加载是确定性的：宿主的 pre-step 边界（`dsh-tool-skill`）识别用户消息中任意位置、以空白为界的 `/skill <name>` token，并注入渲染后的 `<skill_content>`；旧 `/<name>` 手势仅在有效命令不存在同名项时继续兼容。已结算的 skill 调用在对话中渲染为可展开的 `Instructions` 卡片，只从冻结的调用/结果切片派生。
 
 ## 目录
 
@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-在编辑器中输入 `/` 并从建议中选择 skill，或直接键入 `/name`；发出的消息携带字面文本，宿主对菜单 pick 与手动键入的 token 以同样方式加载 skill。与宿主命令同名的名称仍解析为命令——裁决在客户端把该行认领走，它根本不会成为提示词。
+在编辑器中输入 `/` 并从建议中选择 skill，或直接键入 `/skill <name>`；发出的消息携带字面文本，宿主对菜单 pick 与手动键入的 token 以同样方式加载 skill。Command 和 Skill 可以共用业务名称，因为显式 Skill 语法寻址 skill 路径；旧 `/<name>` 仅在有效命令不存在同名项时保持兼容。
 
 ### source 提供什么
 
@@ -76,7 +76,7 @@ source 不实现任何裁决钩子，也没有引用 codec：pick 落下字面�
 
 #### 模型看到的内容
 
-用户消息原样到达模型，字面文本 `/name` 也包含在内。随后宿主的 pre-step 边界（`dsh-tool-skill`）把规范的 `<skill_content>` 块——与 `skill` 工具返回的 `renderSkillContent` 输出相同——作为注入的指令上下文追加在该步骤各项注入的末尾，最贴近模型的回答。加载是确定性的：模型无需被要求调用 `skill` 工具就能收到完整正文，目录也会告诉它不要重新加载已内联注入的 skill。
+用户消息原样到达模型，字面文本 `/skill <name>` 也包含在内。随后宿主的 pre-step 边界（`dsh-tool-skill`）把规范的 `<skill_content>` 块——与 `skill` 工具返回的 `renderSkillContent` 输出相同——作为注入的指令上下文追加在该步骤各项注入的末尾，最贴近模型的回答。加载是确定性的：模型无需被要求调用 `skill` 工具就能收到完整正文，目录也会告诉它不要重新加载已内联注入的 skill。
 
 #### Token 影响
 

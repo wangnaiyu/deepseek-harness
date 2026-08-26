@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-skill` lets users invoke skills by typing `/name` in the composer: the suggestion menu offers user-invocable skills from the `skills/list` Remote, and a pick lands the literal `/name ` text that the host then loads as the skill's instructions. Loading is deterministic: the host's pre-step boundary (`dsh-tool-skill`) recognizes the whitespace-bounded `/name` token in the sent message and injects the rendered `<skill_content>` for every entry point, so a menu pick, a hand-typed token, and a TUI/ACP prompt all load the skill the same way. Settled skill calls render in the conversation as an expandable `Instructions` card, derived only from the frozen call/result slice.
+`dsh-client-ui-skill` lets users invoke skills through the canonical `/skill <name>` composer gesture. The suggestion menu offers user-invocable skills from the `skills/list` Remote, and a pick lands the same literal text that every client can send. Loading is deterministic: the host's pre-step boundary (`dsh-tool-skill`) recognizes whitespace-bounded `/skill <name>` tokens anywhere in a user message and injects the rendered `<skill_content>`; a legacy `/<name>` gesture remains accepted only when no effective same-name command exists. Settled skill calls render in the conversation as an expandable `Instructions` card, derived only from the frozen call/result slice.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Type `/` in the composer and pick a skill from the suggestions, or type `/name` directly; the sent message carries the literal text, and the host loads the skill the same way for a menu pick or a hand-typed token. A name shared with a host command still resolves to the command — adjudication claims the line client-side before it ever becomes a prompt.
+Type `/` in the composer and pick a skill from the suggestions, or type `/skill <name>` directly; the sent message carries the literal text, and the host loads the skill the same way for a menu pick or a hand-typed token. Commands and Skills may share a business name because the explicit Skill syntax addresses the skill path; legacy `/<name>` remains compatible only when no effective same-name command exists.
 
 ### What the source offers
 
@@ -76,7 +76,7 @@ These pages cover the input machinery, the tool row host, and the host-side skil
 
 #### What the model sees
 
-The user's message reaches the model verbatim, `/name` literal included. The host's pre-step boundary (`dsh-tool-skill`) then appends the canonical `<skill_content>` block — the same `renderSkillContent` output the `skill` tool returns — as injected instructions context at the end of that step's injections, closest to the model's answer. Loading is deterministic: the model receives the full body without being asked to call the `skill` tool, and the catalog tells it not to re-load an inline-injected skill.
+The user's message reaches the model verbatim, `/skill <name>` literal included. The host's pre-step boundary (`dsh-tool-skill`) then appends the canonical `<skill_content>` block — the same `renderSkillContent` output the `skill` tool returns — as injected instructions context at the end of that step's injections, closest to the model's answer. Loading is deterministic: the model receives the full body without being asked to call the `skill` tool, and the catalog tells it not to re-load an inline-injected skill.
 
 #### Token effect
 

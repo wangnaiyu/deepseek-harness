@@ -63,11 +63,11 @@ Status: implemented
 
 ### 纯文本引用：text outcome 与 lexicon 装饰
 
-skill/@subagent 引用不走占位符 + occurrence 身份链——纯文本引用决策：pick 直接把 `/name ` `@name ` 原文插进 draft，chip 视觉纯派生：
+skill/@subagent 引用不走占位符 + occurrence 身份链——纯文本引用决策：Skill pick 直接把规范 `/skill <name> ` 原文插进 draft，subagent pick 则插入 `@name `，chip 视觉纯派生：
 
 - PickOutcome 增 `{text}` arm；新 scoped bail 事件 `slash/input-insert-text` `{text, span}`（与另三个同约定：draftRev CAS、返回 true ⟺ 实际改写）；facade.insertText 走 setDraft 拼接，机器零改动。
-- source 可选 `lexicon?(session)` 钩子：同步热快照名录，`undefined` = 数据未热——零装饰、永不触发 fetch（渲染路径保持同步无副作用）；配对的可选 `subscribeLexicon?(session, listener)` 钩子是名录在 warm 之后仍会变化（目录 settle、子代生灭）时的失效通道。controller 把各名录聚合进自己的 `lexicon` 快照 store（每次 source 通知重拉）；scope 出生后才注册的 source 由服务广播给活 controller，补 warm 并并入名录。
-- `decorations.scanTextRefs`：词边界扫描 draft（行首/空白后的 `/name`、`@name`，`x/name` 永不命中）对照名录，命中即成为 Lexical 树中的 `TextRefNode` 实体（claim 装饰对行首 token 席位有优先权——见 [Lexical composer note](2026-08-20-web-composer-lexical-editor.zh.md)）；编辑破坏匹配形状时实体还原为普通文本。
+- source 可选 `lexicon?(session)` 钩子：同步热快照词形名录，`undefined` = 数据未热——零装饰、永不触发 fetch（渲染路径保持同步无副作用）。词形可包含空格，因此无需新造结构化 prompt 内容就能表达 `skill <name>`。配对的可选 `subscribeLexicon?(session, listener)` 钩子是名录在 warm 之后仍会变化（目录 settle、子代生灭）时的失效通道。controller 把各名录聚合进自己的 `lexicon` 快照 store（每次 source 通知重拉）；scope 出生后才注册的 source 由服务广播给活 controller，补 warm 并并入名录。
+- `decorations.scanTextRefs`：词边界、最长词形优先地扫描 draft（行首/空白后的 `/skill <name>`、旧 `/name` 和 `@name`，`x/name` 永不命中）对照名录，命中即成为 Lexical 树中的 `TextRefNode` 实体（claim 装饰对行首 token 席位有优先权——见 [Lexical composer note](2026-08-20-web-composer-lexical-editor.zh.md)）；编辑破坏匹配形状时实体还原为普通文本。
 - 发送即原文（不再 `<skill>` 序列化）；气泡侧 MessageItem 双形状装饰（legacy `<skill>` 标签 + 纯文本 token）。
 - 装饰响应性：shell 订阅 controller 的 lexicon store，每次名录变化重扫全文档，scope 出生预热后才 settle 的名录会直接点亮已有 draft token，无需菜单交互或无关重渲染。
 

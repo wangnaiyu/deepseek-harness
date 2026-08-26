@@ -307,7 +307,11 @@ describe('lexicon', () => {
     expect(source.lexicon!(proj('s1'))).toBeUndefined()
     release!()
     await pending
-    expect(source.lexicon!(proj('s1'))).toEqual(['commit-helper', 'code-review', 'deploy'])
+    expect(source.lexicon!(proj('s1'))).toEqual([
+      'commit-helper', 'skill commit-helper',
+      'code-review', 'skill code-review',
+      'deploy', 'skill deploy',
+    ])
     // Another session's key is independent — cold until its own fetch.
     expect(source.lexicon!(proj('s2'))).toBeUndefined()
   })
@@ -341,7 +345,7 @@ describe('lexicon', () => {
 })
 
 describe('pick lands plain text', () => {
-  it('onPick returns the literal /name text with a closing space', async () => {
+  it('onPick returns the canonical /skill name text with a closing space', async () => {
     const { source } = await bench(listOk(CATALOG))
     const outcome = source.onPick({
       candidate: { name: 'commit-helper', description: 'commit flow' },
@@ -351,7 +355,7 @@ describe('pick lands plain text', () => {
       action: 'pick',
       span: { start: 0, end: 4, draftRev: 7 },
     })
-    expect(outcome).toEqual({ text: '/commit-helper ' })
+    expect(outcome).toEqual({ text: '/skill commit-helper ' })
   })
 
   it('keeps the legacy reference codec removed and stays out of adjudication', async () => {

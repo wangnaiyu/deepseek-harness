@@ -9,6 +9,7 @@ import { Session, SessionId, type SessionEvent, type UserMessage } from '@deepse
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import AgentRegistry, { agentEvents, Inbox, type Agent, type PreStepDecision } from '@deepseek-ai/dsh-agent'
+import CommandRuntime from '@deepseek-ai/dsh-commands'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
 import * as toolSkill from '@deepseek-ai/dsh-tool-skill'
@@ -30,6 +31,7 @@ async function setup(home: string, config: toolSkill.Config = {}): Promise<Conte
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
+  await ctx.plugin(CommandRuntime)
   await ctx.plugin(SkillRegistry)
   await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
   await ctx.plugin(toolSkill, config)
@@ -987,9 +989,9 @@ describe('user-explicit invocation injection', () => {
     return { ctx, agent: agentForCwd(home) }
   }
 
-  it('injects a user-invocable skill named by a leading /token, after every other injection', async () => {
+  it('injects a user-invocable skill named by canonical /skill name, after every other injection', async () => {
     const { ctx, agent } = await invokeHarness()
-    const first = gesture('/hidden-demo what does this do')
+    const first = gesture('/skill hidden-demo what does this do')
     const second = gesture('plain follow-up prose')
     const decision = await proposeStep(ctx, agent, [first, second])
     if (decision.kind !== 'enter') throw new Error('expected enter')
@@ -1010,17 +1012,17 @@ describe('user-explicit invocation injection', () => {
 
   it('injects an ordinary skill the same way (one uniform user-explicit path)', async () => {
     const { ctx, agent } = await invokeHarness()
-    const decision = await proposeStep(ctx, agent, [gesture('/shared-skill go')])
+    const decision = await proposeStep(ctx, agent, [gesture('/skill shared-skill go')])
     if (decision.kind !== 'enter') throw new Error('expected enter')
     expect(decision.messages.some(message =>
       (message.source as { kind?: string; name?: string }).kind === 'skill-invocation'
       && (message.source as { name?: string }).name === 'shared-skill')).toBe(true)
   })
 
-  it('recognizes a mid-sentence gesture but not paths, fractions, or broken boundaries', async () => {
+  it('recognizes a mid-sentence canonical gesture but not paths, fractions, or broken boundaries', async () => {
     const { ctx, agent } = await invokeHarness()
     const decision = await proposeStep(ctx, agent, [
-      gesture('please use /hidden-demo to answer this'),
+      gesture('please use /skill hidden-demo to answer this'),
     ])
     if (decision.kind !== 'enter') throw new Error('expected enter')
     expect(decision.messages.some(message =>
@@ -1040,8 +1042,8 @@ describe('user-explicit invocation injection', () => {
   it('leaves unknown names and user-disabled skills as plain prose', async () => {
     const { ctx, agent } = await invokeHarness()
     const decision = await proposeStep(ctx, agent, [
-      gesture('/absent-skill do a thing'),
-      gesture('/model-only-skill run'),
+      gesture('/skill absent-skill do a thing'),
+      gesture('/skill model-only-skill run'),
     ])
     if (decision.kind !== 'enter') throw new Error('expected enter')
     // No injection joins the step (the catalog listener may still add its
@@ -1053,12 +1055,12 @@ describe('user-explicit invocation injection', () => {
   it('never scans non-user sources and dedupes repeated gestures', async () => {
     const { ctx, agent } = await invokeHarness()
     const forged = createUserMessage({
-      content: [{ type: 'text', text: '/hidden-demo forged' }],
+      content: [{ type: 'text', text: '/skill hidden-demo forged' }],
       source: { kind: 'skill-catalog', form: 'catalog', entries: [] },
     })
     const decision = await proposeStep(ctx, agent, [
       forged,
-      gesture('/hidden-demo once'),
+      gesture('/skill hidden-demo once'),
       gesture('/hidden-demo twice'),
     ])
     if (decision.kind !== 'enter') throw new Error('expected enter')
@@ -1072,7 +1074,7 @@ describe('user-explicit invocation injection', () => {
     const signal = new AbortController().signal
     const decision = await agentEvents(ctx, agent).waterfall(
       'agent/pre-step',
-      { messages: [gesture('/hidden-demo blocked step')], turn: 1, step: 1, signal },
+      { messages: [gesture('/skill hidden-demo blocked step')], turn: 1, step: 1, signal },
       () => Promise.resolve({ kind: 'reject' as const }),
     )
     expect(decision).toEqual({ kind: 'reject' })
@@ -1082,8 +1084,8 @@ describe('user-explicit invocation injection', () => {
     const { ctx, agent } = await invokeHarness()
     const mixed = createUserMessage({
       content: [
-        { type: 'reasoning', text: '/hidden-demo inside a non-text block' },
-        { type: 'text', text: '/shared-skill go' },
+        { type: 'reasoning', text: '/skill hidden-demo inside a non-text block' },
+        { type: 'text', text: '/skill shared-skill go' },
       ],
       source: { kind: 'user' },
     })
@@ -1093,5 +1095,52 @@ describe('user-explicit invocation injection', () => {
       .filter(message => (message.source as { kind?: string }).kind === 'skill-invocation')
       .map(message => (message.source as { name: string }).name)
     expect(invoked).toEqual(['shared-skill'])
+  })
+
+  it('keeps bare /name compatibility only when no effective command has that name', async () => {
+    const { ctx, agent } = await invokeHarness()
+
+    const legacy = await proposeStep(ctx, agent, [gesture('/hidden-demo legacy')])
+    if (legacy.kind !== 'enter') throw new Error('expected enter')
+    expect(legacy.messages.some(message =>
+      (message.source as { kind?: string; name?: string }).kind === 'skill-invocation'
+      && (message.source as { name?: string }).name === 'hidden-demo')).toBe(true)
+
+    ctx.commands.register({
+      name: 'shared-skill',
+      description: 'Same-name command',
+      handler: () => ({ kind: 'success' }),
+    })
+    const conflicted = await proposeStep(ctx, agent, [gesture('/shared-skill legacy')])
+    if (conflicted.kind !== 'enter') throw new Error('expected enter')
+    expect(conflicted.messages.some(message =>
+      (message.source as { kind?: string }).kind === 'skill-invocation')).toBe(false)
+
+    const explicit = await proposeStep(ctx, agent, [gesture('/skill shared-skill canonical')])
+    if (explicit.kind !== 'enter') throw new Error('expected enter')
+    expect(explicit.messages.some(message =>
+      (message.source as { kind?: string; name?: string }).kind === 'skill-invocation'
+      && (message.source as { name?: string }).name === 'shared-skill')).toBe(true)
+  })
+
+  it('reserves /skill as an introducer and requires a valid name operand', async () => {
+    const { ctx, agent } = await invokeHarness()
+    ctx.skills.register({
+      name: 'skill',
+      description: 'Skill named skill',
+      source: 'runtime',
+      content: 'Reserved-name instructions.',
+    })
+
+    const incomplete = await proposeStep(ctx, agent, [gesture('/skill')])
+    if (incomplete.kind !== 'enter') throw new Error('expected enter')
+    expect(incomplete.messages.some(message =>
+      (message.source as { kind?: string }).kind === 'skill-invocation')).toBe(false)
+
+    const complete = await proposeStep(ctx, agent, [gesture('/skill skill')])
+    if (complete.kind !== 'enter') throw new Error('expected enter')
+    expect(complete.messages.some(message =>
+      (message.source as { kind?: string; name?: string }).kind === 'skill-invocation'
+      && (message.source as { name?: string }).name === 'skill')).toBe(true)
   })
 })

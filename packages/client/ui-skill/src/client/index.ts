@@ -2,12 +2,12 @@
  * Skill reference plugin, browser half: registers the '/' skill source —
  * candidates from the `skills/list` Remote addressed by the per-call session
  * projection's sessionId (sessions are always agent-backed; the host
- * resolves cwd from the session header). A pick lands the literal `/name `
+ * resolves cwd from the session header). A pick lands the literal `/skill <name> `
  * text and the prompt ships the same literal (plain-text-reference decision;
  * see .agents/notes/implemented/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md);
  * determinism
  * lives host-side — the pre-step boundary (`dsh-tool-skill`) recognizes a
- * leading `/name` naming a user-invocable skill and injects the rendered
+ * `/skill <name>` naming a user-invocable skill and injects the rendered
  * body for every entry point, including `disable-model-invocation` skills the
  * model-side catalog never lists (issue #1470). The RPC rides the plugin's
  * root-context Remote captured at registration — the source never reads
@@ -158,7 +158,9 @@ export function apply(ctx: ClientContext): void {
       if (target.kind !== 'draft') fetchCatalog(target.sessionId).catch(() => {})
     },
     lexicon(target) {
-      return target.kind !== 'draft' ? fetches.get(target.sessionId)?.settled?.map(skill => skill.name) : []
+      if (target.kind === 'draft') return []
+      const skills = fetches.get(target.sessionId)?.settled
+      return skills?.flatMap(skill => [skill.name, `skill ${skill.name}`])
     },
     subscribeLexicon(target, listener) {
       if (target.kind === 'draft') return () => {}
@@ -173,13 +175,10 @@ export function apply(ctx: ClientContext): void {
     },
     onPick({ candidate }) {
       // Plain-text-reference decision (web-input-machine note): the pick
-      // lands plain text and the prompt ships the same
-      // literal. Determinism lives host-side — the host's
-      // pre-step boundary (dsh-tool-skill) recognizes the leading /name and
-      // injects the rendered body for every entry point. A name shared with a
-      // host command still resolves to the command: adjudication claims the
-      // line client-side before it ever becomes a prompt.
-      return { text: `/${candidate.name} ` }
+      // lands plain text and the prompt ships the same literal. The explicit
+      // namespace keeps same-name Commands and Skills independently usable;
+      // determinism lives at the host pre-step boundary for every client.
+      return { text: `/skill ${candidate.name} ` }
     },
   }
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerServiceContract
