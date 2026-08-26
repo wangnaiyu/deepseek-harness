@@ -14,6 +14,8 @@ export const zh = {
   'drill.hint': '进入目录',
   'drill.key': 'Tab',
   'crumbs.aria': '目录导航',
+  'failed': '加载失败',
+  'retry': '重试',
   'suggestions.aria': '触发候选建议',
 } satisfies Record<string, string>
 
@@ -30,5 +32,7 @@ export const en = {
   'drill.hint': 'Browse folder',
   'drill.key': 'Tab',
   'crumbs.aria': 'Folder navigation',
+  'failed': 'Failed to load',
+  'retry': 'Retry',
   'suggestions.aria': 'Trigger suggestions',
 } satisfies Record<MenuKey, string>

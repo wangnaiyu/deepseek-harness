@@ -150,6 +150,42 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.itemOrigin {
+  flex: none;
+  max-width: 24%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.issue span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue button {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
 /* Heading row above a source group: non-interactive small grey text,
  * padding aligned with items (mirrors ui-primitives Menu .label). */
 .groupTitle {

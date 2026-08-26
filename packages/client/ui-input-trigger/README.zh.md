@@ -9,7 +9,9 @@ kind: "package-reference"
 
 ## 概述
 
-本包为 Web GUI 提供输入触发流水线：检测光标处键入的 `/` 与 `@`，显示分组候选菜单，并把 pick 路由到已注册 source。source 经 `ctx.inputTriggers` 注册——`/` 命令 source（ui-commands）、`@` 文件与会话引用 source（ui-reference），以及任何业务包——对话接线层按会话驱动这条流水线。键入触发器会 seed 为该触发器注册的所有 source；chrome launcher 也可以在当前选区上只打开一个 source。流水线仅做呈现：pick 产出命令声明或引用插入，其后果属于消费它们的宿主与输入包。
+本包为 Web GUI 提供输入触发流水线：检测光标处键入的 `/` 与 `@`，显示分组候选菜单，并把 pick 路由到已注册 source。`ctx.inputTriggers` 拥有 source roster、每个 Session scope 的 controller，以及一个显式绑定的浏览器草稿 controller。source 收到 `InputTriggerTarget`；旧 source 默认仍只服务 Session，除非显式加入草稿 target。键入会 seed 所有有效 source，launcher 则可打开一个 source 或整个 trigger roster。草稿 pick 以同样的 span CAS 直接应用到驻留输入状态机，不创建 Session。
+
+纯内核负责检测和菜单归约。失败 source 相互隔离且可重试；成功 source 可在候选旁返回分区问题。MenuView 占用 `session-maybe` 输入浮层，在保留上游面包屑与目录深入行为的同时，加入受限描述、可信来源和重试行。流水线仍仅负责呈现；命令声明、文本变更与引用插入由消费包拥有。
 
 ## 目录
 

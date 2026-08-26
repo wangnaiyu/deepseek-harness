@@ -66,6 +66,7 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
   const onCrumb = vi.fn()
   const onHover = vi.fn()
   const onDismiss = vi.fn()
+  const onRetry = vi.fn()
   const view = render(
     <MenuView
       menu={menu}
@@ -74,10 +75,11 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
       onCrumb={onCrumb}
       onHover={onHover}
       onDismiss={onDismiss}
+      onRetry={onRetry}
       t={t}
     />,
   )
-  return { menu, headers, onPick, onCrumb, onHover, onDismiss, view }
+  return { menu, headers, onPick, onCrumb, onHover, onDismiss, onRetry, view }
 }
 
 /** The bounded menu shell: it owns the height clamp, the listbox scrolls inside it. */
@@ -189,6 +191,36 @@ describe('MenuView', () => {
     expect(onPick).toHaveBeenCalledWith('reference', 0, 'drill')
     fireEvent.mouseDown(screen.getAllByRole('option')[0]!)
     expect(onPick).toHaveBeenCalledWith('reference', 0)
+  })
+
+  it('reserves the icon cell and exposes bounded description plus trailing origin accessibly', () => {
+    const description = 'x'.repeat(120)
+    const { view } = mount(openState({
+      groups: [{ source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'evidence', description, origin: 'PTO' }] }],
+    }))
+    const option = screen.getByRole('option')
+    expect(option.textContent).toBe(`evidence${'x'.repeat(77)}...PTO`)
+    expect(option.getAttribute('aria-label')).toBe(`evidence, ${description}, PTO`)
+    expect(option.querySelector('span')?.textContent).toBe('')
+    expect(view.container.querySelector('[title="PTO"]')).not.toBeNull()
+    expect(view.container.querySelector(`[title="${description}"]`)).not.toBeNull()
+  })
+
+  it('keeps source and contained-section failures visible and retryable', () => {
+    const { onRetry } = mount(openState({
+      groups: [
+        { source: 'command', status: 'error', items: [] },
+        { source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'plan' }], issues: [{ section: 'Skills', message: 'Acme failed' }] },
+      ],
+      highlight: { source: 'catalog', index: 0 },
+    }))
+    expect(screen.getByText('加载失败')).not.toBeNull()
+    expect(screen.getByText('Skills')).not.toBeNull()
+    expect(screen.getByText('Acme failed')).not.toBeNull()
+    const retries = screen.getAllByRole('button', { name: '重试' })
+    fireEvent.mouseDown(retries[0]!)
+    fireEvent.mouseDown(retries[1]!)
+    expect(onRetry.mock.calls).toEqual([['command'], ['catalog']])
   })
 
   it('exposes the highlight via aria-activedescendant and aria-selected', () => {

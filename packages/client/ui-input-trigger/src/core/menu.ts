@@ -74,18 +74,18 @@ function positions(groups: MenuState['groups']): { source: string; index: number
   return out
 }
 
-/** True when every group is ready with zero items (the auto-close condition). */
+/** True when every group is ready with zero items and no contained issue. */
 const allReadyEmpty = (groups: MenuState['groups']): boolean =>
-  groups.every(g => g.status === 'ready' && g.items.length === 0)
+  groups.every(g => g.status === 'ready' && g.items.length === 0 && (g.issues?.length ?? 0) === 0)
 
 /**
  * Pure menu reducer. `hit` opens a new generation over the seeded roster
  * (null hit closes); `source-settled` outside the current generation, the
  * open menu, or the roster is dropped; a settlement or failure leaving every
- * group ready-and-empty (or no groups) auto-closes; `source-failed` silently
- * removes the group (the shell logs); `move` cycles the highlight across
- * ready items; `hover` parks it on one ready item (pointer and keyboard
- * share the single highlight — last input wins).
+ * group ready-and-empty (or no groups) auto-closes; `source-failed` preserves
+ * a retryable error group and `source-retry` resets only that group; `move`
+ * cycles the highlight across ready items; `hover` parks it on one ready item
+ * (pointer and keyboard share the single highlight — last input wins).
  *
  * @param state - Current menu state.
  * @param ev - Menu event.
@@ -99,12 +99,12 @@ export const menuReduce: MenuReduce = (state, ev) => {
         open: true,
         hit: ev.hit,
         generation: state.generation + 1,
-        // Items and highlight survive the refinement (stale-while-revalidate):
-        // the previous query's candidates stay rendered with the highlight
-        // parked where it was while the new fetch runs, and the settled
-        // generation replaces the items and revalidates the highlight
-        // wholesale. Pending status still fences picks off the stale rows.
-        groups: state.groups.map(g => ({ ...g, status: 'pending' })),
+        // Items and highlight survive the refinement (stale-while-revalidate),
+        // while result-specific issues and refresh flags do not cross queries.
+        groups: state.groups.map((g) => {
+          const { issues: _issues, refreshing: _refreshing, ...rest } = g
+          return { ...rest, status: 'pending' }
+        }),
         highlight: state.highlight,
       }
     }
@@ -113,8 +113,14 @@ export const menuReduce: MenuReduce = (state, ev) => {
       const idx = state.groups.findIndex(g => g.source === ev.source)
       if (idx < 0) return state
       const items: readonly InputTriggerCandidate[] = ev.items ?? []
-      const groups = state.groups.map((g, i) =>
-        i === idx ? { ...g, status: 'ready' as const, items } : g)
+      const groups = state.groups.map((g, i) => {
+        if (i !== idx) return g
+        const { issues: _issues, refreshing: _refreshing, ...rest } = g
+        return {
+          ...rest, status: 'ready' as const, items,
+          ...ev.issues === undefined ? {} : { issues: ev.issues },
+        }
+      })
       if (allReadyEmpty(groups)) return closed(state)
       const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups)
       return { ...state, groups, highlight }
@@ -122,6 +128,34 @@ export const menuReduce: MenuReduce = (state, ev) => {
     case 'source-failed': {
       if (!state.open || ev.generation !== state.generation) return state
       if (!state.groups.some(g => g.source === ev.source)) return state
+      const groups = state.groups.map((g) => {
+        if (g.source !== ev.source) return g
+        if (g.refreshing === true && (g.items.length > 0 || (g.issues?.length ?? 0) > 0)) {
+          const { refreshing: _refreshing, ...rest } = g
+          return { ...rest, status: 'ready' as const }
+        }
+        const { issues: _issues, refreshing: _refreshing, ...rest } = g
+        return { ...rest, status: 'error' as const, items: [] }
+      })
+      const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups)
+      return { ...state, groups, highlight }
+    }
+    case 'source-retry': {
+      if (!state.open || ev.generation !== state.generation) return state
+      if (!state.groups.some(g => g.source === ev.source)) return state
+      const groups = state.groups.map((g) => {
+        if (g.source !== ev.source) return g
+        if (g.status === 'ready' && (g.items.length > 0 || (g.issues?.length ?? 0) > 0)) {
+          return { ...g, refreshing: true }
+        }
+        const { issues: _issues, refreshing: _refreshing, ...rest } = g
+        return { ...rest, status: 'pending' as const, items: [] }
+      })
+      const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups)
+      return { ...state, groups, highlight }
+    }
+    case 'source-removed': {
+      if (!state.open || ev.generation !== state.generation) return state
       const groups = state.groups.filter(g => g.source !== ev.source)
       if (groups.length === 0 || allReadyEmpty(groups)) return closed(state)
       const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups)

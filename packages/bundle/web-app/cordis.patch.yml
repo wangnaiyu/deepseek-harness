@@ -255,6 +255,10 @@
     - id: ui-input-trigger
       name: '@deepseek-ai/dsh-client-ui-input-trigger'
 
+    # Unified Commands + Skills projection for browser-only new-session drafts.
+    - id: ui-composer-catalog
+      name: '@deepseek-ai/dsh-client-ui-composer-catalog'
+
     - id: ui-commands
       name: '@deepseek-ai/dsh-client-ui-commands'
 

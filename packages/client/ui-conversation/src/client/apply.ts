@@ -11,6 +11,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { UiConversation } from './conversation/assembly.ts'
 import type { ViewTab } from './contract/views.ts'
+import type { PickOutcome, TokenSpan } from './contract/input.ts'
 import type {
   ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
   ConversationSessionInjected,
@@ -55,6 +56,19 @@ const ABSENT_MENU_LAUNCHER = {
   subscribe: () => () => {},
 }
 
+/** Optional draft-trigger service resolved structurally to keep feature packages decoupled. */
+interface DraftInputTriggerService {
+  bindDraft(binding: {
+    readonly target: () => {
+      readonly kind: 'draft'
+      readonly draftRevision: string
+      readonly workspaceId?: string
+      readonly agentPreset?: string
+    }
+    readonly apply: (outcome: PickOutcome, span: TokenSpan) => boolean
+  }): () => void
+}
+
 /** Resolve the session-scoped Conversation action face, failing loud. */
 function scopedConversation(sessions: ISessions, id: SessionId): IConversation {
   const scoped = sessions.scope(id)
@@ -82,7 +96,14 @@ export function apply(ctx: Context): void {
   const slots = ctx.slots
   const workspaceNavigation = ctx.get('uiWorkspace') as {
     list: {
-      getSnapshot: () => { sessionDraft?: { revision: number } }
+      getSnapshot: () => {
+        sessionDraft?: {
+          revision: number
+          catalogRevision: number
+          workspaceId?: import('@deepseek-ai/dsh-workspace/types').WorkspaceId
+          agentPreset?: string
+        }
+      }
       subscribe: (listener: () => void) => () => void
     }
     selectDraftWorkspace: (workspaceId: import('@deepseek-ai/dsh-workspace/types').WorkspaceId) => void
@@ -163,6 +184,38 @@ export function apply(ctx: Context): void {
   }, 'ui-conversation: View selection')
 
   const inputHub = new InputHub(ctx, t)
+
+  // The no-session composer shares the ordinary trigger controller and menu.
+  // Picks apply directly to the resident browser draft with the same span CAS;
+  // no Session is allocated until the draft's default sink runs on submit.
+  ctx.inject(['inputTriggers'], (scope: Context) => {
+    const inputTriggers = scope.get('inputTriggers') as DraftInputTriggerService | undefined
+    if (inputTriggers === undefined) return
+    const shell = inputHub.draftShell()
+    const applyPick = (outcome: PickOutcome, span: TokenSpan): boolean => {
+      if (outcome === undefined || outcome === 'handled') return false
+      if ('claim' in outcome) return shell.beginCommand(outcome.claim, span)
+      if ('text' in outcome) return shell.insertText(outcome.text, span, outcome.continue === true)
+      return shell.insertReference(outcome.insert, span)
+    }
+    scope.effect(() => inputTriggers.bindDraft({
+      target: () => {
+        const draft = workspaceNavigation.list.getSnapshot().sessionDraft
+        return {
+          kind: 'draft',
+          draftRevision: `${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`,
+          ...draft?.workspaceId === undefined ? {} : { workspaceId: String(draft.workspaceId) },
+          ...draft?.agentPreset === undefined ? {} : { agentPreset: draft.agentPreset },
+        }
+      },
+      apply: applyPick,
+    }), 'ui-conversation: browser draft trigger controller')
+  })
+
+  // The composer-block registry: a plugin that knows a session cannot send —
+  // ui-model-selection, when no adapter serves the session's route — raises a block
+  // here, and the bar reads its own session's store. It cannot flow the other
+  // way: this package must not import the plugins that would know.
   const composerBlocks = new ComposerBlockRegistry()
 
   // Conversation assembly and input share the Session binding lifecycle. The
@@ -195,10 +248,18 @@ export function apply(ctx: Context): void {
   // resident no-session shell is reused for DOM stability, so reset its old
   // text/images here; changing only the draft's Workspace preserves them.
   let draftRevision = workspaceNavigation.list.getSnapshot().sessionDraft?.revision
+  let draftCatalogTarget = (() => {
+    const draft = workspaceNavigation.list.getSnapshot().sessionDraft
+    return `${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`
+  })()
   ctx.effect(() => workspaceNavigation.list.subscribe(() => {
-    const next = workspaceNavigation.list.getSnapshot().sessionDraft?.revision
+    const currentDraft = workspaceNavigation.list.getSnapshot().sessionDraft
+    const next = currentDraft?.revision
     if (next !== undefined && next !== draftRevision) inputHub.resetDraft()
     draftRevision = next
+    const nextCatalogTarget = `${currentDraft?.catalogRevision ?? 0}:${String(currentDraft?.workspaceId ?? '')}:${currentDraft?.agentPreset ?? ''}`
+    if (nextCatalogTarget !== draftCatalogTarget) inputHub.draftInputTriggers()?.dismiss()
+    draftCatalogTarget = nextCatalogTarget
   }), 'ui-conversation: browser draft generation')
 
   // Resident current-session-optional shell. It owns the stable Hero/composer
@@ -279,7 +340,7 @@ export function apply(ctx: Context): void {
     locale: NS,
     children: {
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
-      'conversation.input.overlay': { kind: 'list', scope: 'session' },
+      'conversation.input.overlay': { kind: 'list', scope: 'session-maybe' },
       'conversation.input.left': { kind: 'list', scope: 'session' },
       'conversation.input.plan': { kind: 'single', scope: 'session' },
       'conversation.input.right': { kind: 'list', scope: 'session' },
@@ -311,25 +372,30 @@ export function apply(ctx: Context): void {
           draftImages: ids => conversation.draftImages(ids),
           resolveSubmitMode: (running, gesture, steeringAvailable) =>
             submissionPolicy.resolve(running, gesture, steeringAvailable),
-          // A browser draft has no Agent command directory yet. The launcher
-          // still starts a slash command at the current selection; first-send
-          // materialization then adjudicates that line against the real
-          // Session before it can execute.
-          toggleCommandMenu: (selection) => {
-            const snapshot = shell.snapshot
-            shell.setDraft(
-              snapshot.draft.slice(0, selection.start)
-              + '/'
-              + snapshot.draft.slice(selection.end),
-            )
-            return selection.start + 1
-          },
+          toggleCommandMenu: inputHub.draftInputTriggers() === undefined
+            ? (selection) => {
+              const snapshot = shell.snapshot
+              shell.setDraft(
+                snapshot.draft.slice(0, selection.start)
+                  + '/'
+                  + snapshot.draft.slice(selection.end),
+              )
+              return selection.start + 1
+            }
+            : (selection) => {
+              const snapshot = shell.snapshot
+              inputHub.draftInputTriggers()?.toggleTrigger({
+                trigger: '/', query: '', quoted: false,
+                position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
+                span: { ...selection, draftRev: snapshot.draftRev },
+              })
+            },
           stop: undefined,
           command: line => conversation.commandDraftPermission(line),
           hooks: {
             notices: shell.notices,
             lexicon: shell.lexicon,
-            menuLauncher: ABSENT_MENU_LAUNCHER,
+            menuLauncher: inputHub.draftInputTriggers()?.launcher ?? ABSENT_MENU_LAUNCHER,
             draftPermissions: conversation.draftPermissions,
           },
         }

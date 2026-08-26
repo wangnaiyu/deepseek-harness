@@ -1,3 +1,5 @@
+// menuReduce generation gating, auto-close, isolated source failure, cyclic
+// highlight movement, stale/no-op reference identity; exactMatch lookup.
 import { describe, expect, it } from 'vitest'
 import type { MenuState, TriggerHit } from '../src/core/contract.ts'
 import { exactMatch, MENU_CLOSED, menuReduce, seedGroups } from '../src/core/menu.ts'
@@ -123,25 +125,26 @@ describe('menuReduce source-settled', () => {
 })
 
 describe('menuReduce source-failed', () => {
-  it('silently removes the failed group', () => {
+  it('retains a failed group as an independently retryable error', () => {
     let s = open(['command', 'skill'])
     s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'skill', items: [item('commit')] })
     s = menuReduce(s, { type: 'source-failed', generation: 1, source: 'command' })
-    expect(s.groups.map(g => g.source)).toEqual(['skill'])
+    expect(s.groups.map(g => [g.source, g.status])).toEqual([['command', 'error'], ['skill', 'ready']])
     expect(s.open).toBe(true)
   })
 
-  it('closes when the last group fails', () => {
+  it('keeps the last failed group visible for retry', () => {
     let s = open(['command'])
     s = menuReduce(s, { type: 'source-failed', generation: 1, source: 'command' })
-    expect(s.open).toBe(false)
+    expect(s.open).toBe(true)
+    expect(s.groups[0]?.status).toBe('error')
   })
 
-  it('closes when the surviving groups are all ready and empty', () => {
+  it('keeps an error visible when other groups are ready and empty', () => {
     let s = open(['command', 'skill'])
     s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'skill', items: [] })
     s = menuReduce(s, { type: 'source-failed', generation: 1, source: 'command' })
-    expect(s.open).toBe(false)
+    expect(s.open).toBe(true)
   })
 
   it('moves the highlight off the failed group', () => {
@@ -157,6 +160,37 @@ describe('menuReduce source-failed', () => {
     const s = open(['command'])
     expect(menuReduce(s, { type: 'source-failed', generation: 0, source: 'command' })).toBe(s)
     expect(menuReduce(s, { type: 'source-failed', generation: 1, source: 'ghost' })).toBe(s)
+  })
+
+  it('retries only the requested group while preserving successful siblings', () => {
+    let s = open(['command', 'skill'])
+    s = menuReduce(s, { type: 'source-failed', generation: 1, source: 'command' })
+    s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'skill', items: [item('commit')] })
+    s = menuReduce(s, { type: 'source-retry', generation: 1, source: 'command' })
+    expect(s.groups).toEqual([
+      { source: 'command', status: 'pending', items: [] },
+      { source: 'skill', status: 'ready', items: [item('commit')] },
+    ])
+    expect(s.highlight).toEqual({ source: 'skill', index: 0 })
+  })
+
+  it('keeps one source\'s successful rows visible while its contained issue retries or retry transport fails', () => {
+    let s = open(['catalog'])
+    s = menuReduce(s, {
+      type: 'source-settled', generation: 1, source: 'catalog', items: [item('analyze')],
+      issues: [{ section: 'Skills', message: 'Acme failed' }],
+    })
+    s = menuReduce(s, { type: 'source-retry', generation: 1, source: 'catalog' })
+    expect(s.groups[0]).toMatchObject({
+      status: 'ready', refreshing: true, items: [item('analyze')],
+      issues: [{ section: 'Skills', message: 'Acme failed' }],
+    })
+    s = menuReduce(s, { type: 'source-failed', generation: 1, source: 'catalog' })
+    expect(s.groups[0]).toMatchObject({
+      status: 'ready', items: [item('analyze')],
+      issues: [{ section: 'Skills', message: 'Acme failed' }],
+    })
+    expect(s.groups[0]).not.toHaveProperty('refreshing')
   })
 })
 

@@ -18,6 +18,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import { CommandUiRuntime } from './service.ts'
 import type { PopupSelectInjected } from './PopupSelectView.tsx'
 import { PopupSelectView } from './PopupSelectView.tsx'
+import { PopupSelectController } from './popup.ts'
 import { en, zh, type CommandKey } from './locales.ts'
 
 export { CommandUiRuntime } from './service.ts'
@@ -58,6 +59,8 @@ export const inject = ['inputTriggers', 'sessions', 'remote', 'remote.commands',
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-commands: dictionaries')
   ctx.plugin(CommandUiRuntime)
+  const absentPopup = new PopupSelectController({ consume: () => false, focusComposer: () => {} })
+  ctx.effect(() => () => { absentPopup.dispose() }, 'ui-commands: absent popup shell')
   ctx.inject(['slots', 'commandUi', 'sessions'], (scope: ClientContext) => {
     const command = scope.commandUi
     const sessions = scope.get('sessions') as ISessions
@@ -67,6 +70,7 @@ export function apply(ctx: ClientContext): void {
       order: 1,
       locale: NS,
       inject: (sessionId): PopupSelectInjected => {
+        if (sessionId === undefined) return { popup: absentPopup }
         const actx = sessions.scope(sessionId)
         if (actx === undefined) throw new Error(`ui-commands: session "${String(sessionId)}" resolved no scope`)
         return { popup: command.popupFor(actx) }

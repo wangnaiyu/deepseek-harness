@@ -13,7 +13,7 @@ import { createScope, scopeOf } from '@deepseek-ai/dsh-api-session-controller/cl
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { InputTriggerController, InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type {
-  BeginCommandRequest, ClientSessionContext, CommandClaim, InsertReferenceRequest, PickOutcome,
+  BeginCommandRequest, CommandClaim, InsertReferenceRequest, PickOutcome,
   ReferenceInsert, InputTriggerCandidate, InputTriggerPick, InputTriggerSource, SourceRoster, TriggerChar,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 
@@ -24,7 +24,7 @@ interface PendingFetch {
   reject: (err: unknown) => void
   query: string
   signal: AbortSignal
-  session: ClientSessionContext
+  session: import('../src/client/index.ts').InputTriggerTarget
 }
 
 /** Deferred-candidates source: settle each fetch by hand; warm is a spy. */
@@ -361,7 +361,7 @@ describe('track', () => {
     expect(controller.menu.getSnapshot().open).toBe(false)
   })
 
-  it('a rejecting source logs and silently drops its group', async () => {
+  it('a rejecting source logs and leaves its group independently retryable', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const cmd = deferredSource('/', 'command')
@@ -372,7 +372,7 @@ describe('track', () => {
       cmd.pending[0]!.resolve([{ name: 'goal' }])
       await tick()
       const state = controller.menu.getSnapshot()
-      expect(state.groups.map(g => g.source)).toEqual(['command'])
+      expect(state.groups.map(g => [g.source, g.status])).toEqual([['command', 'ready'], ['skill', 'error']])
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('skill'), expect.any(Error))
     } finally {
       errorSpy.mockRestore()
