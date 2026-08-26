@@ -224,9 +224,10 @@ export interface InputTriggerSource {
    */
   warm?(target: InputTriggerTarget): void
   /**
-   * Synchronous hot-snapshot name roll for plain-text reference decoration.
+   * Synchronous hot-snapshot lexeme roll for plain-text reference decoration.
    * Implementing IS the participation claim: the render side
-   * scans the draft for `<trigger><name>` tokens and decorates exact matches.
+   * scans the draft for `<trigger><lexeme>` tokens and decorates exact
+   * matches. A lexeme may contain spaces (for example `skill analyze`).
    * `undefined` = backing data not warm yet — no decoration, never a fetch
    * (the render path must stay synchronous and side-effect free).
    */
