@@ -218,6 +218,17 @@ export interface InputTriggerSource {
     envelope: SubmitEnvelope,
   ): Promise<PickOutcome>
   /**
+   * Revalidate a browser draft against the Session that was just
+   * materialized for its first send. Rejection keeps the captured draft in
+   * the browser input machine and prevents prompt submission.
+   */
+  admitMaterialized?(
+    draft: ClientDraftContext,
+    session: ClientSessionContext,
+    line: string,
+    signal: AbortSignal,
+  ): Promise<void>
+  /**
    * Target-birth prewarm hook (fire-and-forget): the controller calls it once
    * when its Session or browser-draft target comes alive so sources can fetch
    * their backing data before the first interaction.

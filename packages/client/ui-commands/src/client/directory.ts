@@ -5,10 +5,15 @@
  * / epoch-guard behavior of the original global cache; the session-key axis
  * is the only extra dimension.
  */
-import type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
+import type { DraftCatalogOrigin } from '@deepseek-ai/dsh-api-remotes/client'
+import type { CommandDescriptor as BaseCommandDescriptor } from '@deepseek-ai/dsh-commands/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
-export type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
+/** Formal Session rows carry origin; legacy test/host fallbacks may omit it. */
+export type CommandDescriptor = BaseCommandDescriptor & {
+  readonly origin?: DraftCatalogOrigin
+  readonly iconId?: string
+}
 
 /**
  * cold = never pulled; pending = pull in flight with nothing servable;

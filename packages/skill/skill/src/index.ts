@@ -19,6 +19,7 @@ import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
 
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const EXPLICIT_SKILL_GESTURE = /(^|\s)\/skill[\t ]+([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
 const DEFAULT_COLLECT_CACHE_ENTRIES = 128
 const MAX_COLLECT_ATTEMPTS = 2
 const RUNTIME_PROVIDER = 'runtime'
@@ -34,6 +35,22 @@ export const BUNDLED_SKILL_RANK = 600
  */
 export function isSkillName(name: string): boolean {
   return SKILL_NAME.test(name)
+}
+
+/**
+ * Return canonical `/skill <name>` gestures in first-seen order.
+ * Callers decide which trusted message sources may supply text, then validate
+ * each candidate against their final scoped registry view.
+ * @param text - direct user text to scan.
+ * @returns unique valid Skill names in first-seen order.
+ */
+export function explicitSkillNames(text: string): string[] {
+  const names: string[] = []
+  for (const match of text.matchAll(EXPLICIT_SKILL_GESTURE)) {
+    const name = match[2]
+    if (name !== undefined && !names.includes(name)) names.push(name)
+  }
+  return names
 }
 
 /** Origin bucket for a skill contribution. The value is prompt-visible metadata, not precedence by itself. */

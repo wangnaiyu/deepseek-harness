@@ -14,6 +14,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionSeq, type UserMessage } from '@deepseek-ai/dsh-session'
 import {
   escapeText,
+  explicitSkillNames,
   isModelInvocable,
   isSkillName,
   isUserInvocable,
@@ -402,8 +403,8 @@ function assertPositiveInteger(name: string, value: number, minimum = 1): void {
   }
 }
 
-/** Canonical `/skill <name>` or legacy `/<name>` token, bounded by whitespace. */
-const SKILL_GESTURE = /(^|\s)\/(?:(skill)[\t ]+)?([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
+/** Legacy `/<name>` token, bounded by whitespace. */
+const LEGACY_SKILL_GESTURE = /(^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
 
 /**
  * Skill gesture tokens from claimed user messages, deduplicated in first-seen
@@ -426,14 +427,16 @@ function invokedSkillNames(
     if ((message.source as { kind?: unknown }).kind !== 'user') continue
     for (const block of message.content) {
       if (block.type !== 'text') continue
-      for (const match of block.text.matchAll(SKILL_GESTURE)) {
-        const explicit = match[2] !== undefined
-        const name = match[3]
+      for (const name of explicitSkillNames(block.text)) {
+        if (!names.includes(name)) names.push(name)
+      }
+      for (const match of block.text.matchAll(LEGACY_SKILL_GESTURE)) {
+        const name = match[2]
         // `/skill` is a reserved introducer. Without its name operand it is
         // neither a legacy invocation of a skill literally named "skill" nor
         // a partial claim that this boundary can execute.
-        if (!explicit && name === 'skill') continue
-        if (!explicit && name !== undefined && commands?.find(agent, name) !== undefined) continue
+        if (name === 'skill') continue
+        if (name !== undefined && commands?.find(agent, name) !== undefined) continue
         if (name !== undefined && !names.includes(name)) names.push(name)
       }
     }

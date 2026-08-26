@@ -893,7 +893,7 @@ Source: [`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-c
 
 ## `@deepseek-ai/dsh-host-composer-catalog`
 
-Requires: `commands` · `skills` · `workspaceRegistry` · `agentPresets`
+Requires: `commands` · `skills` · `workspaceRegistry` · `agentPresets` · `sessionProjections`
 
 ```ts config-catalog
 /** Draft catalog product-origin configuration. */
@@ -915,7 +915,7 @@ export interface ProviderOriginConfig {
 }
 ```
 
-Source: [`packages/host/composer-catalog/src/index.ts:43`](../packages/host/composer-catalog/src/index.ts)
+Source: [`packages/host/composer-catalog/src/index.ts:47`](../packages/host/composer-catalog/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
@@ -2220,7 +2220,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/skill/src/index.ts:280`](../packages/skill/skill/src/index.ts)
+Source: [`packages/skill/skill/src/index.ts:297`](../packages/skill/skill/src/index.ts)
 
 <a id="deepseek-aidsh-skill-filesystem"></a>
 
@@ -3004,7 +3004,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
+Source: [`packages/skill/tool-skill/src/index.ts:63`](../packages/skill/tool-skill/src/index.ts)
 
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 
