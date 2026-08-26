@@ -11,6 +11,10 @@ English | [中文](README.zh.md)
 
 When users type `/` or `@` at the caret in the Web GUI, this package opens a grouped menu for slash commands, file references, and session references. It supports keyboard and pointer selection, including drill-down choices and launchers that open a single candidate group over the current selection. A pick either invokes a command flow or inserts a reference for the consuming input surface to handle. The package affects browser presentation only; it does not assemble or send model requests.
 
+This package powers the input trigger pipeline of the Web GUI: it detects `/` and `@` typed under the caret, shows a grouped candidate menu, and routes a pick to the registered source. `ctx.inputTriggers` owns the source roster, one controller per Session scope, and one explicitly bound browser-draft controller. Sources receive an `InputTriggerTarget`; legacy sources remain Session-only unless they opt into draft targets. Typing seeds every eligible source, while launchers may open one source or an entire trigger roster. Draft picks apply the same span-CAS outcomes directly to the resident input machine without creating a Session.
+
+The pure core owns detection and menu reduction. Failed sources remain isolated and retryable; successful sources can return contained section issues alongside candidates. MenuView occupies the `session-maybe` input overlay, retaining upstream breadcrumb/drill behavior while adding bounded descriptions, trusted origins, and retry rows. The pipeline stays presentation-only: consuming packages own command claims, text changes, and reference insertion.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

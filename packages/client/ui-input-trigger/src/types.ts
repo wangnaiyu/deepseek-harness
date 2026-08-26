@@ -25,8 +25,20 @@ export type {
  * have a client scope without a live Host Agent.
  */
 export interface ClientSessionContext {
+  readonly kind?: 'session'
   readonly sessionId: SessionId
 }
+
+/** Browser-only new-session draft identity. It never implies a Host Session. */
+export interface ClientDraftContext {
+  readonly kind: 'draft'
+  readonly draftRevision: string
+  readonly workspaceId?: string
+  readonly agentPreset?: string
+}
+
+/** Explicit input target passed to discovery sources. */
+export type InputTriggerTarget = ClientSessionContext | ClientDraftContext
 
 /** Trigger character a source binds to. */
 export type TriggerChar = '/' | '@'
@@ -51,6 +63,8 @@ export interface InputTriggerCandidate {
   readonly hint?: string
   /** Optional visual heading shared by adjacent candidates; sectioned groups omit their source-title row. */
   readonly section?: string
+  /** Trusted product owner displayed at the row's trailing edge. */
+  readonly origin?: string
   /** Opaque source-owned pick payload. */
   readonly value?: string
   /**
@@ -59,6 +73,17 @@ export interface InputTriggerCandidate {
    * resolving the candidate.
    */
   readonly drill?: boolean
+}
+
+/** One contained section failure returned alongside successful candidates. */
+export interface InputTriggerSectionIssue {
+  readonly section: string
+  readonly message: string
+}
+
+/** Candidate payload with optional contained section failures. */
+export interface InputTriggerCandidateList extends ReadonlyArray<InputTriggerCandidate> {
+  readonly issues?: readonly InputTriggerSectionIssue[]
 }
 
 /**
@@ -113,7 +138,8 @@ export interface CandidateRequest {
 /** Everything a source receives on pick: candidate + session projection + the span snapshot for CAS. */
 export interface InputTriggerPick {
   readonly candidate: InputTriggerCandidate
-  readonly session: ClientSessionContext
+  /** Explicit Session-or-draft target; legacy property name retained for source compatibility. */
+  readonly session: InputTriggerTarget
   readonly position: TriggerPosition
   readonly via: PickVia
   /** Settling pick, or the candidate's drill action (Tab / row chevron). */
@@ -154,7 +180,11 @@ export interface InputTriggerSource {
   readonly order?: number
   /** Whether the menu renders the source-title row; defaults to true. */
   readonly showGroupTitle?: boolean
-  candidates(session: ClientSessionContext, req: CandidateRequest): Promise<readonly InputTriggerCandidate[]>
+  /** Target kinds this source serves. Omission preserves the legacy session-only contract. */
+  readonly targets?: readonly ('session' | 'draft')[]
+  candidates(target: InputTriggerTarget, req: CandidateRequest): Promise<InputTriggerCandidateList>
+  /** Invalidate source-owned state before an explicit retry of the current target. */
+  retry?(target: InputTriggerTarget): void
   /**
    * Synchronous breadcrumb rendered above this source's group, re-polled on
    * every hit. Implementing IS the participation claim; `undefined` means
@@ -162,15 +192,15 @@ export interface InputTriggerSource {
    * {@link InputTriggerSource.onPick} with `action: 'drill'` and the crumb's
    * `value` as the candidate value, so returning to a step and descending
    * into one are the same outcome.
-   * @param session - stable session projection.
+   * @param target - stable Session-or-draft projection.
    * @param req - the live query and how the menu reached it.
    * @returns the crumbs to render, or undefined for no header.
    */
-  header?(session: ClientSessionContext, req: HeaderRequest): readonly InputTriggerCrumb[] | undefined
+  header?(target: InputTriggerTarget, req: HeaderRequest): readonly InputTriggerCrumb[] | undefined
   /** Every pick lands here; claim/insert outcomes are executed by the pipeline via the scoped input events. */
   onPick(pick: InputTriggerPick): PickOutcome
   /** Synchronous space-time adjudication over hot state only. `token` is the just-completed leading token (e.g. '/goal'). */
-  matchSpace?(session: ClientSessionContext, token: string): PickOutcome
+  matchSpace?(target: InputTriggerTarget, token: string): PickOutcome
   /**
    * Enter-time adjudication; may strong-wait the source's own warmup and
    * reject on warmup failure. `line` is the full trimmed draft: the source
@@ -182,17 +212,17 @@ export interface InputTriggerSource {
    * submission intact.
    */
   matchEnter?(
-    session: ClientSessionContext,
+    target: InputTriggerTarget,
     line: string,
     signal: AbortSignal,
     envelope: SubmitEnvelope,
   ): Promise<PickOutcome>
   /**
-   * Scope-birth prewarm hook (fire-and-forget): the per-session controller
-   * calls it once when the session scope comes alive so sources can fetch
+   * Target-birth prewarm hook (fire-and-forget): the controller calls it once
+   * when its Session or browser-draft target comes alive so sources can fetch
    * their backing data before the first interaction.
    */
-  warm?(session: ClientSessionContext): void
+  warm?(target: InputTriggerTarget): void
   /**
    * Synchronous hot-snapshot name roll for plain-text reference decoration.
    * Implementing IS the participation claim: the render side
@@ -200,7 +230,7 @@ export interface InputTriggerSource {
    * `undefined` = backing data not warm yet — no decoration, never a fetch
    * (the render path must stay synchronous and side-effect free).
    */
-  lexicon?(session: ClientSessionContext): readonly string[] | undefined
+  lexicon?(target: InputTriggerTarget): readonly string[] | undefined
   /**
    * Subscribe to changes of this source's {@link InputTriggerSource.lexicon} answer
    * for one session (backing data settled, invalidated, or refreshed). The
@@ -210,7 +240,7 @@ export interface InputTriggerSource {
    * @param listener - invalidation callback.
    * @returns unsubscribe.
    */
-  subscribeLexicon?(session: ClientSessionContext, listener: () => void): () => void
+  subscribeLexicon?(target: InputTriggerTarget, listener: () => void): () => void
   /** Reference codec; required for sources producing insert outcomes. */
   readonly codec?: ReferenceCodec
 }

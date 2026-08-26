@@ -143,13 +143,34 @@ function declareConversation(slots: SlotRegistry): () => void {
 /** A Workspace UI double recording new-session starts. */
 function uiWorkspaceDouble() {
   const starts: unknown[] = []
+  const presets: string[] = []
   const preparers = new Set<(sessionId: never) => Promise<void>>()
-  let draftAgentPreset: string | undefined
+  const listeners = new Set<() => void>()
+  let sessionDraft: { revision: number; catalogRevision: number; agentPreset?: string } | undefined
   return {
     starts,
-    get draftAgentPreset() { return draftAgentPreset },
-    startSession: (workspaceId?: unknown) => { starts.push(workspaceId ?? null) },
-    selectDraftAgentPreset: (agentPreset: string) => { draftAgentPreset = agentPreset },
+    presets,
+    list: {
+      getSnapshot: () => ({ sessionDraft }),
+      subscribe: (fn: () => void) => {
+        listeners.add(fn)
+        return () => listeners.delete(fn)
+      },
+    },
+    selectDraftAgentPreset: (agentPreset: string) => {
+      if (sessionDraft === undefined || sessionDraft.agentPreset === agentPreset) return
+      presets.push(agentPreset)
+      sessionDraft = { ...sessionDraft, catalogRevision: sessionDraft.catalogRevision + 1, agentPreset }
+      for (const fn of listeners) fn()
+    },
+    startSession: (workspaceId?: unknown) => {
+      starts.push(workspaceId ?? null)
+      sessionDraft = {
+        revision: (sessionDraft?.revision ?? 0) + 1,
+        catalogRevision: (sessionDraft?.catalogRevision ?? 0) + 1,
+      }
+      for (const fn of listeners) fn()
+    },
     prepareSessionDraft: (prepare: (sessionId: never) => Promise<void>) => {
       preparers.add(prepare)
       return () => { preparers.delete(prepare) }
@@ -511,6 +532,7 @@ describe('ui-agent-preset apply', () => {
     expect(section.startCreatorDraft).toBeDefined()
     expect(seat.hooks.agentPresetSeat.getSnapshot().current).toBe('cordis')
     expect(uiWorkspace.starts).toHaveLength(1)
+    expect(uiWorkspace.presets).toEqual(['cordis'])
 
     // A cross-screen stage carries the introduce cue; the chip acknowledges
     // it once, and a repeat acknowledgement leaves the snapshot untouched.
