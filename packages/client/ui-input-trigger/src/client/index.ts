@@ -19,9 +19,10 @@ export type { MenuViewInjected } from './slots.ts'
 export type { MenuViewProps } from './MenuView.tsx'
 export type { MenuKey } from './locales.ts'
 export type {
-  ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CandidateRequest, ClientSessionContext,
+  ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CandidateRequest, ClientDraftContext, ClientSessionContext,
   CommandClaim, ConsumeTokenRequest, InsertReferenceRequest, PickOutcome, PickVia, ReferenceCodec,
-  ReferenceInsert, InputTriggerCandidate, InputTriggerPick, InputTriggerSource, SubmitEnvelope,
+  ReferenceInsert, InputTriggerCandidate, InputTriggerCandidateList, InputTriggerPick, InputTriggerSectionIssue,
+  InputTriggerSource, InputTriggerTarget, SubmitEnvelope,
   SubmitImageAttachment, SubmitOutcome, TokenSpan, TriggerChar, TriggerGuard, TriggerPosition,
 } from '../types.ts'
 export type { DetectTrigger, ExactMatch, MenuEvent, MenuReduce, MenuState, TriggerHit } from '../core/contract.ts'
@@ -64,15 +65,19 @@ export function apply(ctx: ClientContext): void {
       order: 0,
       locale: MENU_NS,
       inject: (sessionId): MenuViewInjected => {
-        // Session-scoped slot: resolve this session's controller (the slot
-        // frame hands ids, not ctx — the registered id→ctx interchange).
-        const actx = sessions.scope(sessionId)
-        if (actx === undefined) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`)
-        const controller = inputTriggers.sessionOf(actx)
+        const controller = sessionId === undefined
+          ? inputTriggers.draft()
+          : (() => {
+            const actx = sessions.scope(sessionId)
+            if (actx === undefined) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`)
+            return inputTriggers.sessionOf(actx)
+          })()
+        if (controller === undefined) throw new Error('ui-input-trigger: draft controller is not bound')
         return {
           menu: controller.menu,
           onPick: (source, index) => { controller.pick(source, index) },
           onDismiss: () => { controller.dismiss() },
+          onRetry: (source) => { controller.retry(source) },
         }
       },
     }, MenuView))

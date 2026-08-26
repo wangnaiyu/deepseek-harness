@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.client.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "lib/types" },
+  "include": ["src"],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/include" },
+    { "path": "../../../vendor/loader" },
+    { "path": "../../api/remotes/tsconfig.client.json" },
+    { "path": "../runtime" },
+    { "path": "../ui-input-trigger" },
+    { "path": "../../runtime-diagnostics/invariants" }
+  ]
+}

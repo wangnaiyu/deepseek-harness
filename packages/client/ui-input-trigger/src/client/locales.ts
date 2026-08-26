@@ -10,6 +10,8 @@ export const zh = {
   'skill': '技能',
   'subagent': '子智能体',
   'loading': '正在加载…',
+  'failed': '加载失败',
+  'retry': '重试',
   'suggestions.aria': '触发候选建议',
 } satisfies Record<string, string>
 
@@ -22,5 +24,7 @@ export const en = {
   'skill': 'Skills',
   'subagent': 'Subagents',
   'loading': 'Loading…',
+  'failed': 'Failed to load',
+  'retry': 'Retry',
   'suggestions.aria': 'Trigger suggestions',
 } satisfies Record<MenuKey, string>

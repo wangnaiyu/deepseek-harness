@@ -128,6 +128,16 @@ export function apply(ctx: ClientContext): void {
     })
 
     scope.effect(() => {
+      // Publish the staged/default chip choice into the browser-draft target.
+      // This is read-only capability context: it neither creates a Session
+      // nor applies the preset before first send.
+      const syncDraftPreset = (): void => {
+        const preset = seat.store.getSnapshot().current
+        if (preset === '' || scope.workspaces.list.getSnapshot().sessionDraft === undefined) return
+        scope.workspaces.selectDraftAgentPreset(preset)
+      }
+      const stopSeatDraft = seat.store.subscribe(syncDraftPreset)
+      syncDraftPreset()
       // The browser draft has no Session id. First send creates and opens its
       // Session, then awaits this preparation before admitting the prompt, so
       // the staged composition is guaranteed to own the first turn.
@@ -164,6 +174,7 @@ export function apply(ctx: ClientContext): void {
         // made on this screen — the stage happened back in settings.
         seat.stage('cordis', true)
         scope.workspaces.startSession()
+        scope.workspaces.selectDraftAgentPreset('cordis')
       }
       const chip = scope.slots.register({
         name: 'conversation.hero.agentPreset',
@@ -180,6 +191,7 @@ export function apply(ctx: ClientContext): void {
       }, AgentPresetLabel)
       return () => {
         stop()
+        stopSeatDraft()
         stopCurrent()
         settingsMoved()
         presetSelected()

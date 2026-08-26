@@ -739,7 +739,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   {
     key: 'conversation.input.overlay',
     kind: 'list',
-    scope: 'session',
+    scope: 'session-maybe',
     summary: 'The InputBar floating overlay anchor: MenuView (this package) and the popupSelect shell (ui-commands) contribute list entries; each reads its own store and renders null while closed.',
     doc: 'The InputBar floating overlay anchor: MenuView (this package) and the\npopupSelect shell (ui-commands) contribute list entries; each reads its\nown store and renders null while closed. Declared (children table) by\nui-conversation\'s composer entry; the anchor hides with the input\nunder a takeover.',
     registerOptions: [
@@ -767,11 +767,11 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     standardProps: [
       'useSessions: SnapshotSelectorHook<SessionListState>',
       'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
-      'useSession: SnapshotSelectorHook<ConversationSnapshot>',
-      'sessionId: SessionId',
+      'useSession: MaybeSnapshotSelectorHook<ConversationSnapshot>',
+      'sessionId: SessionId | undefined',
       'useProjection: UseProjection',
-      'useInput: SnapshotSelectorHook<InputState>',
-      'inputActions: InputActions',
+      'useInput: MaybeSnapshotSelectorHook<InputState>',
+      'inputActions: InputActions | undefined',
     ],
     keyDomain: '',
     hookContext: '',

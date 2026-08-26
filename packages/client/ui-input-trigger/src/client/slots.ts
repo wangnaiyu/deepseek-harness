@@ -21,7 +21,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * ui-conversation's composer entry; the anchor hides with the input
      * under a takeover.
      */
-    'conversation.input.overlay': { kind: 'list'; scope: 'session' }
+    'conversation.input.overlay': { kind: 'list'; scope: 'session-maybe' }
   }
 }
 
@@ -37,4 +37,6 @@ export interface MenuViewInjected {
   onPick: (source: string, index: number) => void
   /** Dismiss the menu (external pointer outside the composer area). */
   onDismiss: () => void
+  /** Retry a failed source while retaining successful groups. */
+  onRetry?: (source: string) => void
 }

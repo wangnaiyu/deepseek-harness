@@ -11,7 +11,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
-  ClientSessionContext, InputTriggerServiceContract, InputTriggerSource,
+  InputTriggerServiceContract, InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
@@ -34,14 +34,15 @@ export function apply(ctx: ClientContext): void {
     trigger: '@',
     name: 'reference',
     showGroupTitle: false,
-    async candidates(session: ClientSessionContext, { query, quoted, signal }) {
-      const files = ctx.remote.fileReferences.list(session.sessionId, query, signal).then(
+    async candidates(target, { query, quoted, signal }) {
+      if (target.kind === 'draft') return []
+      const files = ctx.remote.fileReferences.list(target.sessionId, query, signal).then(
         result => result.ok ? result.value : [],
         () => [],
       )
       const sessions = quoted === true
         ? Promise.resolve([] as SessionReferenceMentionCandidate[])
-        : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal).then(
+        : ctx.remote.sessionReferenceResolver.candidates(target.sessionId, query, signal).then(
           result => result.ok ? result.value : [],
           () => [],
         )

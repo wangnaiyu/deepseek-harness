@@ -8,7 +8,7 @@
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ClientContext, ISessions, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { InputTriggerSource } from '../types.ts'
+import type { InputTriggerSource, InputTriggerTarget, PickOutcome, TokenSpan } from '../types.ts'
 import { InputTriggerController } from './controller.ts'
 import type { InputTriggerServiceContract } from './contract.ts'
 
@@ -22,13 +22,14 @@ interface LiveState {
   readonly sources: InputTriggerSource[]
   /** Per-session controllers; entries are deleted by their scope disposer. */
   readonly controllers: Map<SessionId, InputTriggerController>
+  draft: InputTriggerController | undefined
 }
 
 /** The `ctx.inputTriggers` trigger pipeline service (root registry + controller resolution). */
 export class InputTriggerService extends Service implements InputTriggerServiceContract {
   static inject = ['sessions']
 
-  private readonly live: LiveState = { sources: [], controllers: new Map() }
+  private readonly live: LiveState = { sources: [], controllers: new Map(), draft: undefined }
 
   /**
    * @param ctx - owning root context (the service registers itself as `slash`).
@@ -85,7 +86,7 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
     if (existing !== undefined) return existing
     const controller = new InputTriggerController({
       actx,
-      sessionId: id,
+      target: () => ({ sessionId: id }),
       roster: {
         sources: trigger => live.sources.filter(s => s.trigger === trigger).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
         all: () => live.sources,
@@ -97,6 +98,32 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
       live.controllers.delete(id)
     }, 'slash: session controller')
     return controller
+  }
+
+  bindDraft(binding: {
+    readonly target: () => Extract<InputTriggerTarget, { kind: 'draft' }>
+    readonly apply: (outcome: PickOutcome, span: TokenSpan) => boolean
+  }): () => void {
+    if (this.live.draft !== undefined) throw new Error('ui-input-trigger: draft controller is already bound')
+    const controller = new InputTriggerController({
+      actx: this.ctx as ClientContext,
+      target: binding.target,
+      apply: binding.apply,
+      roster: {
+        sources: trigger => this.live.sources.filter(s => s.trigger === trigger).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+        all: () => this.live.sources,
+      },
+    })
+    this.live.draft = controller
+    return () => {
+      if (this.live.draft !== controller) return
+      controller.dispose()
+      this.live.draft = undefined
+    }
+  }
+
+  draft(): InputTriggerController | undefined {
+    return this.live.draft
   }
 
   private sessions(): ISessions {

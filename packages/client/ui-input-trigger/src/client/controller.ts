@@ -1,19 +1,19 @@
 /**
- * InputTriggerController: the per-session half of the trigger pipeline. Owns every
+ * InputTriggerController: one Session-or-draft half of the trigger pipeline. Owns every
  * piece of mutable interaction state — the authoritative trigger hit (span
  * included; it outlives menu close for space adjudication), the menu store,
  * and the candidate-fetch lifecycle — and executes pick outcomes by
  * dispatching the scoped input-mutation events. The root InputTriggerService keeps
- * only the source roster. One controller per session scope; the service
- * disposes it with the scope fiber.
+ * only the source roster. Session controllers follow their scope fiber; the
+ * browser-draft binding explicitly owns and replaces its controller.
  */
-import type { ClientContext, SessionId, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { detectTrigger } from '../core/detect.ts'
 import { MENU_CLOSED, menuReduce, seedGroups } from '../core/menu.ts'
 import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
-  ArbitrateKey, ArbitrateOutcome, ClientSessionContext, PickOutcome, InputTriggerSource, SubmitEnvelope, TriggerChar, TriggerGuard,
+  ArbitrateKey, ArbitrateOutcome, InputTriggerTarget, PickOutcome, InputTriggerSource, SubmitEnvelope, TriggerChar, TriggerGuard,
 } from '../types.ts'
 
 /** Roster access the controller borrows from the root service (registration order preserved). */
@@ -27,9 +27,13 @@ export interface InputTriggerControllerDeps {
   /** The owning session scope (event dispatch + teardown registration site). */
   actx: ClientContext
   /** The session's stable host identity (the projection handed to sources). */
-  sessionId: SessionId
+  target?: () => InputTriggerTarget
+  /** @deprecated Construction compatibility for session-only controller tests. */
+  sessionId?: import('@deepseek-ai/dsh-client-runtime/client').SessionId
   /** Root-service roster view. */
   roster: SourceRoster
+  /** Apply a pick to the owning input. Session controllers use scoped events; drafts inject a direct CAS sink. */
+  apply?: (outcome: PickOutcome, span: import('../types.ts').TokenSpan) => boolean
 }
 
 /**
@@ -61,7 +65,7 @@ export class InputTriggerController {
 
   /** The authoritative hit: single truth for span CAS material (menu snapshot never carries it alone). */
   private hit: TriggerHit | null = null
-  private fetch: AbortController | null = null
+  private readonly fetches = new Map<string, AbortController>()
   private disposed = false
   /** Per-source lexicon unsubscribers (sources without the hook never enter). */
   private readonly lexiconOffs = new Map<InputTriggerSource, () => void>()
@@ -71,7 +75,7 @@ export class InputTriggerController {
     // roster warm here replaces the projection-transition watch — there are
     // no capability steps to react to.
     const projection = this.project()
-    for (const src of deps.roster.all()) {
+    for (const src of this.sources()) {
       src.warm?.(projection)
       this.watchLexicon(src, projection)
     }
@@ -105,7 +109,7 @@ export class InputTriggerController {
       && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end
     this.hit = hit
     if (same) return
-    const roster = this.deps.roster.sources(hit.trigger)
+    const roster = this.sources(hit.trigger)
     if (roster.length === 0) {
       this.stopFetch()
       this.reduce({ type: 'close' })
@@ -132,7 +136,7 @@ export class InputTriggerController {
       this.dismiss()
       return
     }
-    const match = this.deps.roster.sources(hit.trigger).find(item => item.name === source)
+    const match = this.sources(hit.trigger).find(item => item.name === source)
     if (match === undefined) {
       this.dismiss()
       return
@@ -143,6 +147,44 @@ export class InputTriggerController {
     this.menu.set(seedGroups(this.menu.getSnapshot(), [match]))
     this.reduce({ type: 'hit', hit })
     this.fetchCandidates(hit, [match])
+  }
+
+  /**
+   * Toggle every eligible source for one synthetic trigger hit (the shared `+` launcher).
+   * @param hit - synthetic trigger and current selection span.
+   */
+  toggleTrigger(hit: TriggerHit): void {
+    if (this.disposed) return
+    if (this.launcher.getSnapshot() === hit.trigger && this.menu.getSnapshot().open) {
+      this.dismiss()
+      return
+    }
+    const roster = this.sources(hit.trigger)
+    if (roster.length === 0) {
+      this.dismiss()
+      return
+    }
+    this.stopFetch()
+    this.hit = hit
+    this.launcher.set(hit.trigger)
+    this.menu.set(seedGroups(this.menu.getSnapshot(), roster))
+    this.reduce({ type: 'hit', hit })
+    this.fetchCandidates(hit, roster)
+  }
+
+  /**
+   * Retry one failed source against the current hit without disturbing successful groups.
+   * @param source - registered source name to invalidate and fetch again.
+   */
+  retry(source: string): void {
+    const state = this.menu.getSnapshot()
+    const hit = this.hit
+    if (this.disposed || !state.open || hit === null) return
+    const match = this.sources(hit.trigger).find(item => item.name === source)
+    if (match === undefined) return
+    match.retry?.(this.project())
+    this.reduce({ type: 'source-retry', generation: state.generation, source })
+    this.fetchCandidates(hit, [match], false)
   }
 
   /**
@@ -158,7 +200,7 @@ export class InputTriggerController {
     const group = state.groups.find(g => g.source === source)
     const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
     if (candidate === undefined) return
-    const src = this.deps.roster.sources(hit.trigger).find(s => s.name === source)
+    const src = this.sources(hit.trigger).find(s => s.name === source)
     if (src === undefined) return
     const outcome = src.onPick({
       candidate,
@@ -215,7 +257,7 @@ export class InputTriggerController {
     if (this.disposed || hit === null || hit.position !== 'leading') return false
     const token = hit.trigger + hit.query
     const projection = this.project()
-    for (const src of this.deps.roster.sources(hit.trigger)) {
+    for (const src of this.sources(hit.trigger)) {
       if (src.matchSpace === undefined) continue
       const outcome = src.matchSpace(projection, token)
       if (outcome === undefined) continue
@@ -256,7 +298,7 @@ export class InputTriggerController {
    */
   async adjudicate(line: string, signal: AbortSignal, envelope: SubmitEnvelope): Promise<PickOutcome> {
     const projection = this.project()
-    for (const src of this.deps.roster.all()) {
+    for (const src of this.sources()) {
       if (signal.aborted) {
         throw signal.reason instanceof Error ? signal.reason : new Error('slash adjudication aborted')
       }
@@ -274,7 +316,7 @@ export class InputTriggerController {
   sourceRemoved(source: InputTriggerSource): void {
     const state = this.menu.getSnapshot()
     if (state.open && state.hit !== null && state.hit.trigger === source.trigger) {
-      this.reduce({ type: 'source-failed', generation: state.generation, source: source.name })
+      this.reduce({ type: 'source-removed', generation: state.generation, source: source.name })
     }
     this.lexiconOffs.get(source)?.()
     this.lexiconOffs.delete(source)
@@ -289,6 +331,7 @@ export class InputTriggerController {
    * @param source - the newly registered source.
    */
   sourceAdded(source: InputTriggerSource): void {
+    if (!this.accepts(source)) return
     const projection = this.project()
     source.warm?.(projection)
     this.watchLexicon(source, projection)
@@ -312,13 +355,16 @@ export class InputTriggerController {
     this.lexiconOffs.clear()
   }
 
-  /** The session projection handed to sources (agent-backed identity; constant per scope). */
-  private project(): ClientSessionContext {
-    return { sessionId: this.deps.sessionId }
+  /** The explicit Session-or-draft projection handed to sources. */
+  private project(): InputTriggerTarget {
+    if (this.deps.target !== undefined) return this.deps.target()
+    if (this.deps.sessionId !== undefined) return { sessionId: this.deps.sessionId }
+    throw new Error('ui-input-trigger: controller has no target')
   }
 
   /** Execute a claim/insert/text outcome via the scoped input events (actx as dispatch subject); true = the input applied it. */
   private execute(outcome: PickOutcome, span: import('../types.ts').TokenSpan): boolean {
+    if (this.deps.apply !== undefined) return this.deps.apply(outcome, span)
     const { actx } = this.deps
     if (outcome === undefined || outcome === 'handled') return false
     if ('claim' in outcome) {
@@ -338,7 +384,7 @@ export class InputTriggerController {
   private refreshLexicon(): void {
     const projection = this.project()
     const rolls = new Map<TriggerChar, readonly string[]>()
-    for (const src of this.deps.roster.all()) {
+    for (const src of this.sources()) {
       if (src.lexicon === undefined) continue
       let names: readonly string[] | undefined
       try {
@@ -358,19 +404,20 @@ export class InputTriggerController {
   }
 
   /** Wire one source's lexicon invalidation channel into refresh (hookless or roll-less sources never notify). */
-  private watchLexicon(source: InputTriggerSource, projection: ClientSessionContext): void {
+  private watchLexicon(source: InputTriggerSource, projection: InputTriggerTarget): void {
     if (source.lexicon === undefined || source.subscribeLexicon === undefined) return
     this.lexiconOffs.set(source, source.subscribeLexicon(projection, () => { this.refreshLexicon() }))
   }
 
-  /** Launch the candidate fetch for one hit generation, superseding the previous one. */
-  private fetchCandidates(hit: TriggerHit, roster: readonly InputTriggerSource[]): void {
-    this.stopFetch()
-    const controller = new AbortController()
-    this.fetch = controller
+  /** Launch candidate fetches for one hit generation, optionally superseding the whole prior roster. */
+  private fetchCandidates(hit: TriggerHit, roster: readonly InputTriggerSource[], replaceAll = true): void {
+    if (replaceAll) this.stopFetch()
     const generation = this.menu.getSnapshot().generation
     const projection = this.project()
     for (const source of roster) {
+      this.fetches.get(source.name)?.abort()
+      const controller = new AbortController()
+      this.fetches.set(source.name, controller)
       void source
         .candidates(projection, {
           query: hit.query,
@@ -379,12 +426,18 @@ export class InputTriggerController {
           signal: controller.signal,
         })
         .then(
-          (items) => {
+          (result) => {
             if (controller.signal.aborted) return
-            this.reduce({ type: 'source-settled', generation, source: source.name, items })
+            if (this.fetches.get(source.name) === controller) this.fetches.delete(source.name)
+            this.reduce({
+              type: 'source-settled', generation, source: source.name,
+              items: result,
+              ...result.issues === undefined ? {} : { issues: result.issues },
+            })
           },
           (error: unknown) => {
             if (controller.signal.aborted) return
+            if (this.fetches.get(source.name) === controller) this.fetches.delete(source.name)
             console.error(`[ui-input-trigger] source "${source.name}" candidates failed:`, error)
             this.reduce({ type: 'source-failed', generation, source: source.name })
           },
@@ -392,9 +445,21 @@ export class InputTriggerController {
     }
   }
 
+  /** Eligible roster for the controller's current target (legacy sources are session-only). */
+  private sources(trigger?: string): readonly InputTriggerSource[] {
+    const roster = trigger === undefined ? this.deps.roster.all() : this.deps.roster.sources(trigger)
+    return roster.filter(source => this.accepts(source))
+  }
+
+  private accepts(source: InputTriggerSource): boolean {
+    const target = this.project()
+    const kind = target.kind === 'draft' ? 'draft' : 'session'
+    return source.targets?.includes(kind) ?? kind === 'session'
+  }
+
   private stopFetch(): void {
-    this.fetch?.abort()
-    this.fetch = null
+    for (const fetch of this.fetches.values()) fetch.abort()
+    this.fetches.clear()
   }
 
   private clearLauncher(): void {

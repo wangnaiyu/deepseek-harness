@@ -16,6 +16,8 @@ export interface IWorkspaces {
   readonly list: ObservableSnapshot<WorkspaceListState>
   /** Stage a Workspace on the current browser-only New Session draft. */
   selectDraftWorkspace(workspaceId: WorkspaceId): void
+  /** Stage the Agent preset used by browser-draft discovery and eventual first send. */
+  selectDraftAgentPreset(agentPreset: string): void
   /**
    * The New Session flow: stage the explicit, current-Session, recent
    * Workspace, or Host-cwd target as a browser-only draft. It does not create

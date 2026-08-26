@@ -38,8 +38,12 @@ export interface WorkspaceListState {
   sessionDraft?: {
     /** Monotonic local identity used only to reset the resident draft editor. */
     revision: number
+    /** Monotonic capability-target identity; Workspace/preset switches do not reset the editor. */
+    catalogRevision: number
     /** Registered Workspace target; absent means the Host process cwd. */
     workspaceId?: WorkspaceId
+    /** Agent preset staged for the eventual Session; omitted lets the Host use its default. */
+    agentPreset?: string
     /** Display-ready final directory known without creating a Session. */
     cwd?: string
   }
@@ -71,6 +75,8 @@ export class WorkspaceRuntime implements IWorkspaces {
   private materializingDraft: { revision: number; pending: Promise<SessionId> } | undefined
   /** Browser-draft generation; explicitly not a Session identity. */
   private draftRevision = 0
+  /** Capability-target generation, independent from the resident editor reset identity. */
+  private draftCatalogRevision = 0
   /** Optional feature preparation, ordered so composition changes settle before dependent choices. */
   private readonly draftPreparers = new Map<(sessionId: SessionId) => Promise<void>, number>()
   /** Guards the runtime-owned one-shot initial-selection subscription. */
@@ -110,12 +116,23 @@ export class WorkspaceRuntime implements IWorkspaces {
     const workspace = this.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
     if (workspace === undefined) throw new Error(`workspaces.selectDraftWorkspace: unknown workspace ${workspaceId}`)
     const current = this.list.getSnapshot().sessionDraft
+    if (current?.workspaceId === workspaceId && current.cwd === workspace.path) return
     this.setSessionDraft({
       revision: current?.revision ?? ++this.draftRevision,
+      catalogRevision: ++this.draftCatalogRevision,
       workspaceId,
       cwd: workspace.path,
+      ...current?.agentPreset === undefined ? {} : { agentPreset: current.agentPreset },
     })
     this.sessions.clear()
+  }
+
+  /** Stage the Agent preset used to resolve draft-only capabilities without materializing a Session. */
+  selectDraftAgentPreset(agentPreset: string): void {
+    if (agentPreset.trim() === '') throw new Error('workspaces.selectDraftAgentPreset: blank preset')
+    const current = this.list.getSnapshot().sessionDraft
+    if (current === undefined || current.agentPreset === agentPreset) return
+    this.setSessionDraft({ ...current, catalogRevision: ++this.draftCatalogRevision, agentPreset })
   }
 
   /** Begin a fresh browser-only draft explicitly targeting the Host cwd. */
@@ -229,6 +246,7 @@ export class WorkspaceRuntime implements IWorkspaces {
     const hostCwd = this.hostDescription?.getSnapshot()?.cwd
     this.setSessionDraft({
       revision: ++this.draftRevision,
+      catalogRevision: ++this.draftCatalogRevision,
       ...(workspaceId === undefined ? {} : { workspaceId }),
       ...(workspace?.path !== undefined
         ? { cwd: workspace.path }

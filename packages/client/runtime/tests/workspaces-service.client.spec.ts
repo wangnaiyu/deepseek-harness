@@ -343,6 +343,19 @@ describe('WorkspaceRuntime', () => {
       workspaceId: 'recent-home', cwd: '/w/recent-home',
     })
     expect(api.callsOf('session.create')).toEqual([])
+    const initialCatalogRevision = workspaces.list.getSnapshot().sessionDraft!.catalogRevision
+
+    workspaces.selectDraftAgentPreset('pto')
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'recent-home', agentPreset: 'pto', revision: 1,
+    })
+    expect(workspaces.list.getSnapshot().sessionDraft!.catalogRevision).toBeGreaterThan(initialCatalogRevision)
+    const presetCatalogRevision = workspaces.list.getSnapshot().sessionDraft!.catalogRevision
+    workspaces.selectDraftWorkspace(wid('current-home'))
+    expect(workspaces.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: 'current-home', agentPreset: 'pto', revision: 1,
+    })
+    expect(workspaces.list.getSnapshot().sessionDraft!.catalogRevision).toBeGreaterThan(presetCatalogRevision)
 
     sessions.open(sid('current'))
     workspaces.startSession()
