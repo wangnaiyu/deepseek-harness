@@ -11,6 +11,7 @@ import type {
 interface CacheEntry {
   readonly promise: Promise<DraftComposerCatalog>
   readonly abort: AbortController
+  settled?: DraftComposerCatalog
 }
 
 /** Required services: generated Remote namespace plus the generic trigger registry. */
@@ -37,10 +38,13 @@ const cacheKey = (target: ClientDraftContext): string =>
 /** Mount the one draft-only source. */
 export function apply(ctx: ClientContext): void {
   const cache = new Map<string, CacheEntry>()
+  const lexiconListeners = new Set<() => void>()
+  const notifyLexicon = (): void => { for (const listener of lexiconListeners) listener() }
 
   const clear = (): void => {
     for (const entry of cache.values()) entry.abort.abort()
     cache.clear()
+    notifyLexicon()
   }
 
   const load = (target: ClientDraftContext): Promise<DraftComposerCatalog> => {
@@ -51,9 +55,12 @@ export function apply(ctx: ClientContext): void {
     const promise = ctx.remote.composerCatalog.listDraft(requestOf(target)).then((result) => {
       if (abort.signal.aborted) throw abort.signal.reason
       if (!result.ok) throw new Error(`composerCatalog.listDraft failed: ${result.error.code}: ${result.error.message}`)
+      const current = cache.get(key)
+      if (current?.abort === abort) current.settled = result.value
+      notifyLexicon()
       return result.value
     })
-    const entry = { promise, abort }
+    const entry: CacheEntry = { promise, abort }
     cache.set(key, entry)
     promise.catch(() => { if (cache.get(key) === entry) cache.delete(key) })
     return promise
@@ -101,12 +108,26 @@ export function apply(ctx: ClientContext): void {
       const entry = cache.get(cacheKey(target))
       entry?.abort.abort()
       cache.delete(cacheKey(target))
+      notifyLexicon()
     },
     onPick: ({ candidate, session: target }) => {
       if (target.kind !== 'draft' || candidate.value === undefined) return undefined
       if (candidate.value.startsWith('skill:')) return { text: `/skill ${candidate.value.slice(6)} ` }
       if (candidate.value.startsWith('command:')) return { text: `/${candidate.value.slice(8)} ` }
       return undefined
+    },
+    lexicon: (target) => {
+      if (target.kind !== 'draft') return []
+      const catalog = cache.get(cacheKey(target))?.settled
+      if (catalog === undefined) return undefined
+      return [
+        ...catalog.commands.map(command => command.name),
+        ...catalog.skills.flatMap(skill => [skill.name, `skill ${skill.name}`]),
+      ]
+    },
+    subscribeLexicon: (_target, listener) => {
+      lexiconListeners.add(listener)
+      return () => { lexiconListeners.delete(listener) }
     },
     warm: (target) => { if (target.kind === 'draft') load(target).catch(() => {}) },
   }

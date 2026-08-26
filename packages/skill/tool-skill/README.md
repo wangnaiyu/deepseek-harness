@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Agents can discover and load skills during a session: before the first request they receive a durable catalog of every available skill's name and capped description, and they can load any listed skill's full instructions by name through the `skill` loader tool. A user can also invoke a skill directly with a `/name` token, which injects that skill's instructions into the step. The catalog stays current: membership, description, or visibility changes append a complete replacement catalog, and a deleted skill is explicitly retired. Mount it alongside the skill registry (and at least one provider) when agents should load skills; its only configuration caps catalog description length.
+Agents can discover and load skills during a session: before the first request they receive a durable catalog of every available skill's name and capped description, and they can load any listed skill's full instructions by name through the `skill` loader tool. A user can also invoke a skill directly with the canonical `/skill <name>` gesture, which injects that skill's instructions into the step; legacy `/<name>` remains accepted only when no effective same-name command exists. The catalog stays current: membership, description, or visibility changes append a complete replacement catalog, and a deleted skill is explicitly retired. Mount it alongside the skill registry (and at least one provider) when agents should load skills; its only configuration caps catalog description length. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`; when an effective `ctx.commands` service is present, the legacy gesture path also consults it for same-name conflicts.
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 - **A session catalog.** When model-invocable skills exist and the `skill` tool is visible, the agent receives a durable user-role message before its first request, listing each skill's name and a capped description; the message tells the model to load a skill with the tool before acting on it, and never to infer instructions from the summary alone.
 - **A loader tool.** The model calls `skill` with the exact skill name and receives the full instruction body plus resource guidance in a canonical `<skill_content>` block; the result is retained as ordinary tool history.
-- **Explicit user invocation.** A `/name` token in direct user input that names a user-invocable skill injects that skill's instructions into the step, without the model having to load it.
+- **Explicit user invocation.** A canonical `/skill <name>` token in direct user input that names a user-invocable skill injects that skill's instructions into the step, without the model having to load it. Legacy `/<name>` remains accepted only when no effective same-name command exists.
 - **Live catalog updates.** Later membership, description, or visibility changes append a complete replacement catalog; removing every skill appends an empty catalog that retires older names.
 
 ### Observable success and failures
@@ -85,7 +85,7 @@ At each eligible `agent/pre-step`, the plugin snapshots the calling session's sk
 
 ### Invocation boundary
 
-The `/name` gesture listener scans only claimed user messages: a whitespace-bounded token naming a user-invocable skill in the workspace catalog injects the same `<skill_content>` rendering as a `user`-role instructions context appended after every other injection. Unknown names and user-disabled skills stay ordinary prose. This is the only entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose.
+The gesture listener scans only claimed user messages: a whitespace-bounded canonical `/skill <name>` token naming a user-invocable skill in the workspace catalog injects the same `<skill_content>` rendering as a `user`-role instructions context appended after every other injection. Legacy `/<name>` is also recognized when no effective same-name command exists. Unknown names and user-disabled skills stay ordinary prose. This is the only entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose.
 
 </details>
 
@@ -100,7 +100,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [skill package](../skill/README.md) — the registry and the shared `renderSkillContent` rendering.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-skill) — the exact `skill` schema the model receives.
 - [Skill catalog hot-refresh Agent Note](../../../.agents/notes/implemented/feature/2026-07-27-skill-catalog-hot-refresh.md) — the durable initial catalog and replacement lifecycle.
-- [User-explicit skill invocation Agent Note](../../../.agents/notes/implemented/feature/2026-08-08-user-explicit-skill-invocation.md) — the `/name` gesture design.
+- [User-explicit skill invocation Agent Note](../../../.agents/notes/implemented/feature/2026-08-08-user-explicit-skill-invocation.md) — the explicit skill gesture design.
 
 -----
 
@@ -224,7 +224,7 @@ Append-only; newly visible content follows the reusable request prefix and does 
 
 #### What the model sees
 
-A whitespace-bounded `/name` token anywhere in a claimed user message, naming a user-invocable skill in the workspace catalog, injects that skill's full `<skill_content>` rendering (the exact result-template shape above) as a `user`-role instructions context appended after every other injection of that step — background first, the material to act on last. Only direct user input is scanned, the check runs on the loaded definition, and unknown or user-disabled names stay ordinary prose. This is the sole entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose; the catalog's closing sentence tells the model to follow the injected block instead of re-loading it.
+A whitespace-bounded `/skill <name>` token anywhere in a claimed user message is the canonical, cross-client invocation syntax. It names a user-invocable skill in the workspace catalog and injects that skill's full `<skill_content>` rendering (the exact result-template shape above) as a `user`-role instructions context appended after every other injection of that step — background first, the material to act on last. A whitespace-bounded legacy `/<name>` token remains accepted only when the effective command registry has no same-name command; `/skill` itself is reserved as the canonical introducer. Only direct user input is scanned, the check runs on the loaded definition, and unknown or user-disabled names stay ordinary prose. This is the sole entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose; the catalog's closing sentence tells the model to follow the injected block instead of re-loading it.
 
 #### Token effect
 

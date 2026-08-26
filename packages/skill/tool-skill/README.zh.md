@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-agent（智能体）可以在会话期间发现并加载 skill（技能）：在首次请求前，它们会收到一份持久目录，列出每个可用 skill 的名称与有长度上限的描述，并可通过 `skill` 加载工具按名称加载任一列出 skill 的完整指令。用户也可以用 `/name` token 直接调用某个 skill，把该 skill 的指令注入当轮次。目录保持最新：成员关系、描述或可见性变化会追加完整的替换目录，被删除的 skill 会被显式停用。当 agent 需要加载 skill 时，请把它与 skill 注册表（以及至少一个提供方）一起挂载；它唯一的配置项限制目录描述长度。
+agent（智能体）可以在会话期间发现并加载 skill（技能）：在首次请求前，它们会收到一份持久目录，列出每个可用 skill 的名称与有长度上限的描述，并可通过 `skill` 加载工具按名称加载任一列出 skill 的完整指令。用户也可以用规范 `/skill <name>` 手势直接调用某个 skill，把该 skill 的指令注入当轮次；旧 `/<name>` 仅在有效命令不存在同名项时继续接受。目录保持最新：成员关系、描述或可见性变化会追加完整的替换目录，被删除的 skill 会被显式停用。当 agent 需要加载 skill 时，请把它与 skill 注册表（以及至少一个提供方）一起挂载；它唯一的配置项限制目录描述长度。它需要 `ctx.agents`、`ctx.tools` 与 `ctx.skills`；存在有效 `ctx.commands` service 时，旧手势路径还会用它检查同名冲突。
 
 ## 目录
 
@@ -51,7 +51,7 @@ agent（智能体）可以在会话期间发现并加载 skill（技能）：在
 
 - **会话目录。** 当存在模型可调用 skill 且 `skill` 工具可见时，agent 会在首次请求前收到一条持久的用户角色消息，列出每个 skill 的名称与有长度上限的描述；该消息告诉模型在着手任务前先用工具加载 skill，且绝不能仅凭摘要推断指令。
 - **加载工具。** 模型以精确的 skill 名称调用 `skill`，并收到完整指令正文以及规范的 `<skill_content>` 块中的资源指引；该结果作为普通工具历史保留。
-- **用户显式调用。** 直接用户输入中的 `/name` token 若指名某个用户可调用 skill，会把该 skill 的指令注入当轮次，而无需模型自行加载。
+- **用户显式调用。** 直接用户输入中的规范 `/skill <name>` token 若指名某个用户可调用 skill，会把该 skill 的指令注入当轮次，而无需模型自行加载。旧 `/<name>` 仅在有效命令不存在同名项时继续接受。
 - **实时目录更新。** 后续成员关系、描述或可见性变化会追加完整的替换目录；删除全部 skill 时会追加空目录，停用较早的名称。
 
 ### 可观察的成功与失败
@@ -85,7 +85,7 @@ agent（智能体）可以在会话期间发现并加载 skill（技能）：在
 
 ### 调用边界
 
-`/name` 手势监听器只扫描已认领的用户消息：若某个以空白为界、指名工作区目录中用户可调用 skill 的 token 出现，则把同一份 `<skill_content>` 渲染作为 `user` 角色的指令上下文注入，追加在该步骤所有其他注入之后。未知名称与用户不可调用的名称保持为普通行文。这是 `disable-model-invocation` skill 唯一的入口，目录与 `skill` 工具永不暴露这类 skill。
+手势监听器只扫描已认领的用户消息：若某个以空白为界、指名工作区目录中用户可调用 skill 的规范 `/skill <name>` token 出现，则把同一份 `<skill_content>` 渲染作为 `user` 角色的指令上下文注入，追加在该步骤所有其他注入之后。旧 `/<name>` 在有效命令不存在同名项时也会被识别。未知名称与用户不可调用的名称保持为普通行文。这是 `disable-model-invocation` skill 唯一的入口，目录与 `skill` 工具永不暴露这类 skill。
 
 </details>
 
@@ -100,7 +100,7 @@ agent（智能体）可以在会话期间发现并加载 skill（技能）：在
 - [skill 包](../skill/README.zh.md)——注册表与共享的 `renderSkillContent` 渲染。
 - [生成工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-skill)——模型接收的精确 `skill` schema。
 - [skill 目录热刷新 Agent Note](../../../.agents/notes/implemented/feature/2026-07-27-skill-catalog-hot-refresh.zh.md)——持久初始目录与替换生命周期。
-- [用户显式 skill 调用 Agent Note](../../../.agents/notes/implemented/feature/2026-08-08-user-explicit-skill-invocation.zh.md)——`/name` 手势设计。
+- [用户显式 skill 调用 Agent Note](../../../.agents/notes/implemented/feature/2026-08-08-user-explicit-skill-invocation.zh.md)——显式 skill 手势设计。
 
 -----
 
@@ -224,7 +224,7 @@ Load referenced resources only as needed.
 
 #### 模型看到什么
 
-已认领用户消息中任意位置、以空白为界、指名工作区目录中某个用户可调用 skill 的 `/name` token，会把该 skill 的完整 `<skill_content>` 渲染（与上文结果模板完全相同的形态）作为 `user` 角色的指令上下文注入，追加在该步骤所有其他注入之后——背景在前，模型要着手处理的材料在最后。只扫描直接的用户输入，检查在已加载定义上进行，未知名称和用户不可调用的名称保持为普通行文。这是 `disable-model-invocation` skill 唯一的入口，目录和 `skill` 工具永不暴露这类 skill；目录的结尾一句会告诉模型遵循注入块，而不是重新加载它。
+已认领用户消息中任意位置、以空白为界的 `/skill <name>` token，是规范的跨 Client 调用语法。它指名工作区目录中某个用户可调用 skill，并把该 skill 的完整 `<skill_content>` 渲染（与上文结果模板完全相同的形态）作为 `user` 角色的指令上下文注入，追加在该步骤所有其他注入之后——背景在前，模型要着手处理的材料在最后。旧的、以空白为界的 `/<name>` token 仅在有效命令注册表不存在同名命令时继续兼容；`/skill` 本身保留为规范引导词。只扫描直接的用户输入，检查在已加载定义上进行，未知名称和用户不可调用的名称保持为普通行文。这是 `disable-model-invocation` skill 唯一的入口，目录和 `skill` 工具永不暴露这类 skill；目录的结尾一句会告诉模型遵循注入块，而不是重新加载它。
 
 #### Token 影响
 

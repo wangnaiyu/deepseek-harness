@@ -323,7 +323,7 @@ describe('submit-machine: per-session isolation', () => {
 
 describe('decorations: scanTextRefs', () => {
   const lexicon: ReadonlyMap<'/' | '@', readonly string[]> = new Map([
-    ['/', ['commit-helper', 'goal'] as readonly string[]],
+    ['/', ['commit-helper', 'goal', 'skill fixture-demo'] as readonly string[]],
     ['@', ['research'] as readonly string[]],
   ])
 
@@ -331,6 +331,12 @@ describe('decorations: scanTextRefs', () => {
     const out = scanTextRefs('/goal then @research and /commit-helper', lexicon)
     expect(out.map(r => [r.start, r.end, r.trigger])).toEqual([
       [0, 5, '/'], [11, 20, '@'], [25, 39, '/'],
+    ])
+  })
+
+  it('matches canonical multi-token skill references as one range', () => {
+    expect(scanTextRefs('use /skill fixture-demo now', lexicon)).toEqual([
+      { start: 4, end: 23, trigger: '/' },
     ])
   })
 

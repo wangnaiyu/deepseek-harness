@@ -58,6 +58,9 @@ describe('draft composer catalog source', () => {
     const b = await bench(() => Promise.resolve({ ok: true, value: catalog }))
     expect(b.source).toMatchObject({ trigger: '/', name: 'composer-catalog', targets: ['draft'], showGroupTitle: false })
     const all = await b.source.candidates(target(), req())
+    expect(b.source.lexicon?.(target())).toEqual([
+      'analyze', 'plan', 'mine', 'skill mine', 'evidence', 'skill evidence',
+    ])
     expect(all.map(row => [row.section ?? '', row.name, row.origin])).toEqual([
       ['', 'analyze', 'PTO'],
       ['', 'plan', 'Agent'],
@@ -117,9 +120,14 @@ describe('draft composer catalog source', () => {
     const b = await bench(() => Promise.resolve({ ok: true, value: catalog }))
     const first = await b.source.candidates(target(), req())
     expect(first.issues).toHaveLength(1)
+    const changed = vi.fn()
+    const unsubscribe = b.source.subscribeLexicon?.(target(), changed)
     b.source.retry?.(target())
+    expect(changed).toHaveBeenCalledTimes(1)
     await b.source.candidates(target(), req())
+    expect(changed).toHaveBeenCalledTimes(2)
     expect(b.listDraft).toHaveBeenCalledTimes(2)
+    unsubscribe?.()
   })
 
   it('rejects an in-flight pre-reset snapshot instead of publishing it after reconnect', async () => {
