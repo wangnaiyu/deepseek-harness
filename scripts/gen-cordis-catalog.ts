@@ -438,6 +438,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   CommandDefinition: 'commands.md',
   CommandDescriptor: 'commands.md',
   CommandFileReceiptResolver: 'commands.md',
+  CommandDiscoveryEntry: 'commands.md',
   CommandId: 'commands.md',
   CommandResult: 'commands.md',
   CommandSubmitAttachment: 'commands.md',
