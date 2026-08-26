@@ -16,6 +16,7 @@ import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-ses
 import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
+import { explicitSkillNames, isUserInvocable } from '@deepseek-ai/dsh-skill'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import {
   ApiSessionAgentController,
@@ -36,6 +37,7 @@ import type {
   SessionCreateValue,
   SessionForkRequest,
   SessionForkValue,
+  PromptContentPart,
   SessionPromptRequest,
   SessionPromptValue,
   SessionRenameRequest,
@@ -305,6 +307,7 @@ export class SessionCommandController {
         { provider: selection.provider, model: selection.model },
       )
     }
+    await this.admitExplicitSkills(agent, request.content)
     const source: MessageSource = {
       kind: 'user',
       rpcId: request.requestId,
@@ -338,6 +341,46 @@ export class SessionCommandController {
       return { accepted: true }
     }
     return hasImage ? this.agents.serializeImageAdmission(agent, admit) : admit()
+  }
+
+  /** Revalidate canonical user Skill gestures before the prompt becomes durable. */
+  private async admitExplicitSkills(agent: Agent, content: readonly PromptContentPart[]): Promise<void> {
+    const names: string[] = []
+    for (const part of content) {
+      if (part.type !== 'text') continue
+      for (const name of explicitSkillNames(part.text)) {
+        if (!names.includes(name)) names.push(name)
+      }
+    }
+    if (names.length === 0) return
+    const registry = this.ctx.get('agentPresets')?.serviceFor(agent, 'skills') ?? this.ctx.get('skills')
+    if (registry === undefined) {
+      throw new RemoteError(
+        'session/skill-catalog-unavailable',
+        'Skill catalog is unavailable for this Session; the prompt was not sent.',
+        {},
+      )
+    }
+    let skills
+    try {
+      skills = await registry.list({ cwd: agent.session.header.cwd, scope: agent })
+    } catch (error) {
+      throw new RemoteError(
+        'session/skill-catalog-unavailable',
+        'Skill catalog could not be revalidated; the prompt was not sent.',
+        { reason: String(error) },
+      )
+    }
+    for (const name of names) {
+      const skill = skills.find(candidate => candidate.name === name)
+      if (skill === undefined || !isUserInvocable(skill)) {
+        throw new RemoteError(
+          'session/skill-unavailable',
+          `Skill "${name}" is unknown, no longer available, or not user-invocable; the prompt was not sent.`,
+          { name },
+        )
+      }
+    }
   }
 
   /**

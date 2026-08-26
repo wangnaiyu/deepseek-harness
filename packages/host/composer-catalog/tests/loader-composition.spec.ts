@@ -1,6 +1,6 @@
 /**
  * REAL-composition proof: a test-only cordis.yml mounts the catalog with its
- * four required service seats through the vendored Loader, then serves a
+ * five required service seats through the vendored Loader, then serves a
  * draft without creating a Session or Agent.
  */
 
@@ -14,6 +14,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as ComposerCatalogPlugin from '../src/index.ts'
 
 let root: string | undefined
@@ -45,6 +46,7 @@ async function loadYaml(): Promise<Context> {
     "- name: '@deepseek-ai/dsh-skill'",
     "- name: 'test:workspace-registry'",
     "- name: 'test:agent-presets'",
+    "- name: '@deepseek-ai/dsh-session-projection'",
     "- name: '@deepseek-ai/dsh-host-composer-catalog'",
     '',
   ].join('\n'))
@@ -58,6 +60,7 @@ async function loadYaml(): Promise<Context> {
     ['@deepseek-ai/dsh-skill', SkillRegistry],
     ['test:workspace-registry', WorkspaceRegistrySeat],
     ['test:agent-presets', AgentPresetsSeat],
+    ['@deepseek-ai/dsh-session-projection', SessionProjectionRegistry],
     ['@deepseek-ai/dsh-host-composer-catalog', ComposerCatalogPlugin],
   ])
   context.loader.internal = {

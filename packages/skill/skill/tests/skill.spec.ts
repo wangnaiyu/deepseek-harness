@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { bindScopeParent, createScope, scopeOf } from '@deepseek-ai/dsh-scope'
 import SkillRegistry, {
+  explicitSkillNames,
   isModelInvocable,
   isUserInvocable,
   renderSkillContent,
@@ -12,6 +13,16 @@ import SkillRegistry, {
   type SkillProvider,
   type SkillProviderObservation,
 } from '@deepseek-ai/dsh-skill'
+
+describe('explicitSkillNames', () => {
+  it('parses canonical gestures anywhere, deduplicates, and rejects broken boundaries', () => {
+    expect(explicitSkillNames('use /skill pto-analyze then /skill pto-analyze and /skill review-now')).toEqual([
+      'pto-analyze',
+      'review-now',
+    ])
+    expect(explicitSkillNames('path/to /skill Missing /skill bad_name /skill')).toEqual([])
+  })
+})
 
 function memorySkill(name: string, description: string, rank: number, body = `${name} body.`): SkillCandidate {
   return {

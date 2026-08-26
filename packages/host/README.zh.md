@@ -32,7 +32,7 @@ kind: "package-group"
 | [`directory-picker-native/`](directory-picker-native/README.zh.md) | 面向宿主屏幕前操作者的原生 OS 选择器后端 | 注册 `ctx.directoryPicker` |
 | [`directory-picker-browse/`](directory-picker-browse/README.zh.md) | 应用内目录浏览器后端，也服务于远程客户端 | 注册 `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.zh.md) | 在启动时挂载匹配后端的宿主自适应选择器 | 挂载一个后端 |
-| [`composer-catalog/`](composer-catalog/README.zh.md) | 新会话草稿能力的只读投影 | Remote `composerCatalog/listDraft` |
+| [`composer-catalog/`](composer-catalog/README.zh.md) | 草稿与正式 Session 能力的只读投影 | Remote `composerCatalog/listDraft`、`composerCatalog/listSession` |
 | [`plugin-inventory/`](plugin-inventory/README.zh.md) | 当前 Loader 条目的只读投影 | Remote `pluginInventory/list` |
 
 -----

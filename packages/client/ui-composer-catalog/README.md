@@ -8,6 +8,8 @@ The leading `+` launcher and typed `/` both use the same draft controller and so
 
 One Host request is single-flighted per draft target revision. Workspace and staged Agent-preset changes both update that target without clearing the editor; the conversation wiring dismisses the old menu, so its aborted request cannot publish into the new target. Transport failure leaves a retryable source row, while Host-contained area errors render beside successful rows and can invalidate only this source before retry without hiding successful sibling sources. Picks only splice text into the draft: `/<command> ` for Commands and canonical `/skill <name> ` for Skills. The settled catalog publishes both canonical and legacy-compatible lexemes for derived input decoration. Host parsing and deterministic Skill injection remain owned by `dsh-tool-skill` at `agent/pre-step`.
 
+On first send, the conversation layer materializes one Session and asks this source to compare the cached draft catalog with a fresh formal `listSession` result before transferring the text. A selected capability that disappeared, changed trusted origin or invocation policy, or crossed a Command/Skill conflict boundary rejects the submit and leaves the browser draft intact. The Host `session.prompt` independently revalidates canonical Skill availability immediately before persistence, covering hand-typed text and non-Web clients.
+
 ## Model Experience
 
 None, as this package changes browser discovery and draft text only; it does not load Skill instructions, create a Session, send a prompt, or register a model-facing tool.
@@ -18,4 +20,4 @@ None until the user submits the draft through a later execution stage.
 
 ## Known Limitations and Deferred Work
 
-- Session catalogs still use their existing command and Skill sources; source/origin normalization after Session materialization remains deferred.
+- Plain hand-typed text has no historical menu selection identity. It is validated against the current formal Session catalog; origin-change comparison applies when the draft catalog snapshot contained the addressed capability.

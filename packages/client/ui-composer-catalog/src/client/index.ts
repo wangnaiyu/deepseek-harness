@@ -35,6 +35,29 @@ function matches(candidate: { name: string; description: string; origin: { label
 const cacheKey = (target: ClientDraftContext): string =>
   `${target.draftRevision}\u0000${target.workspaceId ?? ''}\u0000${target.agentPreset ?? ''}`
 
+const EXPLICIT_SKILL = /(^|\s)\/skill[\t ]+([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
+
+function explicitSkillNames(text: string): string[] {
+  const names: string[] = []
+  for (const match of text.matchAll(EXPLICIT_SKILL)) {
+    const name = match[2]
+    if (name !== undefined && !names.includes(name)) names.push(name)
+  }
+  return names
+}
+
+function leadingName(text: string): string | undefined {
+  const match = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/u.exec(text.trim())
+  return match?.[1]
+}
+
+function sameOrigin(
+  left: { kind: string; label: string },
+  right: { kind: string; label: string },
+): boolean {
+  return left.kind === right.kind && left.label === right.label
+}
+
 /** Mount the one draft-only source. */
 export function apply(ctx: ClientContext): void {
   const cache = new Map<string, CacheEntry>()
@@ -115,6 +138,44 @@ export function apply(ctx: ClientContext): void {
       if (candidate.value.startsWith('skill:')) return { text: `/skill ${candidate.value.slice(6)} ` }
       if (candidate.value.startsWith('command:')) return { text: `/${candidate.value.slice(8)} ` }
       return undefined
+    },
+    async admitMaterialized(draft, session, line, signal) {
+      const expected = cache.get(cacheKey(draft))?.settled
+      const result = await ctx.remote.composerCatalog.listSession({ sessionId: session.sessionId })
+      if (signal.aborted) throw signal.reason
+      if (!result.ok) {
+        throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+      }
+      const current = result.value
+      for (const name of explicitSkillNames(line)) {
+        const after = current.skills.find(skill => skill.name === name)
+        if (after === undefined) {
+          throw new Error(`Skill "${name}" is no longer available or user-invocable; review the draft and retry.`)
+        }
+        const before = expected?.skills.find(skill => skill.name === name)
+        if (before !== undefined && (
+          !sameOrigin(before.origin, after.origin)
+          || before.modelInvocable !== after.modelInvocable
+        )) {
+          throw new Error(`Skill "${name}" changed source or invocation policy; review the draft and retry.`)
+        }
+      }
+
+      const name = leadingName(line)
+      if (name === undefined || name === 'skill' || expected === undefined) return
+      const beforeCommand = expected.commands.find(command => command.name === name)
+      const afterCommand = current.commands.find(command => command.name === name)
+      if (beforeCommand !== undefined && afterCommand === undefined) {
+        throw new Error(`Command "/${name}" is no longer available; review the draft and retry.`)
+      }
+      if (beforeCommand !== undefined && afterCommand !== undefined
+        && !sameOrigin(beforeCommand.origin, afterCommand.origin)) {
+        throw new Error(`Command "/${name}" changed source; review the draft and retry.`)
+      }
+      const beforeSkill = expected.skills.find(skill => skill.name === name)
+      if (beforeCommand === undefined && beforeSkill !== undefined && afterCommand !== undefined) {
+        throw new Error(`The /${name} Command/Skill conflict changed; use /skill ${name} explicitly or review the draft.`)
+      }
     },
     lexicon: (target) => {
       if (target.kind !== 'draft') return []

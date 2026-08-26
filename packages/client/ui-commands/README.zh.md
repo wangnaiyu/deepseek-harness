@@ -11,6 +11,8 @@ kind: "package-reference"
 
 在 composer 中键入 `/` 命令会打开匹配的表面——已注册的弹窗、宿主命令的输入或直接执行——命令行绝不会被静默降级为普通提示词。业务包经 `ctx.commandUi` 贡献命令表面：注册 popupSelect 贡献项（`/model`、`/permission`），或用选择器装饰既有宿主命令，宿主保留其目录行与参数声明。空格与回车对照会话目录解析命令行：带 `input` 的宿主描述符是 `leadingInput`，注册了 `CommandUiSpec` 的是 `popupSelect`，其余全部是 `execute`。
 
+`CommandDirectory`（`src/client/directory.ts`）是唯一由 wire 派生、按会话分键的缓存。普通会话通过正式 `composerCatalog.listSession({sessionId})` 投影拉取，因此菜单行与首次发送准入使用同一最终 scope 和可信来源标签；命令 source 不显示分组标题。source 的 scope 创建 `warm` 钩子会预热该会话的缓存项。由目录寻址的可继续子代理会在客户端解析为空命令目录。缓存项由转发的 `commands/change` 与该会话的 `agent-preset/selected` 软失效，由 `connection/reset` 硬失效，并受 epoch guard 保护。`matchSpace` 只凭该缓存同步应答；`matchEnter` 会强等缓存，预热失败即拒绝——`/` 开头的一行绝不会被静默降级为普通提示词。
+
 ## 目录
 
 - [使用本包](#use-this-package)

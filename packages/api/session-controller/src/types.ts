@@ -178,6 +178,8 @@ export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     'session/model-unavailable': { readonly provider: string; readonly model: string }
+    'session/skill-catalog-unavailable': { readonly reason?: string }
+    'session/skill-unavailable': { readonly name: string }
     'session/conflict': {
       readonly sessionId: SessionId
       readonly requestedCwd: string

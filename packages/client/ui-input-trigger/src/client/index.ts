@@ -24,7 +24,7 @@ export type { MenuKey } from './locales.ts'
 export type {
   ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CandidateRequest, ClientDraftContext, ClientSessionContext,
   CommandClaim, ConsumeTokenRequest, HeaderRequest, InsertReferenceRequest, PickOutcome, PickVia,
-  ReferenceCodec, ReferenceInsert, InputTriggerCandidate, InputTriggerCandidateList, InputTriggerCrumb,
+  ReferenceCodec, ReferenceInsert, InputTriggerCandidate, InputTriggerCandidateIcon, InputTriggerCandidateList, InputTriggerCrumb,
   InputTriggerPick, InputTriggerSectionIssue,
   InputTriggerSource, InputTriggerTarget, SubmitEnvelope,
   SubmitImageAttachment, SubmitOutcome, TokenSpan, TriggerChar, TriggerGuard, TriggerPosition,

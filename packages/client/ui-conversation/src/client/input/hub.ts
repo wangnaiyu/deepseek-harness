@@ -239,15 +239,29 @@ export class InputHub implements SessionInputResolver {
     text: string,
     imageIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
-    _signal: AbortSignal,
+    signal: AbortSignal,
   ): Promise<SubmitOutcome> {
     if (text === '' && imageIds.length === 0) return { kind: 'success' }
+    const draftTriggers = this.draftInputTriggers()
+    const draftTarget = draftTriggers?.target()
     const sessionId = await this.uiWorkspace().materializeSessionDraft()
     const binding = this.sessions().binding(sessionId)
     if (binding === undefined) throw new Error(`conversation.input: created session "${sessionId}" resolved no binding`)
     const shell = this.shellFor(binding)
     if (text !== '') shell.setDraft(text)
     if (imageIds.length > 0) shell.addImages(imageIds)
+    if (draftTarget?.kind === 'draft') {
+      try {
+        await draftTriggers?.admitMaterialized(draftTarget, { sessionId }, text, signal)
+      } catch (error) {
+        // Materialization has already navigated to the real Session. Keep the
+        // captured payload in that visible shell and surface the rejection
+        // there; the superseded browser shell remains only long enough to
+        // settle its submit promise.
+        shell.notify('error', error instanceof Error ? error.message : String(error))
+        throw error
+      }
+    }
     shell.submit(mode)
     // The draft now belongs to the real Session. Report success to the old
     // browser machine only so it clears its duplicate state; the real shell

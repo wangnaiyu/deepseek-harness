@@ -17,7 +17,8 @@ import { detectTrigger } from '../core/detect.ts'
 import { MENU_CLOSED, menuReduce, seedGroups } from '../core/menu.ts'
 import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
-  InputTriggerCandidate, InputTriggerCrumb, InputTriggerSource, InputTriggerTarget, PickAction,
+  ClientDraftContext, ClientSessionContext, InputTriggerCandidate, InputTriggerCrumb,
+  InputTriggerSource, InputTriggerTarget, PickAction,
   SubmitEnvelope, TriggerChar, TriggerGuard,
 } from '../types.ts'
 
@@ -369,6 +370,33 @@ export class InputTriggerController {
       if (outcome !== undefined) return outcome
     }
     return undefined
+  }
+
+  /**
+   * Capture the controller's current target before async materialization changes it.
+   * @returns the target projection current at the call boundary.
+   */
+  target(): InputTriggerTarget {
+    return this.project()
+  }
+
+  /**
+   * Run every source's draft-to-Session admission check in source order.
+   * @param draft - captured browser-draft target.
+   * @param session - newly materialized formal Session target.
+   * @param line - captured first-send text.
+   * @param signal - cancellation for the first-send attempt.
+   */
+  async admitMaterialized(
+    draft: ClientDraftContext,
+    session: ClientSessionContext,
+    line: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    for (const source of this.deps.roster.all()) {
+      if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : new Error('draft admission aborted')
+      await source.admitMaterialized?.(draft, session, line, signal)
+    }
   }
 
   /**

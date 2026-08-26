@@ -22,6 +22,7 @@ import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import { ApiSessionAgentController } from '../src/agent.ts'
 import { buildModelCatalog } from '../src/catalog.ts'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import SkillRegistry from '@deepseek-ai/dsh-skill'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { createSessionTestRemote } from './test-remote.ts'
 
@@ -98,6 +99,7 @@ async function harness(logged?: {
   await ctx.plugin(SystemPrompt, { persona: '' })
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(AgentRegistry)
+  await ctx.plugin(SkillRegistry)
   ctx.llm.registerAdapter(['deepseek-official'], new CatalogAdapter('DeepSeek', [
     { provider: 'deepseek-official', id: 'deepseek-chat', name: 'DeepSeek Chat' },
     { provider: 'deepseek-official', id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', description: 'Reasoning model' },
@@ -623,6 +625,54 @@ describe('Web session model selection', () => {
     expect(catalog.routableProviders.includes(currentSelection(ctx, sessionId).provider)).toBe(true)
     expect(catalog.groups.flatMap(group => group.models.map(model => model.id)))
       .not.toContain('unlisted-but-served')
+    await ctx.fiber.dispose()
+  })
+
+  it('revalidates canonical Skill gestures before prompt persistence', async () => {
+    const { ctx, agent, sessionId } = await harness()
+    const followup = vi.fn()
+    Object.assign(agent, { followup })
+    const remote = createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const missing = await remote.prompt(promptRequest({
+      sessionId,
+      mode: 'queue' as const,
+      content: [{ type: 'text' as const, text: '/skill vanished-skill analyze this' }],
+    }))
+    expect(missing).toMatchObject({
+      ok: false,
+      error: { code: 'session/skill-unavailable', details: { name: 'vanished-skill' } },
+    })
+    expect(followup).not.toHaveBeenCalled()
+
+    const dispose = ctx.skills.register({
+      name: 'pto-analyze',
+      description: 'PTO analysis',
+      source: 'bundled',
+      content: 'Analyze it.',
+    })
+    const accepted = await remote.prompt(promptRequest({
+      sessionId,
+      mode: 'queue' as const,
+      content: [{ type: 'text' as const, text: 'please /skill pto-analyze now' }],
+    }))
+    expect(accepted).toMatchObject({ ok: true, value: { accepted: true } })
+    expect(followup).toHaveBeenCalledTimes(1)
+
+    dispose()
+    const vanished = await remote.prompt(promptRequest({
+      sessionId,
+      mode: 'queue' as const,
+      content: [{ type: 'text' as const, text: '/skill pto-analyze retry' }],
+    }))
+    expect(vanished).toMatchObject({
+      ok: false,
+      error: { code: 'session/skill-unavailable', details: { name: 'pto-analyze' } },
+    })
+    expect(followup).toHaveBeenCalledTimes(1)
     await ctx.fiber.dispose()
   })
 

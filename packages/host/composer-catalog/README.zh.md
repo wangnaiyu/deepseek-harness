@@ -2,13 +2,13 @@
 
 [English](README.md) | 中文
 
-面向新会话输入草稿的只读 Host 投影。`ComposerCatalogGateway` 注册 `composerCatalog` 服务并发布 `composerCatalog/listDraft`；请求只携带可选 `workspaceId` 与 Agent preset id，绝不接受客户端路径。Host 把已知 Workspace 解析为规范路径和显示名称，在不创建 Agent 的前提下寻址 preset standing composition（预设常驻组合），然后分别返回最终有效的 Commands 与用户可调用 Skills。
+面向草稿与正式 Session 输入框的只读 Host 投影。`ComposerCatalogGateway` 发布 `composerCatalog/listDraft` 与 `composerCatalog/listSession`。草稿请求只携带可选 `workspaceId` 和 Agent preset id，绝不接受客户端路径；Session 请求只携带 `sessionId`。Host 解析规范 cwd、Workspace 标签、最终 Agent／standing scope 和隔离 Skill registry，再分别返回最终有效的 Commands 与用户可调用 Skills。Session 读取不会启动 turn，读取冷的已挂载 Session 也不会恢复 Agent。
 
 未分组请求只列出全局 Commands，并以 `cwd: undefined` 调用 Host Skill registry；结果还会过滤项目 Skill 来源。Workspace 请求包含 scoped command winner，并在 preset 挂载了隔离 Skill registry 时查询该 registry，否则查询 Host registry。未知 Workspace 会拒绝。preset 损坏时，全局 Commands 与 Host registry Skills 仍可用，同时返回归属于 `Agent` 的 `commands` 和 `skills` 局部错误。
 
 命令定义可以携带不透明 `provider` id。命令 registry 会在无处理器描述符旁保留这个 id 与最终胜出的 `global`／`scoped` layer。本包把可信 provider 声明映射为产品来源：没有显式归属的全局注册项属于 `DSH`，没有显式归属的 scoped 注册项属于 `Agent`，未知的显式 provider 属于 `Plugin`。Skills 先解析项目和用户 source bucket（来源分桶），再依次使用最精确的 provider/source 声明、provider 级声明和安全默认值：custom root 属于 `User`，未映射的 bundled root 属于 `DSH`，其他未映射 provider 属于 `Plugin`。配置中的产品类型使用固定的 `DSH`、`PTO` 与 `User` 标签；只有 plugin 来源接受友好名称，缺失时回退到 `Plugin`。
 
-`listDraft` 会移除处理器、scope key、provider id、路径、resource base 与 Skill 正文。描述上限为 1,000 个字符。User Skills 排在 PTO、Workspace、DSH 与 plugin Skills 之前，最后一个分桶内再按标签与名称稳定排序。响应 revision 由 SHA-256 派生，只要返回条目或局部错误变化就会变化。Skill registry 会隔离 provider rejection：成功条目继续保留，Skills 区域以 `skill-catalog-incomplete` 标记不完整。
+两个方法都会移除处理器、scope key、provider id、路径、resource base 与 Skill 正文。描述上限为 1,000 个字符。User Skills 排在 PTO、Workspace、DSH 与 plugin Skills 之前，最后一个分桶内再按标签与名称稳定排序。响应 revision 由 SHA-256 派生，只要返回条目或局部错误变化就会变化。Skill registry 会隔离 provider rejection：成功条目继续保留，Skills 区域以 `skill-catalog-incomplete` 标记不完整。
 
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过 [`api-remotes`](../../api/remotes/README.zh.md) 消费生成的 `./remote` contribution（贡献）与 `./types` payload vocabulary（载荷词汇），不直接导入 Host 实现。
 

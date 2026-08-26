@@ -3645,10 +3645,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CommandDefinition {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n    readonly provider?: string;\n    readonly recordInput?: boolean;\n    readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>;\n}',
   },
   {
-    name: 'CommandDescriptor',
-    declaration: 'export interface CommandDescriptor {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n}',
-  },
-  {
     name: 'CommandDiscoveryEntry',
     declaration: 'export interface CommandDiscoveryEntry {\n    readonly descriptor: CommandDescriptor;\n    readonly layer: \'global\' | \'scoped\';\n    readonly provider?: string;\n}',
   },
@@ -4642,7 +4638,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RemoteEventHostInfo',
-    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n}',
+    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n    readonly cwd?: string;\n}',
   },
   {
     name: 'ReplayEnvelope',
@@ -4826,7 +4822,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionCreateValue',
-    declaration: 'export interface SessionCreateValue {\n    readonly sessionId: SessionId;\n    readonly agentPreset?: string;\n}',
+    declaration: 'export interface SessionCreateValue {\n    readonly sessionId: SessionId;\n    readonly cwd: string;\n    readonly agentPreset?: string;\n}',
   },
   {
     name: 'SessionEvent',

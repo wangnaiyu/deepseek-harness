@@ -271,7 +271,11 @@ export class ConversationController extends Service implements IConversation {
       const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
       const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
       const result = await session.prompt(content, mode, signal)
-      return result.ok ? { kind: 'success' } : { kind: 'error' }
+      if (result.ok) return { kind: 'success' }
+      return result.error.code === 'session/skill-unavailable'
+        || result.error.code === 'session/skill-catalog-unavailable'
+        ? { kind: 'error', text: `${result.error.message} (${result.error.code})` }
+        : { kind: 'error' }
     }
     let finishRetirement: ((retirement: PendingSubmissionRetirement) => void) | undefined
     const retirement = attachments.length === 0
@@ -301,7 +305,15 @@ export class ConversationController extends Service implements IConversation {
       throw error
     }
     const result = await session.prompt(content, mode, signal, submission.requestId)
-    if (!result.ok) return { kind: 'error' }
+    if (!result.ok) {
+      // promptError remains the general Session failure projection. Skill
+      // admission also rides the input-machine notice channel so a rejected
+      // first prompt is visible across the draft -> blank-Session render race.
+      return result.error.code === 'session/skill-unavailable'
+        || result.error.code === 'session/skill-catalog-unavailable'
+        ? { kind: 'error', text: `${result.error.message} (${result.error.code})` }
+        : { kind: 'error' }
+    }
     if (retirement !== undefined && (await retirement).reason !== 'observed') return { kind: 'error' }
     return { kind: 'success' }
   }
