@@ -180,6 +180,8 @@ export interface SessionErrorDetailsMap {
   cancelled: Record<never, never>
   'session-not-found': { readonly sessionId: SessionId }
   'model-unavailable': { readonly provider: string; readonly model: string }
+  'skill-catalog-unavailable': { readonly reason?: string }
+  'skill-unavailable': { readonly name: string }
   'session-conflict': {
     readonly sessionId: SessionId
     readonly requestedCwd: string

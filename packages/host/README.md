@@ -32,7 +32,7 @@ Eight packages play the host roles; each package README owns its contract and co
 | [`directory-picker-native/`](directory-picker-native/README.md) | Native-OS-chooser backend for operators at the host display | registers `ctx.directoryPicker` |
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend, including for remote clients | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive chooser that mounts the matching backend at boot | mounts a backend |
-| [`composer-catalog/`](composer-catalog/README.md) | Read-only new-session draft capability projection | Remote `composerCatalog/listDraft` |
+| [`composer-catalog/`](composer-catalog/README.md) | Read-only draft and formal-Session capability projections | Remote `composerCatalog/listDraft`, `composerCatalog/listSession` |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
 
 -----

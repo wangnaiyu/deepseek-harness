@@ -27,6 +27,15 @@ agent（智能体）和用户可以通过单一查找使用可复用的任务专
 
 挂载插件即可让组合拥有一个统一的 skill 注册表。skill 来源（提供方）和消费方（面向模型的目录与 loader，或你自己的代码）都通过 `ctx.skills` 交互；注册表合并任意提供方报告的一切内容，因此一次查找就能看到所有来源的 skill。
 
+### API 一览
+
+- `ctx.skills.registerProvider(create): () => void` 调用同步提供方工厂并向其传入 `{ signal, invalidate }`，随后以在调用方上下文所在层内唯一的 `provider.name` 注册其只读结果。同层重复提供方名称会抛错，`runtime` 为保留名称；注册失败会中止信号。精确的 Cordis disposer 会注销提供方、中止信号，并保持有序组合拆卸。
+- `ctx.skills.snapshot({ cwd?, signal?, scope? })` 返回观察 scope 各层合并后、与调用策略无关的 `{ skills, complete }` 观测。任一提供方调用被拒绝或显式报告发现不完整，或有界重试期间又发生目录修订时，`complete` 为 false；该次观测提供的候选项仍保留在此结果中，但该结果绝不缓存。
+- `ctx.skills.list({ cwd?, signal?, scope? })` 借用只读视图选项，然后返回当前工作区中的全部胜出摘要；这些摘要在全局层与观察 scope 链之间合并，并按名称排序。消费方在自身边界调用 `isModelInvocable(skill)` 或 `isUserInvocable(skill)`。
+- `ctx.skills.get(name, { cwd?, signal?, scope? })` 在发现和加载中使用同一组只读选项和胜出候选项；在发现或缓存命中后重新检查取消，让提供方加载与信号竞速，验证已加载定义，然后无论调用策略如何都将其返回。
+- `ctx.skills.register(skill): () => void` 将只读运行时嵌入式 skill 注册进调用方上下文所在层，省略时添加允许模型和用户调用的策略以及 `provider: "runtime"`。同层同名运行时注册使用先到先得：重复项会记录警告，并获得无操作 disposer。成功注册会返回精确的 Cordis disposer，以供有序组合拆卸。
+- `explicitSkillNames(text): string[]` 解析以空白为界的规范 `/skill <name>` 手势，并按首次出现顺序去重。它不读取 registry，也不信任文本来源；调用方负责这些准入边界。
+
 ### 何时选择
 
 当 agent 需要通过同一个接口从多个来源加载 skill，或 skill 来源并非本地文件系统时，选择 `dsh-skill`。当组合完全不需要加载 skill 时，请避免使用——插件会增加一个服务以及每次查找的发现成本。随附的本地提供方（`dsh-skill-filesystem`）和面向模型的消费方（`dsh-tool-skill`）是独立包；部署需要本地 skill 和模型访问时，请一并挂载。

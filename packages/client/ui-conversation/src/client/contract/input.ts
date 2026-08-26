@@ -9,6 +9,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { LexicalEditor } from 'lexical'
 import type { QueueRow } from './queue.ts'
 import type { InputSubmitMode } from './composer-submission.ts'
@@ -107,9 +108,34 @@ export interface InputTriggerHit {
 }
 
 /** Structural per-Session trigger provider consumed by the input shell. */
+export interface InputTriggerSessionTarget {
+  readonly kind?: 'session'
+  readonly sessionId: SessionId
+}
+
+/** Browser-only target captured before first-send materialization. */
+export interface InputTriggerDraftTarget {
+  readonly kind: 'draft'
+  readonly draftRevision: string
+  readonly workspaceId?: string
+  readonly agentPreset?: string
+}
+
+export type InputTriggerTarget = InputTriggerSessionTarget | InputTriggerDraftTarget
+
+/** Structural per-Session trigger provider consumed by the input shell. */
 export interface InputTriggerController {
   readonly launcher: ObservableSnapshot<string | null>
   readonly lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
+  /** @returns the immutable identity currently used by provider discovery. */
+  target(): InputTriggerTarget
+  /** Revalidate draft-selected capabilities against the newly materialized Session. */
+  admitMaterialized(
+    draft: InputTriggerDraftTarget,
+    session: InputTriggerSessionTarget,
+    line: string,
+    signal: AbortSignal,
+  ): Promise<void>
   /** @param draft - current draft. @param caret - caret offset. @param guard - availability tier. @param draftRev - input revision. */
   track(
     draft: string,

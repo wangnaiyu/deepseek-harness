@@ -59,7 +59,11 @@ function providePresentation(ctx: Context): PresentationCapture {
 }
 
 /** Boot the plugin over fake slash/connection faces; returns the captured source and its ctx. */
-async function bench(list: ListFn, addressed?: SessionId) {
+async function bench(
+  list: ListFn,
+  addressed?: SessionId,
+  formal?: { listSession(payload: object): Promise<unknown> },
+) {
   const ctx = new Context()
   let captured: InputTriggerSource | undefined
   ctx.provide('inputTriggers', { registerSource: (src: InputTriggerSource) => { captured = src; return () => {} } })
@@ -69,7 +73,10 @@ async function bench(list: ListFn, addressed?: SessionId) {
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
-  const remote = new TestRemote(ctx, { skills: { list } })
+  const remote = new TestRemote(ctx, {
+    skills: { list },
+    ...formal === undefined ? {} : { composerCatalog: formal },
+  })
   providePresentation(ctx)
   await ctx.plugin({ inject: [...inject], apply }).await()
   return { ctx, source: captured!, remote }
@@ -176,9 +183,35 @@ describe('candidates: sessionId addressing', () => {
     // Exact payload: session address only — no agent or transport vocabulary.
     expect(payloads).toEqual([{ sessionId: 's1' }])
     expect(items).toEqual([
-      { name: 'commit-helper', description: 'commit flow' },
-      { name: 'code-review', description: 'review flow' },
+      { name: 'commit-helper', description: 'commit flow', origin: 'DSH', section: 'Skills' },
+      { name: 'code-review', description: 'review flow', origin: 'DSH', section: 'Skills' },
     ])
+  })
+
+  it('uses the formal Session catalog with Skills section and trusted origin', async () => {
+    const listSession = vi.fn(() => Promise.resolve({
+      ok: true as const,
+      value: {
+        revision: 'formal',
+        commands: [],
+        skills: [{
+          name: 'pto-analyze',
+          description: 'Analyze PTO data',
+          modelInvocable: true,
+          origin: { kind: 'pto' as const, label: 'PTO' },
+        }],
+      },
+    }))
+    const { source } = await bench(listOk([]), undefined, { listSession })
+    const items = await source.candidates(proj('s1'), req(''))
+    expect(listSession).toHaveBeenCalledWith({ sessionId: 's1' })
+    expect(source.showGroupTitle).toBe(false)
+    expect(items).toEqual([{
+      name: 'pto-analyze',
+      description: 'Analyze PTO data',
+      origin: 'PTO',
+      section: 'Skills',
+    }])
   })
 
   it('rejects on a failed result (the slash shell owns the menu-side fold)', async () => {
@@ -206,8 +239,8 @@ describe('catalog cache', () => {
     const second = await source.candidates(proj('s1'), req('co'))
     expect(payloads).toHaveLength(1)
     expect(second).toEqual([
-      { name: 'commit-helper', description: 'commit flow' },
-      { name: 'code-review', description: 'review flow' },
+      { name: 'commit-helper', description: 'commit flow', origin: 'DSH', section: 'Skills' },
+      { name: 'code-review', description: 'review flow', origin: 'DSH', section: 'Skills' },
     ])
     // A different session is its own key — one more RPC, not two.
     await source.candidates(proj('s2'), req(''))
@@ -222,7 +255,7 @@ describe('catalog cache', () => {
       source.candidates(proj('s1'), req('co')),
     ])
     expect(payloads).toHaveLength(1)
-    expect(a).toEqual([{ name: 'deploy', description: 'deploy flow' }])
+    expect(a).toEqual([{ name: 'deploy', description: 'deploy flow', origin: 'DSH', section: 'Skills' }])
     expect(b).toHaveLength(2)
   })
 
@@ -379,8 +412,8 @@ describe('user-only marking', () => {
     const { source } = await bench(listOk(rows))
     const candidates = await source.candidates(proj('s1'), req(''))
     expect(candidates).toEqual([
-      { name: 'shared-skill', description: 'both surfaces' },
-      { name: 'user-only-skill', description: '仅用户 · user surface only' },
+      { name: 'shared-skill', description: 'both surfaces', origin: 'DSH', section: 'Skills' },
+      { name: 'user-only-skill', description: '仅用户 · user surface only', origin: 'DSH', section: 'Skills' },
     ])
   })
 })

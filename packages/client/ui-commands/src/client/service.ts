@@ -18,7 +18,7 @@ import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import type {
-  CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerPick,
+  CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerCandidateIcon, InputTriggerPick,
   SubmitEnvelope, SubmitImageAttachment, SubmitOutcome,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
@@ -47,6 +47,11 @@ function submittedCommandName(line: string): string {
   const trimmed = line.trim()
   const separator = trimmed.search(/\s/u)
   return (separator === -1 ? trimmed : trimmed.slice(0, separator)).slice(1)
+}
+
+/** Admit only icon identifiers the shared reference glyph set can render. */
+function candidateIcon(iconId: string | undefined): InputTriggerCandidateIcon | undefined {
+  return iconId === 'file' || iconId === 'folder' || iconId === 'session' ? iconId : undefined
 }
 
 /** Live mutable state in one holder (service methods run behind the caller-ctx tracker). */
@@ -137,8 +142,18 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const locale = ctx.get('locale')
     if (locale === undefined) throw new Error('ui-commands: locale service unavailable')
     this.t = locale.bind('command')
+    let formal: (typeof ctx.remote)['composerCatalog'] | undefined
+    ctx.inject(['remote.composerCatalog'], (scope) => {
+      formal = scope.remote.composerCatalog
+      return () => { formal = undefined }
+    })
     this.directory = new CommandDirectory(async (sessionId) => {
       if (this.sessions().subagentAddress(sessionId) !== undefined) return []
+      if (formal !== undefined) {
+        const result = await formal.listSession({ sessionId })
+        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+        return result.value.commands
+      }
       const result = await ctx.remote.commands.list(sessionId)
       if (!result.ok) throw new Error(`command.list failed: ${result.error.code}: ${result.error.message}`)
       return result.value
@@ -148,6 +163,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     ctx.effect(() => inputTriggers.registerSource({
       trigger: '/',
       name: 'command',
+      showGroupTitle: false,
       candidates: (target, req) => target.kind !== 'draft' ? this.candidates(target, req) : Promise.resolve([]),
       onPick: pick => this.dispatch(pick),
       matchSpace: (target, token) => target.kind !== 'draft' ? this.matchSpace(target, token) : undefined,
@@ -255,14 +271,21 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const seen = new Set<string>()
     for (const c of list) {
       seen.add(c.name)
-      rows.push({ name: c.name, description: c.description, ...(c.input !== undefined ? { hint: c.input.hint } : {}) })
+      const icon = candidateIcon(c.iconId)
+      rows.push({
+        name: c.name,
+        description: c.description,
+        origin: c.origin?.label ?? 'DSH',
+        ...icon === undefined ? {} : { icon },
+        ...(c.input !== undefined ? { hint: c.input.hint } : {}),
+      })
     }
     for (const contribution of this.live.contributions.values()) {
       if (!contribution.available(session)) continue
       if (seen.has(contribution.name)) {
         throw new Error(`ui-commands: contribution /${contribution.name} collides with a host command`)
       }
-      rows.push({ name: contribution.name, description: contribution.description })
+      rows.push({ name: contribution.name, description: contribution.description, origin: 'DSH' })
     }
     return fuzzyCandidates(
       rows.filter(c => req.position === 'leading' || c.hint === undefined),

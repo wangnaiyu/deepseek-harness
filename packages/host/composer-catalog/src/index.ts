@@ -1,10 +1,13 @@
-/** Read-only Host projection of commands and Skills for new-session drafts. */
+/** Read-only Host projection of commands and Skills for drafts and formal Sessions. */
 
 import { createHash } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-presets'
 import type { CommandDiscoveryEntry } from '@deepseek-ai/dsh-commands'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
+import { SessionId } from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-session-projection'
 import {
   isUserInvocable,
   type SkillRegistry,
@@ -21,6 +24,7 @@ import type {
   DraftComposerCatalog,
   DraftComposerCatalogRequest,
   DraftSkillDescriptor,
+  SessionComposerCatalogRequest,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -53,6 +57,14 @@ export class DraftComposerWorkspaceNotFound extends Error {
   }
 }
 
+/** A request named a Session that is not attached to this Host. */
+export class ComposerCatalogSessionNotFound extends Error {
+  constructor(readonly sessionId: string) {
+    super(`composer catalog session '${sessionId}' does not exist`)
+    this.name = 'ComposerCatalogSessionNotFound'
+  }
+}
+
 interface DraftTarget {
   readonly cwd?: string
   readonly workspaceOrigin?: DraftCatalogOrigin
@@ -60,9 +72,9 @@ interface DraftTarget {
   readonly presetError?: Error
 }
 
-/** Remote-only, read-only catalog for a composer that has not created a Session. */
+/** Remote-only, read-only catalog for draft and formal Session composers. */
 export class ComposerCatalogGateway extends TypertRemoteService {
-  static inject = ['commands', 'skills', 'workspaceRegistry', 'agentPresets']
+  static inject = ['commands', 'skills', 'workspaceRegistry', 'agentPresets', 'sessionProjections']
 
   static Config = z.object({
     providerOrigins: z.array(z.object({
@@ -109,17 +121,54 @@ export class ComposerCatalogGateway extends TypertRemoteService {
 
     const commands = this.commands(target.standingKey)
     const skills = await this.skills(target, errors)
-    const payload = {
-      commands,
-      skills,
-      ...errors.length === 0 ? {} : { partialErrors: errors },
+    return catalogResult(commands, skills, errors)
+  }
+
+  /**
+   * Resolve the final catalog for an existing Session. A live Agent is the
+   * exact scope. A cold attached Session resolves its recorded preset's
+   * standing composition without resuming an Agent or starting a turn.
+   * @param request - Session identity to project.
+   * @returns the unified final command and Skill catalog.
+   */
+  @Remote('listSession')
+  async listSession(request: SessionComposerCatalogRequest): Promise<DraftComposerCatalog> {
+    const sessionId = SessionId(request.sessionId)
+    const session = this.ctx.get('sessions')?.get(sessionId)
+    if (session === undefined) throw new ComposerCatalogSessionNotFound(request.sessionId)
+
+    const live = this.ctx.get('agents')?.get(sessionId)
+    const errors: DraftCatalogError[] = []
+    let scope: ScopeKey | undefined = live
+    let standingKey: ScopeKey | undefined
+    if (scope === undefined) {
+      try {
+        const preset = this.ctx.sessionProjections.stateOf(session, 'agentPreset') ?? undefined
+        standingKey = await this.ctx.agentPresets.standingKeyFor(preset)
+        scope = standingKey
+      } catch (error: unknown) {
+        const origin = fixedOrigin('agent')
+        errors.push(
+          catalogError('commands', 'agent-preset-unavailable', toError(error).message, origin),
+          catalogError('skills', 'agent-preset-unavailable', toError(error).message, origin),
+        )
+      }
     }
-    return Object.freeze({
-      revision: revisionOf(payload),
-      commands: Object.freeze(commands),
-      skills: Object.freeze(skills),
-      ...errors.length === 0 ? {} : { partialErrors: Object.freeze(errors) },
-    })
+    const workspace = this.ctx.workspaceRegistry.list()
+      .find(candidate => candidate.sessionIds.includes(sessionId))
+    const target: DraftTarget = {
+      ...session.header.cwd === undefined ? {} : { cwd: session.header.cwd },
+      ...workspace === undefined ? {} : {
+        workspaceOrigin: Object.freeze({ kind: 'workspace' as const, label: workspace.title }),
+      },
+      ...standingKey === undefined ? {} : { standingKey },
+    }
+    const registry = live === undefined
+      ? this.skillRegistry(target)
+      : this.ctx.agentPresets.serviceFor(live, 'skills') ?? this.ctx.skills
+    const commands = this.commands(scope)
+    const skills = await this.skills(target, errors, registry, scope)
+    return catalogResult(commands, skills, errors)
   }
 
   /** Resolve Workspace and optional standing composition without creating runtime session state. */
@@ -160,11 +209,15 @@ export class ComposerCatalogGateway extends TypertRemoteService {
   }
 
   /** Project the effective Skill view while containing registry-level discovery failure. */
-  private async skills(target: DraftTarget, errors: DraftCatalogError[]): Promise<DraftSkillDescriptor[]> {
-    const registry = this.skillRegistry(target)
+  private async skills(
+    target: DraftTarget,
+    errors: DraftCatalogError[],
+    registry = this.skillRegistry(target),
+    scope: ScopeKey | undefined = target.standingKey,
+  ): Promise<DraftSkillDescriptor[]> {
     let snapshot
     try {
-      snapshot = await registry.snapshot({ cwd: target.cwd, scope: target.standingKey })
+      snapshot = await registry.snapshot({ cwd: target.cwd, scope })
     } catch (error: unknown) {
       errors.push(catalogError('skills', 'skill-catalog-failed', toError(error).message))
       return []
@@ -234,6 +287,24 @@ function isProjectSource(source: SkillSource): boolean {
 function boundedDescription(description: string): string {
   if (description.length <= MAX_DESCRIPTION_LENGTH) return description
   return `${description.slice(0, MAX_DESCRIPTION_LENGTH - 3)}...`
+}
+
+function catalogResult(
+  commands: DraftCommandDescriptor[],
+  skills: DraftSkillDescriptor[],
+  errors: DraftCatalogError[],
+): DraftComposerCatalog {
+  const payload = {
+    commands,
+    skills,
+    ...errors.length === 0 ? {} : { partialErrors: errors },
+  }
+  return Object.freeze({
+    revision: revisionOf(payload),
+    commands: Object.freeze(commands),
+    skills: Object.freeze(skills),
+    ...errors.length === 0 ? {} : { partialErrors: Object.freeze(errors) },
+  })
 }
 
 function catalogError(
