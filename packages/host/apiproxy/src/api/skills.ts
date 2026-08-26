@@ -10,7 +10,7 @@ import type { RpcRequest, RpcResponse } from './rpc.ts'
 
 /** Skill catalog row (wire projection of the host SkillSummary; provider/source vocabulary stays host-side). */
 export interface SkillEntry {
-  /** Kebab-case identifier the user references as `/name` in the composer. */
+  /** Kebab-case identifier the user references as `/skill <name>` in the composer. */
   readonly name: string
   /** Short routing description. */
   readonly description: string
@@ -23,7 +23,7 @@ export interface SkillEntry {
 /**
  * Skill-domain unary methods (the map key skill.* of RpcMethodMap). Listing
  * is the domain's only RPC: invocation itself is a plain `session.prompt`
- * whose leading `/name` token the host recognizes at the pre-step boundary
+ * whose `/skill <name>` gesture the host recognizes at the pre-step boundary
  * (`dsh-tool-skill` injects the rendered body there), so every client shares
  * one deterministic path with no dedicated invocation wire.
  */

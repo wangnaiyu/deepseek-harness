@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 The model-facing skill catalog and `skill` tool.
 
-Requires `ctx.agents`, `ctx.tools`, and `ctx.skills` (`inject: ['agents', 'tools', 'skills']`).
+Requires `ctx.agents`, `ctx.tools`, and `ctx.skills` (`inject: ['agents', 'tools', 'skills']`). When an effective `ctx.commands` service is present, the legacy gesture path also consults it for same-name conflicts.
 
 ## Catalog lifecycle
 
@@ -149,7 +149,7 @@ Append-only; newly visible content follows the reusable request prefix and does 
 
 #### What the model sees
 
-A whitespace-bounded `/name` token anywhere in a claimed user message, naming a user-invocable skill in the workspace catalog, injects that skill's full `<skill_content>` rendering (the exact result-template shape above) as a `user`-role instructions context appended after every other injection of that step — background first, the material to act on last. Only direct user input is scanned, the check runs on the loaded definition, and unknown or user-disabled names stay ordinary prose. This is the sole entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose; the catalog's closing sentence tells the model to follow the injected block instead of re-loading it.
+A whitespace-bounded `/skill <name>` token anywhere in a claimed user message is the canonical, cross-client invocation syntax. It names a user-invocable skill in the workspace catalog and injects that skill's full `<skill_content>` rendering (the exact result-template shape above) as a `user`-role instructions context appended after every other injection of that step — background first, the material to act on last. A whitespace-bounded legacy `/<name>` token remains accepted only when the effective command registry has no same-name command; `/skill` itself is reserved as the canonical introducer. Only direct user input is scanned, the check runs on the loaded definition, and unknown or user-disabled names stay ordinary prose. This is the sole entry point for `disable-model-invocation` skills, which the catalog and the `skill` tool never expose; the catalog's closing sentence tells the model to follow the injected block instead of re-loading it.
 
 #### Token effect
 

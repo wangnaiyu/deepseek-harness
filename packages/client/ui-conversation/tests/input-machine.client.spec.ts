@@ -697,7 +697,7 @@ describe('input-machine: projectClipboard', () => {
 
 describe('decorations: scanTextRefs', () => {
   const LEX: ReadonlyMap<'/' | '@', readonly string[]> = new Map([
-    ['/', ['commit-helper', 'fixture-demo']],
+    ['/', ['commit-helper', 'fixture-demo', 'skill fixture-demo']],
     ['@', ['worker-1']],
   ])
 
@@ -705,6 +705,12 @@ describe('decorations: scanTextRefs', () => {
     expect(scanTextRefs('/commit-helper then @worker-1 ok', LEX)).toEqual([
       { start: 0, end: 14, trigger: '/' },
       { start: 20, end: 29, trigger: '@' },
+    ])
+  })
+
+  it('matches a canonical multi-token Skill lexeme as one range', () => {
+    expect(scanTextRefs('use /skill fixture-demo now', LEX)).toEqual([
+      { start: 4, end: 23, trigger: '/' },
     ])
   })
 
