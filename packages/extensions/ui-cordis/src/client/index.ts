@@ -144,5 +144,31 @@ export function apply(ctx: ClientContext): void {
     }, CordisActionRow)
   })
 
+  const rowsOf = (sessionId: SessionId, query: string) => inventory.getSnapshot().rows
+    .filter(row => row.agentId === sessionId && String(row.pluginId).includes(query))
+  const source: InputTriggerSource = {
+    trigger: '@',
+    name: 'cordis',
+    order: 1,
+    candidates(session, { query }) {
+      if (session.kind === 'draft') return Promise.resolve([])
+      const rows = rowsOf(session.sessionId, query)
+      return Promise.resolve(rows.map((row) => {
+        const packageId = row.nextPackageId ?? row.currentPackageId ?? row.packages.at(-1)?.packageId
+        const pkg = packageId === undefined ? undefined : row.packages.find(candidate => candidate.packageId === packageId)
+        return {
+          name: String(row.pluginId),
+          ...pkg === undefined ? {} : { description: pkg.purpose },
+        }
+      }))
+    },
+    warm() { inventory.refresh() },
+    lexicon(session) { return session.kind === 'draft' ? [] : rowsOf(session.sessionId, '').map(row => String(row.pluginId)) },
+    subscribeLexicon(_session, listener) { return inventory.subscribe(listener) },
+    onPick({ candidate }) { return { text: `@${candidate.name} ` } },
+  }
+  const slash = ctx.get('inputTriggers') as InputTriggerService
+  ctx.effect(() => slash.registerSource(source), 'ui-cordis: @pluginId source')
+
   inventory.refresh()
 }
