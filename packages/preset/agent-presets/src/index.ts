@@ -31,7 +31,7 @@ import { settingsNamespace, type SettingsScope, type default as SettingsService 
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { discoverPresets, USER_PRESET_DIR } from './discovery.ts'
 import { copyComposition, deleteComposition, readComposition } from './authoring.ts'
-import { mountPreset, serviceForAgent, standingMountFor } from './mount.ts'
+import { mountPreset, serviceForAgent, serviceForStandingKey, standingMountFor } from './mount.ts'
 import { PresetExistsError } from './authoring.ts'
 import { PresetMountError, UnknownPresetError, type AgentPreset, type Config, type PresetRoot } from './preset.ts'
 import type {} from './types.ts'
@@ -485,6 +485,21 @@ export class AgentPresets extends Service {
   async standingKeyFor(id?: string): Promise<ScopeKey> {
     const preset = await this.resolveMountable(id)
     return (await this.ensureStanding(preset)).key
+  }
+
+  /**
+   * Resolve one service from an already ensured standing composition without
+   * an Agent. An absent service returns `undefined` rather than falling back
+   * to the host root.
+   * @param standingKey - opaque key returned by {@link standingKeyFor}.
+   * @param name - service name as the preset's rows resolve it.
+   * @returns the standing service instance, or undefined when not mounted by the preset.
+   */
+  serviceForStanding<K extends string & keyof Context>(
+    standingKey: ScopeKey,
+    name: K,
+  ): Context[K] | undefined {
+    return serviceForStandingKey(this.ctx, standingKey, name)
   }
 
   /** Resolve (or create, single-flight) the standing mount of one preset. */
