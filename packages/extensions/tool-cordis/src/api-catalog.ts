@@ -247,6 +247,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the standing scope key readers pass as a registry view scope.',
         throws: ['when the preset is unknown or its composition is unusable.'],
       },
+      {
+        signature: 'serviceForStanding<K extends string & keyof Context>( standingKey: ScopeKey, name: K, ): Context[K] | undefined',
+        description: 'Resolve one service from an already ensured standing composition without an Agent. An absent service returns `undefined` rather than falling back to the host root.',
+        parameters: [{ name: 'standingKey', description: 'opaque key returned by {@link standingKeyFor}.' }, { name: 'name', description: 'service name as the preset\'s rows resolve it.' }],
+        returns: 'the standing service instance, or undefined when not mounted by the preset.',
+      },
     ],
   },
   {
@@ -630,6 +636,24 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List the effective immutable command descriptors for one agent.',
         parameters: [{ name: 'agent', description: 'exact receiving agent and scoped-layer key.' }],
         returns: 'name-sorted descriptors after scoped shadowing.',
+      },
+      {
+        signature: 'listGlobalDescriptors(): readonly CommandDescriptor[]',
+        description: 'List immutable descriptors from the unscoped registration layer only. Host discovery consumers use this without creating an Agent or Session.',
+        parameters: [],
+        returns: 'name-sorted global command descriptors.',
+      },
+      {
+        signature: 'listForScope(scope: ScopeKey | undefined): readonly CommandDescriptor[]',
+        description: 'List effective immutable descriptors for a host-addressed scope chain. The caller obtains the opaque key from the scope owner; this method reads registrations only and does not create an Agent or Session.',
+        parameters: [{ name: 'scope', description: 'viewing scope key, or `undefined` for the global view.' }],
+        returns: 'name-sorted descriptors after scope-chain shadowing.',
+      },
+      {
+        signature: 'listDiscoveryForScope(scope: ScopeKey | undefined): readonly CommandDiscoveryEntry[]',
+        description: 'List effective command descriptors together with their winning registration layer and opaque provider identity. Host discovery consumers use these facts instead of comparing descriptor values, which can be identical across a scoped override and its global fallback.',
+        parameters: [{ name: 'scope', description: 'viewing scope key, or `undefined` for the global view.' }],
+        returns: 'name-sorted immutable discovery entries.',
       },
       {
         signature: 'find(agent: Agent, name: string): CommandDefinition | undefined',
@@ -3618,11 +3642,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CommandDefinition',
-    declaration: 'export interface CommandDefinition {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n    readonly recordInput?: boolean;\n    readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>;\n}',
+    declaration: 'export interface CommandDefinition {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n    readonly provider?: string;\n    readonly recordInput?: boolean;\n    readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>;\n}',
   },
   {
     name: 'CommandDescriptor',
     declaration: 'export interface CommandDescriptor {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n}',
+  },
+  {
+    name: 'CommandDiscoveryEntry',
+    declaration: 'export interface CommandDiscoveryEntry {\n    readonly descriptor: CommandDescriptor;\n    readonly layer: \'global\' | \'scoped\';\n    readonly provider?: string;\n}',
   },
   {
     name: 'CommandExecution',

@@ -848,6 +848,34 @@ export interface Config {
 
 Source: [`packages/hooks/hooks-codex/src/index.ts:44`](../packages/hooks/hooks-codex/src/index.ts)
 
+<a id="deepseek-aidsh-host-composer-catalog"></a>
+
+## `@deepseek-ai/dsh-host-composer-catalog`
+
+Requires: `commands` · `skills` · `workspaceRegistry` · `agentPresets`
+
+```ts config-catalog
+/** Draft catalog product-origin configuration. */
+export interface Config {
+  /** Trusted provider/source to product-origin declarations. */
+  providerOrigins?: ProviderOriginConfig[]
+}
+
+/** Trusted product ownership attached to one technical provider or source. */
+export interface ProviderOriginConfig {
+  /** Opaque provider id carried by command registrations or Skill summaries. */
+  readonly provider: string
+  /** Optional Skill source discriminator; omission also applies to commands. */
+  readonly source?: string
+  /** Product bucket represented by this trusted profile declaration. */
+  readonly kind: 'dsh' | 'pto' | 'plugin' | 'user'
+  /** Friendly plugin label; other kinds use their fixed product label. */
+  readonly label?: string
+}
+```
+
+Source: [`packages/host/composer-catalog/src/index.ts:43`](../packages/host/composer-catalog/src/index.ts)
+
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
 ## `@deepseek-ai/dsh-host-directory-picker-browse`

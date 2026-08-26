@@ -20,6 +20,21 @@ English | [中文](README.zh.md)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
+- `ctx.agentPresets.defaultId: string` The preset id mounted when a caller names none.
+- `ctx.agentPresets.list(): Promise<AgentPreset[]>` Every preset the configured roots currently supply, earlier root winning a duplicate id; broken presets included, each carrying its reason.
+- `ctx.agentPresets.resolve(id?): Promise<AgentPreset>` One preset by id, defaulting to `defaultId`. Throws naming the available ids when no root supplies it. A broken preset resolves — deleting, reading, and reporting one all need the row.
+- `ctx.agentPresets.mount(agentCtx, id?): Promise<AgentPreset>` Compose one agent from a preset — ensure its standing mount (single-flight) and parent the agent's scope key to it — returning the preset for the caller to record. Refuses a broken preset up front with its discovery-reported reason, so every unloadable shape fails the same way before the loader is involved.
+- `ctx.agentPresets.composeFrom(agentCtx, parentCtx): string | undefined` Join one agent to the standing composition another already runs on, returning the preset id joined — `undefined` when the parent joined none, which is the rosterless deployment and not an error. A bind rather than a mount, so it is synchronous and has no composition failure mode; it still rejects a caller error (an unscoped context, or an agent that already joined).
+- `ctx.agentPresets.composedPreset(agentCtx): string | undefined` The preset one LIVE agent runs on, read from its scope chain rather than from its session — the only answer available for an agent whose durable header is still being built.
+- `ctx.agentPresets.recompose(agentCtx, id): Promise<AgentPreset>` Re-link one agent to a different preset's standing composition. Valid only while the agent has produced nothing — **the caller owns that check**; the new mount is ensured before the link moves, so a failure leaves the agent as it was. Refuses a broken preset like `mount()`.
+- `ctx.agentPresets.standingKeyFor(id?): Promise<ScopeKey>` The standing scope key a host reader with no agent (a cold transcript read) resolves preset registrations in; ensures the mount without starting an agent, session, or turn. Refuses a broken preset like `mount()`.
+- `ctx.agentPresets.serviceForStanding(standingKey, name): Context[K] | undefined` One service a host reader resolves from an already ensured standing composition, including an entry-local isolated service invisible from the host root. The key comes from `standingKeyFor()`; an absent service returns `undefined` and never substitutes the host-root instance.
+- `ctx.agentPresets.roots: readonly PresetRoot[]` The roots this roster scans — every configured root in order, then the derived harness-home root. Not `config.roots`: read this to answer whether a roster is composed at all, so one derivation decides it.
+- `ctx.agentPresets.authorable: boolean` Whether any of those roots has `user` trust, and therefore whether a preset can be created at all.
+- `ctx.agentPresets.read(id): Promise<string>` One preset's composition text, exactly as stored.
+- `ctx.agentPresets.copy(from, id, name?): Promise<void>` Create a locally authored preset by copying an existing one's whole directory — the only authoring write. No composition text crosses this seam, so a copy is exactly as loadable as its source; the copied metadata keeps the source's description but never its name or roster order, and `name` (or the id fallback) is what distinguishes the rows.
+- `ctx.agentPresets.remove(id): Promise<void>` Delete a locally authored preset; joined sessions keep their standing mount. Clears the user default when it named the preset just deleted: storing a default that does not exist yet is deliberate, but one this call removed will never be supplied again and would fail every session created without an explicit pick.
+
 -----
 
 <a id="use-this-package"></a>

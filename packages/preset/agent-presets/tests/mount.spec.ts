@@ -304,6 +304,24 @@ describe('rejecting a composition that cannot be used', () => {
     expect(theirs).toBe(mine)
   })
 
+  it('addresses a realm-private standing service without creating an agent or session', async () => {
+    const sessionsBefore = ctx.sessions.list()
+
+    const key = await ctx.agentPresets.standingKeyFor('isolated')
+    const service = ctx.agentPresets.serviceForStanding(key, 'fixtureIsolatedSvc')
+
+    expect(service).toEqual({ label: 'ISOLATED' })
+    expect(rootResolves(ctx, 'fixtureIsolatedSvc')).toBe(false)
+    expect(ctx.sessions.list()).toEqual(sessionsBefore)
+  })
+
+  it('does not substitute the host root when a standing service is absent', async () => {
+    ctx.provide('fixtureIsolatedSvc', { label: 'global' })
+    const key = await ctx.agentPresets.standingKeyFor('standard')
+
+    expect(ctx.agentPresets.serviceForStanding(key, 'fixtureIsolatedSvc')).toBeUndefined()
+  })
+
   it('answers undefined for a service the agent\'s preset does not mount', async () => {
     // The isolated preset's standing instance exists in the same runtime, so
     // the lookup finds the NAME and must still refuse it: the instance lives

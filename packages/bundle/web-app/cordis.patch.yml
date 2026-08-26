@@ -83,6 +83,10 @@
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
 
+    # Read-only command/Skill projection for new-session drafts.
+    - id: composer-catalog
+      name: '@deepseek-ai/dsh-host-composer-catalog'
+
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'

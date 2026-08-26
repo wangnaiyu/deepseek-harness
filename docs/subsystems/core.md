@@ -622,6 +622,16 @@ async recompose(agentCtx: Context, id: string): Promise<AgentPreset>
  * @throws when the preset is unknown or its composition is unusable.
  */
 async standingKeyFor(id?: string): Promise<ScopeKey>
+
+/**
+ * Resolve one service from an already ensured standing composition without
+ * an Agent. An absent service returns `undefined` rather than falling back
+ * to the host root.
+ * @param standingKey - opaque key returned by {@link standingKeyFor}.
+ * @param name - service name as the preset's rows resolve it.
+ * @returns the standing service instance, or undefined when not mounted by the preset.
+ */
+serviceForStanding<K extends string & keyof Context>( standingKey: ScopeKey, name: K, ): Context[K] | undefined
 ```
 
 Types: [ScopeKey](scope.md)

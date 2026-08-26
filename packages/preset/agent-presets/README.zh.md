@@ -20,6 +20,21 @@ kind: "package-reference"
 - [已知限制与延期工作](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
 
+- `ctx.agentPresets.defaultId: string` 调用方未指定时挂载的 preset id。
+- `ctx.agentPresets.list(): Promise<AgentPreset[]>` 当前各根目录提供的全部 preset；id 重复时靠前的根目录胜出；损坏的 preset 也在其中，各自携带原因。
+- `ctx.agentPresets.resolve(id?): Promise<AgentPreset>` 按 id 取一个 preset，缺省取 `defaultId`。没有任何根目录提供该 id 时抛错，并列出可用 id。损坏的 preset 照样解析——删除、读取与上报都需要这一行。
+- `ctx.agentPresets.mount(agentCtx, id?): Promise<AgentPreset>` 用一个 preset 组装一个 agent——确保其常驻挂载（并发去重）并把 agent 的 scope key 认父到它——返回该 preset 供调用方记录。对损坏的 preset 直接以发现时记下的原因拒绝，所以每种不可加载的形态都在加载器介入之前以同一方式失败。
+- `ctx.agentPresets.composeFrom(agentCtx, parentCtx): string | undefined` 让一个 agent 加入另一个 agent 已在运行的常驻组装，返回所加入的 preset id——父方未加入任何 preset 时返回 `undefined`，那是无 roster 的部署，不是错误。这是认父而非挂载，因此同步、且自身没有组装失败模式；调用方用错（上下文无 scope、agent 已加入过）仍会拒绝。
+- `ctx.agentPresets.composedPreset(agentCtx): string | undefined` 某个**活着的** agent 正在运行的 preset，从其 scope 链读取而不是从其会话读取——对于持久化 header 尚在构建中的 agent，这是唯一能拿到的答案。
+- `ctx.agentPresets.recompose(agentCtx, id): Promise<AgentPreset>` 把一个 agent 重链到另一个 preset 的常驻组装。仅在该 agent 尚无任何产出时合法——**由调用方负责该检查**；新挂载在链移动之前确保完成，失败时 agent 原封不动。与 `mount()` 一样拒绝损坏的 preset。
+- `ctx.agentPresets.standingKeyFor(id?): Promise<ScopeKey>` 没有 agent 的宿主读取方（冷读记录）解析 preset 注册所用的常驻 scope key；确保挂载而不启动任何 agent、会话或轮次。与 `mount()` 一样拒绝损坏的 preset。
+- `ctx.agentPresets.serviceForStanding(standingKey, name): Context[K] | undefined` 没有 agent 的宿主读取方从已确保的常驻组装解析一个服务，包括宿主根不可见的 entry-local 隔离服务。key 由 `standingKeyFor()` 提供；服务缺失时返回 `undefined`，绝不以宿主根实例代替。
+- `ctx.agentPresets.roots: readonly PresetRoot[]` 本 roster 实际扫描的根目录——全部已配置根目录按序在前，随后是推导出的 harness home 根目录。它不是 `config.roots`：判断「是否已组装 roster」应读它，从而由同一处推导决定。
+- `ctx.agentPresets.authorable: boolean` 上述根目录中是否有任一具备 `user` 信任级别，因而 preset 是否可创建。
+- `ctx.agentPresets.read(id): Promise<string>` 某个 preset 的组装文本，与存储内容逐字一致。
+- `ctx.agentPresets.copy(from, id, name?): Promise<void>` 通过整目录复制一个既有 preset 来创建本地创作的 preset——唯一的创作写入。组装文本不经过这道接缝，因此副本与其来源同等可加载；复制出的元数据保留来源的描述、但绝不保留其名称与 roster 排序，`name`（或回退到 id）才是区分两行的依据。
+- `ctx.agentPresets.remove(id): Promise<void>` 删除一个本地创作的 preset；已加入的会话保留其常驻挂载。若用户默认值恰好指向刚删除的 preset 则一并清除：存一个尚不存在的默认值是刻意的，但本次删除的这个再也不会有人提供，留着会让所有未显式指定的新会话无法启动。
+
 -----
 
 <a id="use-this-package"></a>

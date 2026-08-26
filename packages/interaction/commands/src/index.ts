@@ -61,6 +61,13 @@ export interface CommandDefinition {
   /** Optional free-form input hint advertised to capable clients. */
   readonly input?: CommandInputDescriptor
   /**
+   * Opaque provider identity used by trusted Host discovery projections to
+   * resolve product ownership. Omission leaves ownership to the registration
+   * layer: global definitions are deployment-owned and scoped definitions are
+   * owned by the viewing agent composition.
+   */
+  readonly provider?: string
+  /**
    * Whether `command/run` records `rawInput`. Defaults to true. A command
    * whose domain event owns the payload sets this false to avoid duplicating
    * that payload in the session log.
@@ -81,6 +88,16 @@ export interface ParsedCommand {
 interface RegisteredCommand {
   readonly definition: CommandDefinition
   readonly descriptor: CommandDescriptor
+}
+
+/** Registration-layer fact retained beside one effective discovery descriptor. */
+export interface CommandDiscoveryEntry {
+  /** Handler-free command metadata. */
+  readonly descriptor: CommandDescriptor
+  /** Layer that supplied the effective same-name winner. */
+  readonly layer: 'global' | 'scoped'
+  /** Opaque provider identity supplied by the winning definition. */
+  readonly provider?: string
 }
 
 /** All command registrations owned by one global or scoped layer. */
@@ -182,6 +199,10 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
   if (typeof definition.handler !== 'function') {
     throw new TypeError(`command "${definition.name}" handler must be a function`)
   }
+  if (definition.provider !== undefined
+    && (typeof definition.provider !== 'string' || definition.provider.trim().length === 0)) {
+    throw new TypeError(`command "${definition.name}" provider must be a non-empty string when supplied`)
+  }
   const rawInput: unknown = definition.input
   let input: CommandInputDescriptor | undefined
   if (rawInput !== undefined) {
@@ -204,6 +225,7 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
     name: definition.name,
     description: definition.description,
     ...input === undefined ? {} : { input },
+    ...definition.provider === undefined ? {} : { provider: definition.provider },
     ...definition.recordInput === undefined ? {} : { recordInput: definition.recordInput },
     handler: definition.handler,
   })
@@ -287,10 +309,49 @@ export class CommandRuntime extends TypertRemoteService {
    */
   @Remote
   list(agent: Agent): readonly CommandDescriptor[] {
-    return Object.freeze([...this.view(agent).values()]
-      .map(command => command.descriptor)
-      // Names are unique in the effective view, so equality is impossible.
-      .sort((left, right) => left.name < right.name ? -1 : 1))
+    return this.listForScope(agent)
+  }
+
+  /**
+   * List immutable descriptors from the unscoped registration layer only.
+   * Host discovery consumers use this without creating an Agent or Session.
+   * @returns name-sorted global command descriptors.
+   */
+  listGlobalDescriptors(): readonly CommandDescriptor[] {
+    return this.descriptors(this.layers.merge(undefined, layer => layer.commands))
+  }
+
+  /**
+   * List effective immutable descriptors for a host-addressed scope chain.
+   * The caller obtains the opaque key from the scope owner; this method reads
+   * registrations only and does not create an Agent or Session.
+   * @param scope - viewing scope key, or `undefined` for the global view.
+   * @returns name-sorted descriptors after scope-chain shadowing.
+   */
+  listForScope(scope: ScopeKey | undefined): readonly CommandDescriptor[] {
+    return this.descriptors(this.layers.merge(scope, layer => layer.commands))
+  }
+
+  /**
+   * List effective command descriptors together with their winning
+   * registration layer and opaque provider identity. Host discovery consumers
+   * use these facts instead of comparing descriptor values, which can be
+   * identical across a scoped override and its global fallback.
+   * @param scope - viewing scope key, or `undefined` for the global view.
+   * @returns name-sorted immutable discovery entries.
+   */
+  listDiscoveryForScope(scope: ScopeKey | undefined): readonly CommandDiscoveryEntry[] {
+    const effective = new Map<string, CommandDiscoveryEntry>()
+    for (const [commandName, command] of this.layers.global.commands.entries()) {
+      effective.set(commandName, this.discoveryEntry(command, 'global'))
+    }
+    for (const layer of this.layers.chainLayers(scope)) {
+      for (const [commandName, command] of layer.commands.entries()) {
+        effective.set(commandName, this.discoveryEntry(command, 'scoped'))
+      }
+    }
+    return Object.freeze([...effective.values()]
+      .sort((left, right) => left.descriptor.name < right.descriptor.name ? -1 : 1))
   }
 
   /**
@@ -433,6 +494,26 @@ export class CommandRuntime extends TypertRemoteService {
     // type parameter. Preserve the proven two-argument call shape.
     const appendLogOnly = session.append.bind(session) as (eventType: T, eventData: SessionEventMap[T]) => SessionEvent<T>
     return appendLogOnly(type, data)
+  }
+
+  /** Detach one effective command view into its immutable discovery projection. */
+  private descriptors(view: Map<string, RegisteredCommand>): readonly CommandDescriptor[] {
+    return Object.freeze([...view.values()]
+      .map(command => command.descriptor)
+      // Names are unique in the effective view, so equality is impossible.
+      .sort((left, right) => left.name < right.name ? -1 : 1))
+  }
+
+  /** Detach one registration into the immutable Host discovery projection. */
+  private discoveryEntry(
+    command: RegisteredCommand,
+    layer: CommandDiscoveryEntry['layer'],
+  ): CommandDiscoveryEntry {
+    return Object.freeze({
+      descriptor: command.descriptor,
+      layer,
+      ...command.definition.provider === undefined ? {} : { provider: command.definition.provider },
+    })
   }
 
   /** Resolve global definitions followed by exact scoped shadows. */

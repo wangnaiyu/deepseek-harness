@@ -281,6 +281,34 @@ export function serviceForAgent<K extends string & keyof Context>(
 ): Context[K] | undefined {
   const mount = standingMountFor(agent.ctx)
   if (mount === undefined) return undefined
+  return serviceForMount(ctx, mount, name)
+}
+
+/**
+ * Resolve one service from a standing preset mount addressed by its opaque
+ * scope key. Host readers use this after the roster has ensured the mount,
+ * without creating an Agent or Session.
+ * @param ctx - any context of the runtime whose service store is inspected.
+ * @param standingKey - exact standing scope key owned by the preset roster.
+ * @param name - service name as the preset's rows resolve it.
+ * @returns the standing instance, or undefined when the key or service is absent.
+ */
+export function serviceForStandingKey<K extends string & keyof Context>(
+  ctx: Context,
+  standingKey: ScopeKey,
+  name: K,
+): Context[K] | undefined {
+  const mount = livePresetMounts().find(candidate => candidate.key === standingKey)
+  if (mount === undefined) return undefined
+  return serviceForMount(ctx, mount, name)
+}
+
+/** Resolve a named service whose provider fiber belongs to one preset mount. */
+function serviceForMount<K extends string & keyof Context>(
+  ctx: Context,
+  mount: PresetMount,
+  name: K,
+): Context[K] | undefined {
   const store = ctx.reflect.store
   for (const key of Object.getOwnPropertySymbols(store)) {
     const impl = store[key]
