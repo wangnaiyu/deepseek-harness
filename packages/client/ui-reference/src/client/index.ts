@@ -22,7 +22,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  ClientSessionContext, InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
+  InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
@@ -55,7 +55,8 @@ export function apply(ctx: ClientContext): void {
     trigger: '@',
     name: 'reference',
     showGroupTitle: false,
-    async candidates(session: ClientSessionContext, { query, quoted, drilled, signal }) {
+    async candidates(session, { query, quoted, drilled, signal }) {
+      if (session.kind === 'draft') return []
       if (sessions.binding(session.sessionId) === undefined) {
         throw new Error(`reference candidates require a retained session "${session.sessionId}"`)
       }
@@ -106,7 +107,8 @@ export function apply(ctx: ClientContext): void {
         ...sessionRows.filter(item => !item.child).map(item => item.row),
       ]
     },
-    header(_session: ClientSessionContext, req) {
+    header(target, req) {
+      if (target.kind === 'draft') return undefined
       return crumbsFor(req.query, req.quoted === true, req.drilled, t)
     },
     onPick({ candidate, action }) {

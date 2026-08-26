@@ -158,6 +158,16 @@ export function apply(ctx: ClientContext): void {
     })
 
     scope.effect(() => {
+      // Publish the staged/default chip choice into the browser-draft target.
+      // This is read-only capability context: it neither creates a Session
+      // nor applies the preset before first send.
+      const syncDraftPreset = (): void => {
+        const preset = unboundSeat.store.getSnapshot().current
+        if (preset === '' || scope.uiWorkspace.list.getSnapshot().sessionDraft === undefined) return
+        scope.uiWorkspace.selectDraftAgentPreset(preset)
+      }
+      const stopSeatDraft = unboundSeat.store.subscribe(syncDraftPreset)
+      syncDraftPreset()
       const stop = scope.uiWorkspace.prepareSessionDraft(async (sessionId) => {
         const binding = scope.sessions.binding(sessionId)
         if (binding === undefined) throw new Error('Draft Session is not retained')
@@ -185,6 +195,7 @@ export function apply(ctx: ClientContext): void {
       }, AgentPresetLabel)
       return () => {
         stop()
+        stopSeatDraft()
         creatorDraft = undefined
         chip()
         label()

@@ -126,6 +126,10 @@ export interface InputTriggerController {
   openReference(source: string | undefined, reference: Pick<ReferenceInsert, 'ref' | 'appearance'>): boolean
   /** @param source - source name. @param hit - synthetic trigger hit. */
   toggleSource(source: string, hit: InputTriggerHit): void
+  /** Open every eligible source for a synthetic trigger hit. */
+  toggleTrigger(hit: InputTriggerHit): void
+  /** Close the current trigger menu and abort its candidate requests. */
+  dismiss(): void
 }
 
 declare module '@deepseek-ai/cordis' {

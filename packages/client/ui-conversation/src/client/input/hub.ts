@@ -34,6 +34,8 @@ interface CommandFace {
 interface InputTriggerServiceFace {
   /** @param actx - Session scope. @returns that Session's trigger provider. */
   sessionOf(actx: Context): InputTriggerController
+  /** @returns the browser-draft trigger provider after it has been bound. */
+  draft(): InputTriggerController | undefined
 }
 
 /** Attachment-send face resolved lazily to keep hub/service construction acyclic. */
@@ -87,6 +89,7 @@ export class InputHub implements SessionInputResolver {
     if (this.browserDraft !== undefined) return this.browserDraft
     this.browserDraft = new SessionInputShell({
       actx: this.rootCtx,
+      inputTriggers: () => this.rootCtx.get('inputTriggers')?.draft(),
       defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
       commandAttachments: {
         serialize: async ids => (await this.conversation().serializeDraftAttachments(ids)).attachments,
@@ -223,6 +226,14 @@ export class InputHub implements SessionInputResolver {
   inputTriggers(id: SessionId): InputTriggerController | undefined {
     const binding = this.sessions().binding(id)
     return binding === undefined ? undefined : this.controller(binding.ctx)
+  }
+
+  /**
+   * Resolve the browser-only draft controller for shared `/` and `+` discovery.
+   * @returns the resident draft controller, or undefined before the optional trigger plugin binds it.
+   */
+  draftInputTriggers(): InputTriggerController | undefined {
+    return this.rootCtx.get('inputTriggers')?.draft()
   }
 
   /**
