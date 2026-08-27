@@ -78,6 +78,8 @@ async function bench(nodes: ToolResultNode[]) {
       runtime.sessions.open(SID)
     }),
     openSession: (id: SessionId) => { runtime.sessions.open(id) },
+    ...runtime.workspaces,
+    connectWorkspace: vi.fn(async () => SID),
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
@@ -297,6 +299,8 @@ describe('registrant declaration injection', () => {
         runtime.sessions.open(SID)
       }),
       openSession: (id: SessionId) => { runtime.sessions.open(id) },
+      ...runtime.workspaces,
+      connectWorkspace: vi.fn(async () => SID),
     } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
