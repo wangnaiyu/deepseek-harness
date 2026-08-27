@@ -160,6 +160,7 @@ export function renderToolDetails(
       cwd={details.cwd}
       useConnectionGeneration={selector => selector(generation)}
       t={t}
+      renderSlot={(_name, _owner, options) => options?.fallback ?? null}
     />
   }
 }

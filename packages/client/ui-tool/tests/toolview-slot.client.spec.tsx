@@ -69,6 +69,7 @@ async function bench(nodes: ToolResultNode[]) {
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
   runtime.ctx.provide('layout', layout)
   runtime.ctx.provide('uiWorkspace', {
+    ...runtime.workspaces,
     connectWorkspace: vi.fn(async () => SID),
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
@@ -217,6 +218,7 @@ describe('registrant declaration injection', () => {
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
     runtime.ctx.provide('uiWorkspace', {
+      ...runtime.workspaces,
       connectWorkspace: vi.fn(async () => SID),
     } as never)
     const locale = new LocaleRuntime(runtime.ctx)
