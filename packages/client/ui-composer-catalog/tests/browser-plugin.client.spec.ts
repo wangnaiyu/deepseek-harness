@@ -172,14 +172,20 @@ describe('draft composer catalog source', () => {
     unsubscribe?.()
   })
 
-  it('rejects an in-flight pre-reset snapshot instead of publishing it after reconnect', async () => {
+  it('rejects an in-flight pre-reset snapshot and refetches cleanly after reconnect', async () => {
     let resolve!: (value: { ok: true; value: DraftComposerCatalog }) => void
     const pending = new Promise<{ ok: true; value: DraftComposerCatalog }>((done) => { resolve = done })
-    const b = await bench(() => pending)
+    let attempt = 0
+    const b = await bench(() => {
+      attempt += 1
+      return attempt === 1 ? pending : Promise.resolve({ ok: true, value: catalog })
+    })
     const rows = b.source.candidates(target(), req())
     b.ctx.emit('connection/reset')
     resolve({ ok: true, value: catalog })
     await expect(rows).rejects.toBeDefined()
+    await expect(b.source.candidates(target(), req())).resolves.toHaveLength(4)
+    expect(b.listDraft).toHaveBeenCalledTimes(2)
   })
 
   it('serves typed `/` and the `+` launcher through one draft controller without creating a Session', async () => {
@@ -209,10 +215,11 @@ describe('draft composer catalog source', () => {
     controller.pick('composer-catalog', 0)
     expect(draft).toBe('/analyze ')
 
-    draft = ''
+    draft = '/'
+    draftRev += 1
     controller.toggleTrigger({
       trigger: '/', query: '', quoted: false, position: 'leading',
-      span: { start: 0, end: 0, draftRev },
+      span: { start: 0, end: 1, draftRev },
     })
     await vi.waitFor(() => { expect(controller.menu.getSnapshot().groups[0]?.status).toBe('ready') })
     controller.pick('composer-catalog', 2)
