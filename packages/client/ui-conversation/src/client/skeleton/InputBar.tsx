@@ -51,7 +51,7 @@ export const InputBar = memo(function InputBar({
   const input = useInput(s => s)
   const notice = useNotices(s => s)
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
-  const commandMenuOpen = useMenuLauncher(source => source === 'command')
+  const commandMenuOpen = useMenuLauncher(source => source === 'command' || source === '/')
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
   const subagent = useSession(s => s.subagent) ?? null

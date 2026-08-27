@@ -19,7 +19,7 @@ import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
   ClientDraftContext, ClientSessionContext, InputTriggerCandidate, InputTriggerCrumb,
   InputTriggerSource, InputTriggerTarget, PickAction,
-  SubmitEnvelope, TriggerChar, TriggerGuard,
+  SubmitEnvelope, TokenSpan, TriggerChar, TriggerGuard,
 } from '../types.ts'
 
 /** Roster access the controller borrows from the root service (registration order preserved). */
@@ -188,6 +188,12 @@ export class InputTriggerController {
     this.menu.set(seedGroups(this.menu.getSnapshot(), roster))
     this.reduce({ type: 'hit', hit })
     this.fetchCandidates(hit, roster)
+  }
+
+  /** Exact draft span inserted for the currently open programmatic launcher. */
+  launcherSpan(source: string): TokenSpan | undefined {
+    if (this.launcher.getSnapshot() !== source || !this.menu.getSnapshot().open) return undefined
+    return this.hit?.span
   }
 
   /**

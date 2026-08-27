@@ -193,11 +193,13 @@ export class ComposerCatalogGateway extends TypertRemoteService {
 
   /** Project effective registrations without exposing scope keys or provider ids. */
   private commands(scope: ScopeKey | undefined): DraftCommandDescriptor[] {
-    return this.ctx.commands.listDiscoveryForScope(scope).map(entry => Object.freeze({
-      ...entry.descriptor,
-      description: boundedDescription(entry.descriptor.description),
-      origin: this.commandOrigin(entry),
-    }))
+    return this.ctx.commands.listDiscoveryForScope(scope)
+      .map(entry => Object.freeze({
+        ...entry.descriptor,
+        description: boundedDescription(entry.descriptor.description),
+        origin: this.commandOrigin(entry),
+      }))
+      .sort(compareCommands)
   }
 
   /** Resolve the product owner of one effective command registration. */
@@ -317,12 +319,29 @@ function catalogError(
 }
 
 function compareSkills(left: DraftSkillDescriptor, right: DraftSkillDescriptor): number {
-  return originRank(left.origin.kind) - originRank(right.origin.kind)
+  return skillOriginRank(left.origin.kind) - skillOriginRank(right.origin.kind)
     || compareCodePoints(left.origin.label, right.origin.label)
     || compareCodePoints(left.name, right.name)
 }
 
-function originRank(kind: DraftCatalogOrigin['kind']): number {
+function compareCommands(left: DraftCommandDescriptor, right: DraftCommandDescriptor): number {
+  return commandOriginRank(left.origin.kind) - commandOriginRank(right.origin.kind)
+    || compareCodePoints(left.origin.label, right.origin.label)
+    || compareCodePoints(left.name, right.name)
+}
+
+function commandOriginRank(kind: DraftCatalogOrigin['kind']): number {
+  switch (kind) {
+    case 'dsh': return 0
+    case 'agent': return 1
+    case 'pto': return 2
+    case 'plugin': return 3
+    case 'user': return 4
+    case 'workspace': return 5
+  }
+}
+
+function skillOriginRank(kind: DraftCatalogOrigin['kind']): number {
   switch (kind) {
     case 'user': return 0
     case 'pto': return 1

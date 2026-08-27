@@ -7,7 +7,7 @@
  * focus, the highlight is exposed through aria-activedescendant +
  * aria-selected, and the list height clamps to the space above the composer.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -41,13 +41,6 @@ function openState(partial?: Partial<MenuState>): MenuState {
     ...partial,
   }
 }
-
-// jsdom has no scrollIntoView; the view calls it on the highlighted option.
-const scrollIntoView = vi.fn()
-beforeEach(() => {
-  Element.prototype.scrollIntoView = scrollIntoView
-  scrollIntoView.mockClear()
-})
 
 afterEach(() => {
   cleanup()
@@ -238,13 +231,15 @@ describe('MenuView', () => {
     expect(screen.getByRole('listbox').getAttribute('aria-activedescendant')).toBeNull()
   })
 
-  it('scrolls the highlighted option into view when the highlight moves', () => {
+  it('scrolls only the menu viewport when the highlight moves', () => {
     const { menu } = mount(openState())
-    scrollIntoView.mockClear()
-    act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    const viewport = screen.getByRole('listbox')
     const options = screen.getAllByRole('option')
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
-    expect(scrollIntoView.mock.instances.at(-1)).toBe(options[1])
+    Object.defineProperty(viewport, 'scrollTop', { value: 0, writable: true })
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 40 } as DOMRect)
+    vi.spyOn(options[1]!, 'getBoundingClientRect').mockReturnValue({ top: 50, bottom: 70 } as DOMRect)
+    act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    expect(viewport.scrollTop).toBe(30)
   })
 
   it('caps the list height at the design maximum when the composer sits low enough', () => {

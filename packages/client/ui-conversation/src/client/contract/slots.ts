@@ -291,9 +291,9 @@ export interface ComposerBarInjected {
     steeringAvailable: boolean,
   ) => InputSubmitMode
   /**
-   * Start the command surface at the current selection. A real Session opens
-   * its command menu and returns nothing; a browser draft inserts `/` and
-   * returns the caret position the bar must restore.
+   * Toggle the command surface at the current selection. Opening inserts `/`;
+   * closing through the same launcher removes that still-adjacent `/`. A
+   * returned caret position is restored by the bar after either edit.
    */
   toggleCommandMenu: ((selection: EditSelection) => number | undefined) | undefined
   /** Cancel the in-flight turn; absent with the session. */

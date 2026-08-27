@@ -126,6 +126,7 @@ export type InputTriggerTarget = InputTriggerSessionTarget | InputTriggerDraftTa
 /** Structural per-Session trigger provider consumed by the input shell. */
 export interface InputTriggerController {
   readonly launcher: ObservableSnapshot<string | null>
+  readonly menu: ObservableSnapshot<{ readonly open: boolean }>
   readonly lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
   /** @returns the immutable identity currently used by provider discovery. */
   target(): InputTriggerTarget
@@ -159,6 +160,8 @@ export interface InputTriggerController {
   toggleSource(source: string, hit: InputTriggerHit): void
   /** Open every eligible source for a synthetic trigger hit. */
   toggleTrigger(hit: InputTriggerHit): void
+  /** Return the exact inserted draft span while the named programmatic launcher is open. */
+  launcherSpan(source: string): TokenSpan | undefined
   /** Close the current trigger menu and abort its candidate requests. */
   dismiss(): void
 }

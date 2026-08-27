@@ -485,6 +485,7 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.queryByTestId('view-chat')).toBeNull()
     const welcome = b.view.container.querySelector('[data-hero-welcome]')
     expect(welcome?.contains(b.view.getByText('探索未至之境'))).toBe(true)
+    expect(host?.contains(b.view.container.querySelector('[data-hero-glow-clip]'))).toBe(true)
     // The same machine-backed textarea is live in the hero, and the
     // persistence mirror stays bound (ConversationSession mounts chrome-hidden
     // for blank sessions): hero typing reaches the Conversation store.

@@ -87,6 +87,18 @@ function concreteConversation(ctx: Context): ConversationController {
   return conversation
 }
 
+/** Remove the slash immediately before a collapsed caret when closing a launcher that inserted it. */
+function removeLauncherSlash(
+  draft: string,
+  draftRev: number,
+  selection: { start: number; end: number },
+  span: TokenSpan | undefined,
+): { draft: string; caret: number } | undefined {
+  if (span === undefined || span.draftRev !== draftRev || span.end !== span.start + 1) return undefined
+  if (selection.start !== span.end || selection.end !== span.end || draft.slice(span.start, span.end) !== '/') return undefined
+  return { draft: draft.slice(0, span.start) + draft.slice(span.end), caret: span.start }
+}
+
 /**
  * Mount the Conversation core and target-neutral presentation.
  * @param ctx - Client root context.
@@ -383,12 +395,29 @@ export function apply(ctx: Context): void {
               return selection.start + 1
             }
             : (selection) => {
+              const inputTriggers = inputHub.draftInputTriggers()
+              if (inputTriggers === undefined) return undefined
               const snapshot = shell.snapshot
-              inputHub.draftInputTriggers()?.toggleTrigger({
+              if (inputTriggers.launcher.getSnapshot() === '/' && inputTriggers.menu.getSnapshot().open) {
+                const launcherSpan = inputTriggers.launcherSpan('/')
+                inputTriggers.dismiss()
+                const removal = removeLauncherSlash(snapshot.draft, snapshot.draftRev, selection, launcherSpan)
+                if (removal === undefined) return undefined
+                shell.setDraft(removal.draft)
+                return removal.caret
+              }
+              shell.setDraft(
+                snapshot.draft.slice(0, selection.start)
+                  + '/'
+                  + snapshot.draft.slice(selection.end),
+              )
+              const inserted = shell.snapshot
+              inputTriggers.toggleTrigger({
                 trigger: '/', query: '', quoted: false,
                 position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
-                span: { ...selection, draftRev: snapshot.draftRev },
+                span: { start: selection.start, end: selection.start + 1, draftRev: inserted.draftRev },
               })
+              return selection.start + 1
             },
           stop: undefined,
           command: line => conversation.commandDraftPermission(line),
@@ -429,13 +458,28 @@ export function apply(ctx: Context): void {
           : (selection) => {
             shell.dismissPopup()
             const snapshot = shell.snapshot
+            if (inputTriggers.launcher.getSnapshot() === 'command' && inputTriggers.menu.getSnapshot().open) {
+              const launcherSpan = inputTriggers.launcherSpan('command')
+              inputTriggers.dismiss()
+              const removal = removeLauncherSlash(snapshot.draft, snapshot.draftRev, selection, launcherSpan)
+              if (removal === undefined) return undefined
+              shell.setDraft(removal.draft)
+              return removal.caret
+            }
+            shell.setDraft(
+              snapshot.draft.slice(0, selection.start)
+                + '/'
+                + snapshot.draft.slice(selection.end),
+            )
+            const inserted = shell.snapshot
             inputTriggers.toggleSource('command', {
               trigger: '/',
               query: '',
               quoted: false,
               position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
-              span: { ...selection, draftRev: snapshot.draftRev },
+              span: { start: selection.start, end: selection.start + 1, draftRev: inserted.draftRev },
             })
+            return selection.start + 1
           },
         stop: () => {
           scopedConversation(sessions, sessionId).cancel().catch(() => {
