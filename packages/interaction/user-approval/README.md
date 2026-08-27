@@ -11,6 +11,10 @@ English | [中文](README.zh.md)
 
 `dsh-user-approval` lets a sensitive tool action pause for a one-shot allow/reject decision: `ctx.approval.request(req)` asks the composed answerers whether one specific action may proceed and returns `allowed-once`, `rejected`, `cancelled`, or `unavailable`. Missing, non-owning, or throwing answerers fail closed to `unavailable`, and a grant applies only to the requested action. A per-session policy — `ask` (the default) or `never` — decides what happens before any answerer runs: `ask` delegates to the composed answerers, `never` rejects every request deterministically without prompting anyone. Each request is recorded in the requesting session's audit log, and the model sees only the asking consumer's tool outcome plus the current policy in the runtime-context snapshot. UI channels provide human answerers; the ACP automation bridge answers for its own agents.
 
+`ctx.approval.requestDecision(req)` performs the same operation while also returning the service-issued audit id. Exact event signatures live in the generated region of [approval.md](../../../docs/subsystems/approval.md#cordis-surface).
+
+Each request must belong to an open agent turn. The service appends a paired `approval/asked` and `approval/decided` audit record. `requestDecision()` returns `{ id, outcome }` only after both appends commit, so trusted composite operations can bind their durable receipt to the audit pair without recovering ids from Session history. The model sees only the resulting logged tool outcome. An aborted request resolves `cancelled`; an audit append that fails before commit rejects rather than returning an unlogged decision.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

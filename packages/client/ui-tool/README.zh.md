@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+本包还通过 `ToolDetails` 填充 `conversation.details.tool`。该整面板 owner 会按 wire 工具名，把输出体委托给 session-scoped keyed 子槽 `tool.result.detailview`；没有注册的 key 保留通用 renderer。行 renderer 与通用详情 renderer 共用同一组面向 `terminal`、`read`、`diff`、`search` 和 `web` render intent 的纯 card model。未知的 intent 标签和格式错误的 wire card 数据都会回退为压平的工具结果文本。
+
 工具调用在对话中显示为卡片：一个根调用树带其嵌套子调用，每个原子调用由所属视图渲染。用户看到运行中、成功、失败与中断状态，这些状态只来自冻结的调用/结果切片，并可通过宿主回调打开文件或检查调用。
 
 ### 注册业务工具视图
@@ -44,6 +46,20 @@ owner 载荷为 `ToolCallOwnerProps`：`callId`、`toolName`、冻结的 `block`
 ### 内置视图
 
 本包拥有 generic fallback，以及 shell/pwsh、read、read_image、write/edit、running `str_replace_editor` `create`／`str_replace`、grep/glob、web、todo、question 与 Code Dispatch 的内置展示。结构化卡片直接从第一方原始 event 字段派生；Host `presentCall` 与 `presentResult` 值不会进入 Client。前台一次性 shell 结果使用 terminal 卡片。已完成的持久 shell 结果使用可展开的 generic 输入／输出卡片，因为 reset 与部分输出诊断不一定描述单个进程的退出状态；后台启动回执保持折叠。成功的问题行按稳定 id 配对调用中的问题与结果中的回答，展开后显示可读的问答行。已取消或已中断的问题行显示其裁决与原始问题，不虚构回答。不受支持、格式错误或含糊的输入回退为压平的工具输入／结果文本。`ui-skill` 展示了业务包自行拥有的 `skill` 注册项。
+
+业务包可以按同一个 wire 工具名独立注册全高 details 内容：
+
+```ts ignore-check
+ctx.slots.inject('tool.result.detailview', () =>
+  ctx.slots.register({
+    name: 'tool.result.detailview',
+    key: '<wire tool name>',
+  }, BusinessToolDetails))
+```
+
+它的 owner 是 `ToolResultDetailsOwnerProps`：`callId`、`toolName`、同一份冻结的 running/settled `block`，以及可选、仅供显示的 `cwd`。注册项必须处理两种生命周期形态，并对格式异常的业务结果 fail closed。它不能替换仍由单一整面板 owner 占用、并负责通用 fallback 的 `conversation.details.tool`。
+
+各类卡片的上限与 fallback 规则仍由对应的 [terminal](../../../.agents/notes/implemented/feature/2026-07-28-web-terminal-card.zh.md)、[diff](../../../.agents/notes/implemented/feature/2026-07-30-web-diff-card.zh.md)、[read](../../../.agents/notes/implemented/feature/2026-07-30-web-read-card-frontend.zh.md)、[search](../../../.agents/notes/implemented/feature/2026-07-30-web-search-card.zh.md) 和 [web](../../../.agents/notes/implemented/feature/2026-07-30-web-result-card-frontend.zh.md) Agent Note 负责。
 
 -----
 

@@ -44,6 +44,9 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('conversation.details.tool', () => ctx.slots.register({
     name: 'conversation.details.tool',
     locale: NS,
+    children: {
+      'tool.result.detailview': { kind: 'keyed', scope: 'session' },
+    },
     inject: toolInject,
   }, ToolDetails))
 

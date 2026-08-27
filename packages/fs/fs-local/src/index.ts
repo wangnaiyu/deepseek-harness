@@ -8,10 +8,12 @@ import { Context } from '@deepseek-ai/cordis'
 import { constants as bufferConstants } from 'node:buffer'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { mkdir } from 'node:fs/promises'
 import z from '@deepseek-ai/schemastery'
 import { FileSystem, FsError, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
   FsDirEntry,
+  FsDirectoryReservation,
   FsEditOutcome,
   FsEditRequest,
   FsInfo,
@@ -165,6 +167,35 @@ export class LocalFileSystem extends FileSystem {
       ...(entry.version !== undefined ? { version: entry.version } : {}),
       ...(entry.size !== undefined ? { size: entry.size } : {}),
     }))
+  }
+
+  override async reserveDirectory(
+    target: FsTarget,
+    signal?: AbortSignal,
+  ): Promise<FsDirectoryReservation> {
+    return this.withLock(target.targetKey, async () => {
+      if (signal?.aborted) throw new FsError('directory reservation aborted', 'FS_ABORTED')
+      try {
+        await mkdir(this.processPath(target), { mode: 0o700 })
+      } catch (error: unknown) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code === 'EEXIST') {
+          throw new FsError(`cannot reserve "${target.displayPath}": path already exists`, 'FS_ALREADY_EXISTS', { cause: error })
+        }
+        if (code === 'ENOENT' || code === 'ENOTDIR') {
+          throw new FsError(`cannot reserve "${target.displayPath}": parent directory does not exist`, 'FS_NOT_FOUND', { cause: error })
+        }
+        if (code === 'EACCES' || code === 'EPERM') {
+          throw new FsError(`cannot reserve "${target.displayPath}": permission denied`, 'FS_PERMISSION_DENIED', { cause: error })
+        }
+        throw new FsError(`cannot reserve "${target.displayPath}": ${String(error)}`, 'FS_IO_ERROR', { cause: error })
+      }
+      const created = await probe(target.targetKey)
+      if (created?.type !== 'directory') {
+        throw new FsError(`cannot reserve "${target.displayPath}": created directory is unavailable`, 'FS_IO_ERROR')
+      }
+      return { version: created.version }
+    })
   }
 
   override async writeText(

@@ -38,6 +38,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * slot.
      */
     'tool.call.images': { kind: 'single'; scope: 'session'; owner: ToolImagesOwnerProps }
+    /**
+     * Keyed full-height details body, dispatched by the selected call's wire
+     * Tool name. The shipped Tool details owner keeps the single whole-panel
+     * seat and delegates only the output body through this child slot. An
+     * unclaimed key therefore preserves the generic card/raw-text renderer.
+     *
+     * Registrants must render both running and settled forms and must treat the
+     * frozen durable result as their only evidence source. A malformed result
+     * should fail closed inside the domain view rather than derive new facts.
+     */
+    'tool.result.detailview': { kind: 'keyed'; scope: 'session'; owner: ToolResultDetailsOwnerProps }
   }
 }
 
@@ -80,6 +91,21 @@ export interface ToolCallOwnerProps {
 /** Full props of a registered atomic Tool view. */
 export type ToolCallViewProps = PropsRuntime<'tool.call.toolview'>
 
+/** Standard owner currency supplied to every per-Tool details body. */
+export interface ToolResultDetailsOwnerProps {
+  /** Tool call identity, stable across running and settled forms. */
+  callId: string
+  /** Wire Tool name and keyed dispatch value. */
+  toolName: string
+  /** Frozen running call or settled result node. */
+  block: ToolCallBlock
+  /** Session workspace root for display-only path shortening. */
+  cwd?: string | undefined
+}
+
+/** Full props of a registered per-Tool details body. */
+export type ToolResultDetailsViewProps = PropsRuntime<'tool.result.detailview'>
+
 /** Injected Host description for POSIX home-path display. */
 export type ToolHostInfoInjected = {
   hooks: {
@@ -101,5 +127,6 @@ export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'>
 
 /** Full props of the selected Tool output renderer in the details panel. */
 export type ToolDetailsProps = PropsRuntime<'conversation.details.tool'>
+  & PropsRenderSlots<'tool.result.detailview'>
   & PropsLocale<'conversation'>
   & InjectFace<ToolHostInfoInjected>

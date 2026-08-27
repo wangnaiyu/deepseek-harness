@@ -142,6 +142,10 @@ class RecordingFileSystem extends FileSystem {
     return []
   }
 
+  override reserveDirectory(): Promise<never> {
+    return Promise.reject(new Error('not implemented'))
+  }
+
   override async writeText(_target: FsTarget, _content: string, _expected?: FsWriteIntent): Promise<FsWriteOutcome> {
     return { operation: 'update', version: FsVersion('unused'), before: '', after: _content }
   }

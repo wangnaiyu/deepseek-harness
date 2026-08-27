@@ -459,6 +459,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['when no turn is open or either audit event fails before the session append commit point.'],
       },
       {
+        signature: 'async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision>',
+        description: 'Ask exactly like request, retaining the service-issued audit id. A trusted composite operation uses the id to bind its own durable receipt to the approval audit pair without manufacturing or recovering an id from Session history.',
+        parameters: [{ name: 'req', description: 'the pending decision (agent, tool identity, reason, signal).' }],
+        returns: 'the service-issued audit id and its closed committed outcome.',
+        throws: ['when no turn is open or either audit event fails before the session append commit point.'],
+      },
+      {
         signature: 'overrideOf(session: Session): ApprovalPolicy | undefined',
         description: 'Read the session override without applying the configured default.',
         parameters: [{ name: 'session', description: 'session whose log supplies the override.' }],
@@ -946,6 +953,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'one entry per direct child, in stable name order.',
       },
       {
+        signature: 'abstract reserveDirectory( target: FsTarget, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsDirectoryReservation>',
+        description: 'Atomically reserve an absent path by creating one empty directory. The final component must not already exist and the parent must already be a directory; implementations never merge with or reuse an existing entry. Once creation commits, a concurrent abort does not turn success into an ambiguous failure.',
+        parameters: [{ name: 'target', description: 'the absent directory path to reserve.' }, { name: 'signal', description: 'aborts before the atomic creation begins.' }, { name: 'sandboxPolicy', description: 'the per-call filesystem mutation policy.' }],
+        returns: 'the opaque version of the newly created directory.',
+      },
+      {
         signature: 'abstract writeText( target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsWriteOutcome>',
         description: 'Atomically create or replace UTF-8 text. `expected` guards intent and staleness; omission allows unconditional overwrite.',
         parameters: [{ name: 'target', description: 'the resolved target to write.' }, { name: 'content', description: 'the full new file content.' }, { name: 'expected', description: 'the write intent guarding the write; omit for unconditional.' }, { name: 'signal', description: 'aborts before atomic publication takes effect.' }, { name: 'sandboxPolicy', description: 'the per-call mode and workspace root this write runs under; a sandboxing backend fences the write by it, the bare backend ignores it. Omit to leave the backend its own default.' }],
@@ -1308,6 +1321,68 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Select whether plan mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
         parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'active', description: 'Whether plan mode should be active.' }],
         returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperimentDashboard',
+    summary: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    description: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    methods: [
+      {
+        signature: '@Remote(\'listSession\') async listSession(request: PtoExperimentDashboardRequest): Promise<PtoExperimentDashboardSnapshot>',
+        description: 'List one existing Session\'s newest durable experiments. The caller supplies no path: Host-owned Session metadata selects the Workspace, and the read never creates or resumes an Agent, Session, or turn.',
+        parameters: [{ name: 'request', description: 'existing Session identity and optional bounded limit.' }],
+        returns: 'minimal dashboard projection without storage identity keys.',
+      },
+      {
+        signature: '@Remote(\'executeSession\') async executeSession(request: PtoExperimentDashboardExecuteRequest): Promise<PtoExperimentDashboardEntry>',
+        description: 'Execute one planned experiment through the trusted registry admission loop. The long Remote survives view unmount. A private plugin follow-up opens a normal Agent turn; this gateway consumes it at pre-step, so the existing approval surface can append its audit pair inside a durable turn without sending any synthetic prompt to the model. Optimistic revision is preserved exactly.',
+        parameters: [{ name: 'request', description: 'initiating Session and planned experiment identity.' }],
+        returns: 'terminal dashboard projection after approval and execution settle.',
+      },
+      {
+        signature: '@Remote(\'cancelSession\') async cancelSession(request: PtoExperimentDashboardCancelRequest): Promise<PtoExperimentDashboardCancelResult>',
+        description: 'Cancel an active execution owned by the same initiating Session. The call returns only after the long execution Remote has settled its Host state.',
+        parameters: [{ name: 'request', description: 'initiating Session and active experiment identity.' }],
+        returns: 'cancellation confirmation after executor settlement.',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperiments',
+    summary: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    description: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    methods: [
+      {
+        signature: 'plan(scope: PtoExperimentScope, input: PtoExperimentPlanInput): Promise<PtoExperimentView>',
+        description: 'Persist one proposal after resolving all paths through the active filesystem. The operation serializes candidate ownership checks with the durable put. It records only an absence observation; no output directory is created or reserved.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'Proposed experiment identities, change, and controls.' }],
+        returns: 'a detached public view of the durable planned record.',
+      },
+      {
+        signature: 'async get(scope: PtoExperimentScope, id: string): Promise<PtoExperimentView>',
+        description: 'Read one record only when it belongs to the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'id', description: 'Host-generated experiment id.' }],
+        returns: 'a detached public record view.',
+      },
+      {
+        signature: 'async list(scope: PtoExperimentScope, limit: number = 20): Promise<PtoExperimentList>',
+        description: 'List the newest bounded records owned by the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'limit', description: 'Inclusive result cap from 1 to 100.' }],
+        returns: 'detached records plus total and truncation facts.',
+      },
+      {
+        signature: 'async compare( scope: PtoExperimentScope, input: PtoExperimentCompareInput, ): Promise<PtoExperimentComparison>',
+        description: 'Compare one completed candidate only with an app-owned registered baseline. Every admitted identity comes from stored adapter output or a fixed Git probe. Any missing or unequal dimension returns `incomparable` without a combined delta; an admitted delta remains `inconclusive` without a user-owned threshold and repetition rule.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'completed experiment id and optimistic record revision.' }],
+        returns: 'identity checks, side-by-side metrics, and an optional derived delta.',
+      },
+      {
+        signature: 'async execute( scope: PtoExperimentExecutionScope, input: PtoExperimentExecuteInput, ): Promise<PtoExperimentView>',
+        description: 'Execute one planned proposal through the complete trusted admission loop. This Host API is intentionally not registered as a model-facing tool.',
+        parameters: [{ name: 'scope', description: 'live Agent, Workspace, call identity, and cancellation.' }, { name: 'input', description: 'experiment id and optimistic planned revision.' }],
+        returns: 'the terminal durable record view, or throws before workload start.',
       },
     ],
   },
@@ -4001,6 +4076,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface FinishReasonMap {\n    \'stop\': {\n        kind: \'stop\';\n    };\n    \'tool-calls\': {\n        kind: \'tool-calls\';\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    \'aborted\': {\n        kind: \'aborted\';\n        failure: LlmFailure;\n    };\n    \'error\': {\n        kind: \'error\';\n        failure: LlmFailure;\n    };\n}',
   },
   {
+    name: 'FsDirectoryReservation',
+    declaration: 'export interface FsDirectoryReservation {\n    version: FsVersion;\n}',
+  },
+  {
     name: 'FsDirEntry',
     declaration: 'export interface FsDirEntry {\n    name: string;\n    type: \'file\' | \'directory\' | \'other\';\n    target: FsTarget;\n    version?: FsVersion;\n    size?: number;\n}',
   },
@@ -4603,6 +4682,82 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PtcDispatchLog',
     declaration: 'export interface PtcDispatchLog {\n    readonly exec: ToolExecution;\n    readonly agent?: Agent;\n    readonly subCallId: ToolCallId;\n    readonly name: string;\n    readonly isError: boolean;\n    readonly content: ContentBlock[];\n}',
+  },
+  {
+    name: 'PtoExperimentCompareInput',
+    declaration: 'export interface PtoExperimentCompareInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentComparison',
+    declaration: 'export interface PtoExperimentComparison {\n    experimentId: string;\n    baselineExperimentId: string | null;\n    result: \'incomparable\' | \'inconclusive\';\n    reasons: string[];\n    identity: {\n        metric: PtoExperimentComparisonDimension;\n        task: PtoExperimentComparisonDimension;\n        hardware: PtoExperimentComparisonDimension;\n        environment: PtoExperimentComparisonDimension;\n        executionCommand: PtoExperimentComparisonDimension;\n        sourceLineage: PtoExperimentComparisonDimension;\n        changeSet: PtoExperimentComparisonDimension;\n    };\n    baseline: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    candidate: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    delta: {\n        absolute: number;\n        relativePct: number | null;\n        direction: \'improved\' | \'regressed\' | \'unchanged\';\n        significance: \'needs-user-confirmation\';\n    } | null;\n}',
+  },
+  {
+    name: 'PtoExperimentComparisonDimension',
+    declaration: 'export interface PtoExperimentComparisonDimension {\n    status: \'matched\' | \'unmatched\' | \'unavailable\';\n    baseline: string | null;\n    candidate: string | null;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelRequest',
+    declaration: 'export interface PtoExperimentDashboardCancelRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelResult',
+    declaration: 'export interface PtoExperimentDashboardCancelResult {\n    readonly cancelled: true;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardEntry',
+    declaration: 'export interface PtoExperimentDashboardEntry {\n    readonly id: string;\n    readonly status: \'planned\' | \'authorized\' | \'running\' | \'completed\' | \'failed\' | \'cancelled\';\n    readonly revision: number;\n    readonly declaredChange: string;\n    readonly baselinePath: string;\n    readonly candidateOutputPath: string;\n    readonly actualRunPath: string | null;\n    readonly metric: PtoExperimentDashboardMetric | null;\n    readonly failureReason: string | null;\n    readonly executionActivity: PtoExperimentDashboardExecutionActivity;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecuteRequest',
+    declaration: 'export interface PtoExperimentDashboardExecuteRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n    readonly expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecutionActivity',
+    declaration: 'export interface PtoExperimentDashboardExecutionActivity {\n    readonly active: boolean;\n    readonly cancellable: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardMetric',
+    declaration: 'export type PtoExperimentDashboardMetric = {\n    readonly status: \'collected\';\n    readonly value: number;\n    readonly unit: \'us\';\n    readonly definition: \'device-dispatch-makespan\';\n} | {\n    readonly status: \'not-observed\' | \'invalid\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'PtoExperimentDashboardRequest',
+    declaration: 'export interface PtoExperimentDashboardRequest {\n    readonly sessionId: string;\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardSnapshot',
+    declaration: 'export interface PtoExperimentDashboardSnapshot {\n    readonly experiments: readonly PtoExperimentDashboardEntry[];\n    readonly total: number;\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentExecuteInput',
+    declaration: 'export interface PtoExperimentExecuteInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentExecutionScope',
+    declaration: 'export interface PtoExperimentExecutionScope extends PtoExperimentScope {\n    agent: Agent;\n    callId?: ToolCallId;\n}',
+  },
+  {
+    name: 'PtoExperimentList',
+    declaration: 'export interface PtoExperimentList {\n    experiments: PtoExperimentView[];\n    total: number;\n    truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentMetric',
+    declaration: 'export type PtoExperimentMetric = z.infer<typeof ptoExperimentMetricSchema>;',
+  },
+  {
+    name: 'PtoExperimentPlanInput',
+    declaration: 'export interface PtoExperimentPlanInput {\n    sourceWorkspacePath: string;\n    baselineRunPath: string;\n    candidateOutputPath: string;\n    declaredChange: string;\n    evidenceRefs: readonly string[];\n    stopConditions: string;\n    rollbackPlan: string;\n    executionCommand: string;\n    executionTimeoutMs?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentRecord',
+    declaration: 'export type PtoExperimentRecord = z.infer<typeof ptoExperimentRecordSchema>;',
+  },
+  {
+    name: 'PtoExperimentScope',
+    declaration: 'export interface PtoExperimentScope {\n    cwd: string;\n    signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'PtoExperimentView',
+    declaration: 'export type PtoExperimentView = Omit<PtoExperimentRecord, \'workspaceKey\' | \'baseline\' | \'source\' | \'candidateOutput\' | \'actualRun\'> & {\n    baseline: Omit<PtoExperimentRecord[\'baseline\'], \'targetKey\'>;\n    source: Omit<PtoExperimentRecord[\'source\'], \'targetKey\'>;\n    candidateOutput: Omit<PtoExperimentRecord[\'candidateOutput\'], \'targetKey\'>;\n    actualRun: null | Omit<NonNullable<PtoExperimentRecord[\'actualRun\']>, \'targetKey\'>;\n};',
   },
   {
     name: 'ReadFileLine',

@@ -2,6 +2,91 @@
   "comment": "Maps each primary ` ```ts type-equiv ` or ` ```ts public-api ` block (by doc + declared symbol + projection) to the source declaration and original JSDoc it must match. Paired `.zh.md` blocks are byte-identical derivatives checked through their unsuffixed sibling and have no duplicate entry. Omit projection for the complete declaration; use public-api with a ` ```ts public-api ` block for a body-stripped public class declaration. verify-type-equiv.ts enforces a 1:1 correspondence between primary blocks and entries. Add an entry when you add a primary source-equivalence block; remove it when you remove the block.",
   "entries": [
     {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentPlanInput",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentScope",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentExecutionScope",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentExecuteInput",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentCompareInput",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentComparisonDimension",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentComparison",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentList",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentView",
+      "source": "packages/pto/pto-experiments/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardRequest",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardExecuteRequest",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardCancelRequest",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardCancelResult",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardExecutionActivity",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardMetric",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardEntry",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/pto-experiments.md",
+      "symbol": "PtoExperimentDashboardSnapshot",
+      "source": "packages/host/pto-experiment-dashboard/src/types.ts"
+    },
+    {
       "doc": "docs/subsystems/core.md",
       "symbol": "Branded",
       "source": "packages/util/brand/src/index.ts"
@@ -928,6 +1013,11 @@
     },
     {
       "doc": "docs/subsystems/approval.md",
+      "symbol": "ApprovalDecision",
+      "source": "packages/interaction/user-approval/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/approval.md",
       "symbol": "ApprovalPolicy",
       "source": "packages/interaction/user-approval/src/index.ts"
     },
@@ -1174,6 +1264,11 @@
     {
       "doc": "docs/subsystems/filesystem.md",
       "symbol": "FsDirEntry",
+      "source": "packages/fs/fs/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/filesystem.md",
+      "symbol": "FsDirectoryReservation",
       "source": "packages/fs/fs/src/types.ts"
     },
     {

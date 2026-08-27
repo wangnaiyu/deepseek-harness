@@ -118,7 +118,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     /** Registered Conversation target Views, rendered one at a time. */
     'conversation.view': { kind: 'list'; scope: 'session'; owner: ConvViewOwnerProps }
-    /** Selector-routed replacements for the current Session's resident composer. */
+    /**
+     * The composer takeover chain: entries are selector-routed replacements
+     * of the default InputBar. Declared by this package's 'conversation'
+     * entry; the owner dispatches the {@link ComposerChainProps} currency and
+     * routing lives in entry selectors — new takeover kinds register with
+     * zero owner changes.
+     */
     'conversation.composer': { kind: 'chain'; scope: 'session'; owner: ComposerChainProps }
     /**
      * The hero-phase Workspace picker hole: rendered by ConversationRoot

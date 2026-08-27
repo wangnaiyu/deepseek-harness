@@ -28,6 +28,18 @@ type ApprovalRequestId = Branded<'ApprovalRequestId'>
 type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 ```
 
+Trusted composite operations that must persist the audit identity use `requestDecision()` rather than reconstructing ids from Session history. The decision is returned only after both audit events commit.
+
+```ts type-equiv
+/** Service-issued audit identity paired with the closed outcome of one request. */
+interface ApprovalDecision {
+  /** Identifier shared by the durable `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed answerer outcome recorded by `approval/decided`. */
+  readonly outcome: ApprovalOutcome
+}
+```
+
 ## Per-session policy
 
 `ApprovalPolicy` determines what happens before interactive answerers run. `ask` delegates to the composed answerer chain, whose no-answer default is `unavailable`; `never` deterministically returns `rejected` without dispatching any answerer. The effective value is the last `approval/policy` event in the session log, falling back to the service config. Consumers read it with `ctx.approval.effectivePolicy(session)`; `setApprovalPolicy(session, policy)` is the single write path, so replay reconstructs the override.
@@ -83,7 +95,7 @@ interface ApprovalRequest extends ApprovalRequestEvent {
 
 ## Dispatch and audit
 
-`ctx.approval.request(req)` requires the requesting session to be inside an open turn. It appends `approval/asked`, obtains one outcome, appends the matching `approval/decided`, and resolves with that outcome. The `never` policy is enforced inside the service before waterfall dispatch, so even an answerer registered later with `prepend` cannot bypass it. Answerers return an outcome when they own the request or call `next()` to delegate; the first answer occupies the single decision slot.
+`ctx.approval.request(req)` requires the requesting session to be inside an open turn. It appends `approval/asked`, obtains one outcome, appends the matching `approval/decided`, and resolves with that outcome. `requestDecision(req)` follows the same route and returns `{ id, outcome }`, retaining the service-issued audit identity for a trusted caller's receipt. The `never` policy is enforced inside the service before waterfall dispatch, so even an answerer registered later with `prepend` cannot bypass it. Answerers return an outcome when they own the request or call `next()` to delegate; the first answer occupies the single decision slot.
 
 The audit events are log-only and do not enter the model transcript. Model-visible behavior is the caller's derived tool result plus the current runtime-context snapshot. Service disposal removes its context contribution; answerer listeners are independently effect-bound to their owning plugins.
 
@@ -130,6 +142,18 @@ setPolicy(agent: Agent, policy: ApprovalPolicy): void
  *   append commit point.
  */
 async request(req: ApprovalRequest): Promise<ApprovalOutcome>
+
+/**
+ * Ask exactly like {@link request}, retaining the service-issued audit id.
+ * A trusted composite operation uses the id to bind its own durable receipt
+ * to the approval audit pair without manufacturing or recovering an id from
+ * Session history.
+ * @param req - the pending decision (agent, tool identity, reason, signal).
+ * @returns the service-issued audit id and its closed committed outcome.
+ * @throws when no turn is open or either audit event fails before the session
+ *   append commit point.
+ */
+async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision>
 
 /**
  * Read the session override without applying the configured default.

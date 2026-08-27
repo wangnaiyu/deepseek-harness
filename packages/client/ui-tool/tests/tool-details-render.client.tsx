@@ -162,6 +162,7 @@ export function renderToolDetails(
       cwd={details.cwd}
       useHostInfo={selector => selector({ home, isLoopback: true })}
       t={t}
+      renderSlot={(_name, _owner, options) => options?.fallback ?? null}
     />
   }
 }

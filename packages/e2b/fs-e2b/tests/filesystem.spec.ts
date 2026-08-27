@@ -282,6 +282,21 @@ class FakeRemote {
           this.abortAfterRename?.abort('after commit')
           return { exitCode: 0, stdout: 'created', stderr: '' }
         }
+        const guardedMkdir = new RegExp(
+          "^if mkdir -m 700 -- '([^']+)'; then printf created; "
+          + "elif test -e '[^']+' \\|\\| test -L '[^']+'; then printf exists; "
+          + "elif test ! -d '([^']+)'; then printf parent-missing; else exit 1; fi$",
+        ).exec(command)
+        if (guardedMkdir !== null) {
+          const path = guardedMkdir[1]!
+          const parent = guardedMkdir[2]!
+          if (this.nodes.has(path)) return { exitCode: 0, stdout: 'exists', stderr: '' }
+          if (this.nodes.get(parent)?.type !== FileType.DIR) {
+            return { exitCode: 0, stdout: 'parent-missing', stderr: '' }
+          }
+          this.nodes.set(path, { type: FileType.DIR, data: bytes(''), mode: 0o700, modified: this.clock++ })
+          return { exitCode: 0, stdout: 'created', stderr: '' }
+        }
         const move = /^mv -f -- '([^']+)' '([^']+)'$/.exec(command)
         if (move !== null) {
           if (this.nextRenameError !== undefined) {
@@ -533,6 +548,18 @@ describe('E2BFileSystem identity, metadata, and reads', () => {
 })
 
 describe('E2BFileSystem atomic writes and edits', () => {
+  it('atomically reserves one absent directory without creating parents or reusing entries', async () => {
+    const remote = new FakeRemote()
+    const { fs } = await setup(remote)
+    const target = await fs.resolve('/workspace/candidate')
+
+    const reservation = await fs.reserveDirectory(target)
+    expect(typeof reservation.version).toBe('string')
+    expect(remote.nodes.get('/workspace/candidate')).toMatchObject({ type: FileType.DIR, mode: 0o700 })
+    await expectCode(fs.reserveDirectory(target), 'FS_ALREADY_EXISTS')
+    await expectCode(fs.reserveDirectory(await fs.resolve('/workspace/missing/candidate')), 'FS_NOT_FOUND')
+  })
+
   it('creates owner-only files and returns metadata after the committed move', async () => {
     const { fs, remote } = await setup()
     const target = await fs.resolve('new.txt')

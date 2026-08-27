@@ -69,6 +69,9 @@ class FakeFileSystem extends FileSystem {
       },
     ]
   }
+  override reserveDirectory(): Promise<never> {
+    return Promise.reject(new Error('not implemented'))
+  }
   override async writeText(target: FsTarget, content: string, _expected?: FsWriteIntent): Promise<FsWriteOutcome> {
     const before = this.files.get(target.targetKey) ?? null
     this.files.set(target.targetKey, content)

@@ -87,6 +87,24 @@
     - id: composer-catalog
       name: '@deepseek-ai/dsh-host-composer-catalog'
 
+    # PTO run artifact primitives are compiled into the Web distribution but
+    # remain inert unless a product profile explicitly enables this row.
+    - id: tool-pto-run
+      name: '@deepseek-ai/dsh-tool-pto-run'
+      disabled: true
+
+    # Durable PTO planning/query plus Host-only trusted execution admission is
+    # compiled but inert unless a product profile explicitly enables this row.
+    - id: pto-experiments
+      name: '@deepseek-ai/dsh-pto-experiments'
+      disabled: true
+
+    # Session-addressed read-only projection for the PTO experiment view. It
+    # remains inert with the registry unless a PTO product profile enables it.
+    - id: pto-experiment-dashboard
+      name: '@deepseek-ai/dsh-host-pto-experiment-dashboard'
+      disabled: true
+
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
@@ -232,6 +250,12 @@
     # Tool call tree, generic fallback, and keyed business Tool views.
     - id: ui-tool
       name: '@deepseek-ai/dsh-client-ui-tool'
+
+    # Evidence-gated PTO comparison presentation is compiled into Web but only
+    # activated by a PTO product profile.
+    - id: ui-pto-experiments
+      name: '@deepseek-ai/dsh-client-ui-pto-experiments'
+      disabled: true
 
     - id: ui-cordis
       name: '@deepseek-ai/dsh-client-ui-cordis'

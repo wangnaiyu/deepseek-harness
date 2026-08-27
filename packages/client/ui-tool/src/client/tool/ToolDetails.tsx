@@ -1,6 +1,6 @@
 /** Card-aware output body for the selected Tool call in details. */
 import { DiffBlock, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ToolDetailsProps } from '../contract/slots.ts'
+import type { ToolDetailsProps, ToolResultDetailsOwnerProps } from '../contract/slots.ts'
 import { diffCardModel } from './models/diff-card-model.ts'
 import { readCardModel } from './models/read-card-model.ts'
 import { searchCardModel } from './models/search-card-model.ts'
@@ -20,7 +20,7 @@ import css from './ToolDetails.module.css'
  * @param props - selected call slice, workspace root, host home, and locale seat.
  * @returns the details output body.
  */
-export function ToolDetails({
+function GenericToolDetails({
   block, cwd, useHostInfo, t,
 }: Pick<ToolDetailsProps, 'block' | 'cwd' | 'useHostInfo' | 't'>) {
   const home = useHostInfo(info => info.home)
@@ -65,4 +65,38 @@ export function ToolDetails({
       {resultText(block)}
     </pre>
   )
+}
+
+/** Resolve the selected call's wire name from either lifecycle form. */
+function callName(block: ToolDetailsProps['block']): string {
+  return 'kind' in block ? block.call?.name ?? '' : block.name
+}
+
+/**
+ * Render the selected Tool output through the per-Tool details seam, retaining
+ * the generic structured/raw renderer as the fallback for every unclaimed key.
+ * @param props - selected call slice, workspace root, locale seat, and child-slot share.
+ * @returns the selected Tool's details body.
+ */
+export function ToolDetails({
+  block, cwd, useHostInfo, t, renderSlot,
+}: Pick<ToolDetailsProps, 'block' | 'cwd' | 'useHostInfo' | 't' | 'renderSlot'>) {
+  const toolName = callName(block)
+  const owner: ToolResultDetailsOwnerProps = {
+    callId: block.callId,
+    toolName,
+    block,
+    cwd,
+  }
+  return renderSlot('tool.result.detailview', owner, {
+    entryKey: toolName,
+    fallback: (
+      <GenericToolDetails
+        block={block}
+        cwd={cwd}
+        useHostInfo={useHostInfo}
+        t={t}
+      />
+    ),
+  })
 }

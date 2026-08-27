@@ -37,6 +37,8 @@
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`、`ctx.workflowEngine`、`ctx.subagents`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents every fresh round)` | `tool/call`、`tool/result`、`workflow and child session events during execution` | - | 固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。 |
 | `@deepseek-ai/dsh-tool-skill` | `skill` | `ctx.tools`、`ctx.agents`、`ctx.skills` | `tool/call`、`tool/result`、`user/message replacement catalogs via agent.inject()` | - | - |
 | `@deepseek-ai/dsh-tool-session-query` | `session_event_read`、`session_event_search`、`session_event_trace`、`session_search`、`session_trace` | `ctx.tools`、`ctx.systemPrompt`、`ctx.sessionQuery`、`a calling Agent for workspace authority` | `tool/call`、`tool/result` | - | 这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权。该包需要选择启用；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。 |
+| `@deepseek-ai/dsh-pto-experiments` | `pto_experiment_compare`、`pto_experiment_get`、`pto_experiment_list`、`pto_experiment_plan` | `ctx.tools`、`ctx.fs`、`ctx.storageDomain`、`ctx.systemPrompt`、`ctx.subprocess at comparison time`、`a calling Agent with a Session workspace` | `tool/call`、`tool/result`、`pto_experiments domain records` | - | 这四个 PTO profile 工具会持久化并查询限定于 Workspace 的 experiment，且只有在每个 registered identity 都匹配时才比较 app-owned L2 chip-swimlane metric。planning 不会授权工作、占用 output、修改 source 或执行 workload；execution 仍是可信 Host 操作。 |
+| `@deepseek-ai/dsh-tool-pto-run` | `pto_run_discover`、`pto_run_inspect` | `ctx.tools`、`ctx.fs`、`ctx.systemPrompt`、`a calling Agent with a Session workspace` | `tool/call`、`tool/result` | - | 这两个 PTO profile 只读工具通过产物 marker 识别 PyPTO 3.0 run，把路径约束在调用 Session workspace 内，并报告有界的 evidence、补采 literal、compile health 与 rerun capability 观察结果，不诊断因果。 |
 | `@deepseek-ai/dsh-tool-subagent` | `list_subagent_models`、`subagent` | `ctx.tools`、`ctx.subagents`、`ctx.systemPrompt`、`用于模型发现和所选路由校验的 ctx.llm` | `tool/call`、`tool/result`、`child session events through the chosen provider` | `subagent`、`subagent_fork` | 注册的委派工具名称取决于加载时 `toolName` 配置（默认为 `subagent`）；上述默认 schema 关闭模型选择，而发现 schema 则展示为已启用 Session 中可用的固定配套工具。Web preset 会在每个新顶层 Session 创建时读取插件页偏好，并为其子 Session 保留该决定；`subagent_fork` 始终使用固定路由。每个实例通过 `modelSelectionSettings`、`backgroundMode` 与 `enableRunInBackground` 独立控制是否读取模型选择设置及其后台行为。 |
 | `@deepseek-ai/dsh-tool-subagent-control` | `interrupt_agent`、`list_agents`、`send_message` | `ctx.tools`、`ctx.subagents`、`ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`、`tool/result`、`child session events through ctx.subagents` | - | 这些是控制可继续后台 subagent 的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包注册一次 `send_message` 和 `interrupt_agent`，另由 `list_agents` 通过单独加载的 `/list-agents` 插件提供，其目录行使用 sessionProjections 和实时 Agent 注册表。 |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`、`job_list`、`job_output` | `ctx.tools`、`ctx.jobs`、`ctx.systemPrompt` | `tool/call`、`tool/result`、`user/message via agent.inject() for background completion notices` | - | 与任务种类无关的后台任务控制器：后台 bash 命令、PTY 发送和 subagent 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。 |
@@ -1537,6 +1539,179 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 来源：[`packages/session-query/tool-session-query/src/index.ts`](../packages/session-query/tool-session-query/src/index.ts)
 
 这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权。该包需要选择启用；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。
+
+<a id="deepseek-aidsh-pto-experiments"></a>
+
+## `@deepseek-ai/dsh-pto-experiments`
+
+### `pto_experiment_compare`
+
+使用已采集的 chip-swimlane identity，将一个已完成 experiment candidate 与由应用拥有的 registered baseline 比较。identity 不匹配时返回 incomparable，不给出 combined delta。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "description": "Host-generated completed experiment id."
+    },
+    "expected_revision": {
+      "type": "integer",
+      "description": "Exact current completed-record revision."
+    }
+  },
+  "required": [
+    "experiment_id",
+    "expected_revision"
+  ]
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_get`
+
+读取一条归当前 Session workspace 所有的 PTO experiment 记录。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "description": "Host-generated experiment id."
+    }
+  },
+  "required": [
+    "experiment_id"
+  ]
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_list`
+
+列出归当前 Session workspace 所有的最新 PTO experiment 记录。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "description": "Maximum records to return, from 1 to 100. Defaults to 20."
+    }
+  }
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_plan`
+
+持久化一条限定于 Workspace 的 PTO experiment proposal，其中包含 immutable recognized baseline、一个 declared change、新 candidate output path 以及显式停止和回滚控制。该操作不会授权或执行 experiment。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source_workspace_path": {
+      "type": "string",
+      "description": "Existing source workspace directory inside the current Session workspace."
+    },
+    "baseline_run_path": {
+      "type": "string",
+      "description": "Existing recognized PyPTO 3.0 baseline run inside the current Session workspace."
+    },
+    "candidate_output_path": {
+      "type": "string",
+      "description": "Currently absent output path inside the source workspace and disjoint from the baseline."
+    },
+    "declared_change": {
+      "type": "string",
+      "description": "The single material change or explicitly bound change set proposed for the candidate."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "description": "Evidence references supporting the proposal. Defaults to an empty list.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stop_conditions": {
+      "type": "string",
+      "description": "Conditions that stop execution or invalidate the candidate."
+    },
+    "rollback_plan": {
+      "type": "string",
+      "description": "How a future executor restores or discards the recoverable source working copy."
+    },
+    "execution_command": {
+      "type": "string",
+      "description": "Exact command a trusted Host executor may run only after identity binding and user approval. It must write a recognized run directly into $DSH_PTO_EXPERIMENT_OUTPUT_DIR."
+    },
+    "execution_timeout_ms": {
+      "type": "integer",
+      "description": "Positive timeout in milliseconds. Defaults to 3600000 and is capped at 86400000."
+    }
+  },
+  "required": [
+    "source_workspace_path",
+    "baseline_run_path",
+    "candidate_output_path",
+    "declared_change",
+    "stop_conditions",
+    "rollback_plan",
+    "execution_command"
+  ]
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+这四个 PTO profile 工具会持久化并查询限定于 Workspace 的 experiment，且只有在每个 registered identity 都匹配时才比较 app-owned L2 chip-swimlane metric。planning 不会授权工作、占用 output、修改 source 或执行 workload；execution 仍是可信 Host 操作。
+
+<a id="deepseek-aidsh-tool-pto-run"></a>
+
+## `@deepseek-ai/dsh-tool-pto-run`
+
+### `pto_run_discover`
+
+在当前 Session workspace 内使用产物 marker 而非路径名，发现 PyPTO 3.0 L2/L3 run 目录。
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+来源：[`packages/pto/tool-pto-run/src/index.ts`](../packages/pto/tool-pto-run/src/index.ts)
+
+### `pto_run_inspect`
+
+检查一个位于 workspace 内的 PyPTO 3.0 run 所具备的 evidence、compile health、补采 literal 与 rerun capability，不读取产物内容。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "run_path": {
+      "type": "string",
+      "description": "Run path from pto_run_discover, relative to or inside the current Session workspace."
+    }
+  },
+  "required": [
+    "run_path"
+  ]
+}
+```
+
+来源：[`packages/pto/tool-pto-run/src/index.ts`](../packages/pto/tool-pto-run/src/index.ts)
+
+这两个 PTO profile 只读工具通过产物 marker 识别 PyPTO 3.0 run，把路径约束在调用 Session workspace 内，并报告有界的 evidence、补采 literal、compile health 与 rerun capability 观察结果，不诊断因果。
 
 <a id="deepseek-aidsh-tool-subagent"></a>
 

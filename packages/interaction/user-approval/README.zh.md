@@ -11,6 +11,10 @@ kind: "package-reference"
 
 `dsh-user-approval` 让敏感的工具操作暂停等待一次性的允许／拒绝决定：`ctx.approval.request(req)` 向已组合的应答者询问某个具体操作是否可以继续，并返回 `allowed-once`、`rejected`、`cancelled` 或 `unavailable`。应答者缺失、不负责或抛出异常时，请求以 `unavailable` 关闭；授权也只适用于所请求的操作。按会话策略——`ask`（默认）或 `never`——决定在任何应答者运行之前发生什么：`ask` 委托给已组合的应答者，`never` 确定性地拒绝每个请求，不提示任何人。每个请求都会记录在发起请求的会话审计日志中；模型只会看到发起请求的消费方的工具结果，以及运行时上下文快照中的当前策略。UI 通道提供人类应答者；ACP（Agent Client Protocol）自动化桥接层为其自有 agent 作答。
 
+`ctx.approval.requestDecision(req)` 执行同一操作，并同时返回由 service 签发的 audit id。确切事件签名见 [approval.md](../../../docs/subsystems/approval.zh.md#cordis-surface) 的生成区块。
+
+每个请求都必须属于一个尚未结束的 agent（智能体）轮次。服务会追加一对 `approval/asked` 与 `approval/decided` 审计记录。`requestDecision()` 只在两次追加都提交后返回 `{ id, outcome }`，使可信复合操作能把自己的持久 receipt 绑定到该 audit pair，而无需从 Session history 恢复 id。模型只会看到由此产生且已写入日志的工具结果。已中止的请求会解析为 `cancelled`；如果审计记录的追加在提交前失败，Promise 会被拒绝，而不会返回一项未记录的决定。
+
 ## 目录
 
 - [使用本包](#use-this-package)

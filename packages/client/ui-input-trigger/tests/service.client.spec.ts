@@ -75,7 +75,7 @@ function controllerBench(sources: InputTriggerSource[] = [], key = 'a') {
     sources: trigger => sources.filter(s => s.trigger === trigger),
     all: () => sources,
   }
-  const controller = new InputTriggerController({ actx: scope.ctx, sessionId: sid(key), roster })
+  const controller = new InputTriggerController({ actx: scope.ctx, target: () => ({ sessionId: sid(key) }), roster })
   return { root, actx: scope.ctx, controller, sources }
 }
 

@@ -25,6 +25,9 @@ import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 import { PwshLocalExecutor } from '@deepseek-ai/dsh-pwsh-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
+import Storage from '@deepseek-ai/dsh-storage'
+import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
+import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
 import UserQuestionService from '@deepseek-ai/dsh-user-questions'
@@ -57,6 +60,8 @@ import Lsp from '@deepseek-ai/dsh-lsp'
 import * as ToolLsp from '@deepseek-ai/dsh-tool-lsp'
 import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
 import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
+import PtoExperimentStore from '@deepseek-ai/dsh-pto-experiments'
+import * as ToolPtoRun from '@deepseek-ai/dsh-tool-pto-run'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
 import type TeamService from '@deepseek-ai/dsh-experimental-agent-team'
 import * as ToolTeam from '@deepseek-ai/dsh-experimental-tool-agent-team'
@@ -452,6 +457,42 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-pto-experiments',
+    dir: 'pto-experiments',
+    source: 'packages/pto/pto-experiments/src/index.ts',
+    requires: [
+      'ctx.tools',
+      'ctx.fs',
+      'ctx.storageDomain',
+      'ctx.systemPrompt',
+      'ctx.subprocess at comparison time',
+      'a calling Agent with a Session workspace',
+    ],
+    writes: ['tool/call', 'tool/result', 'pto_experiments domain records'],
+    async mount(ctx) {
+      await ctx.plugin(Storage)
+      await ctx.plugin(StorageJson, { root: resolve(root, '.tmp/tool-catalog/storage') })
+      await ctx.plugin(StorageDomain, { backend: 'json' })
+      await ctx.plugin(LocalFileSystem, { cwd: root })
+      await ctx.plugin(PtoExperimentStore)
+    },
+    note:
+      'The four PTO profile tools persist and query Workspace-confined experiments, and compare app-owned L2 chip-swimlane metrics only when every registered identity matches. Planning does not authorize work, reserve output, modify source, or execute a workload; execution remains a trusted Host operation.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-pto-run',
+    dir: 'tool-pto-run',
+    source: 'packages/pto/tool-pto-run/src/index.ts',
+    requires: ['ctx.tools', 'ctx.fs', 'ctx.systemPrompt', 'a calling Agent with a Session workspace'],
+    writes: ['tool/call', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(LocalFileSystem, { cwd: root })
+      await ctx.plugin(ToolPtoRun)
+    },
+    note:
+      'The two read-only PTO profile tools recognize PyPTO 3.0 runs by artifact markers, confine paths to the calling Session workspace, and report bounded evidence, collection literals, compile health, and rerun capability observations without diagnosing causality.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent',

@@ -108,7 +108,7 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
   }): () => void {
     if (this.live.draft !== undefined) throw new Error('ui-input-trigger: draft controller is already bound')
     const controller = new InputTriggerController({
-      actx: this.ctx as ClientContext,
+      actx: this.ctx,
       target: binding.target,
       apply: binding.apply,
       roster: {

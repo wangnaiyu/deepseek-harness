@@ -448,6 +448,7 @@ export class InputTriggerController {
   /** The explicit Session-or-draft projection handed to sources. */
   private project(): InputTriggerTarget {
     if (this.deps.target !== undefined) return this.deps.target()
+    // oxlint-disable-next-line typescript/no-deprecated -- construction compatibility for session-only controller callers
     if (this.deps.sessionId !== undefined) return { sessionId: this.deps.sessionId }
     throw new Error('ui-input-trigger: controller has no target')
   }

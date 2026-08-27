@@ -43,6 +43,9 @@
       "path": "../../host/composer-catalog"
     },
     {
+      "path": "../../host/pto-experiment-dashboard"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {

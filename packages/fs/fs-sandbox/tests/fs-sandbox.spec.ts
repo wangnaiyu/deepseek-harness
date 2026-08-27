@@ -82,6 +82,12 @@ describe('read-only', () => {
     expect(await readFile(path, 'utf8')).toBe('original')
   })
 
+  it('denies directory reservation, leaving the path absent', async () => {
+    const path = join(workspace, 'candidate')
+    await expect(fs.reserveDirectory(await target(path))).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(path)).toBe(false)
+  })
+
   it('allows reads (every mode permits reading)', async () => {
     const path = join(workspace, 'readable.txt')
     await writeFile(path, 'hello')
@@ -97,6 +103,15 @@ describe('workspace-write containment', () => {
     const outcome = await fs.writeText(await target(path), 'inside')
     expect(outcome.operation).toBe('create')
     expect(await readFile(path, 'utf8')).toBe('inside')
+  })
+
+  it('reserves one directory under the workspace and rejects an outside path', async () => {
+    const inside = join(workspace, 'candidate')
+    const escaped = join(outside, 'candidate')
+    await fs.reserveDirectory(await target(inside))
+    expect(existsSync(inside)).toBe(true)
+    await expect(fs.reserveDirectory(await target(escaped))).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(escaped)).toBe(false)
   })
 
   it('a write to the platform temp area lands (parity with the bash runner grant)', async () => {

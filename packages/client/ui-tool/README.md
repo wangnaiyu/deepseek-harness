@@ -25,6 +25,8 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
+The package also fills `conversation.details.tool` with `ToolDetails`. That whole-panel owner delegates its output body through the keyed, session-scoped `tool.result.detailview` child slot by wire Tool name; an unclaimed key preserves the generic renderer. The row and generic details renderers share the same pure card models for `terminal`, `read`, `diff`, `search`, and `web` render intents. Unknown intent tags and malformed wire card data fall back to flattened Tool result text.
+
 Tool calls appear in the conversation as cards: a root call tree with its nested subcalls, each atomic call rendered by its owning view. Users see running, successful, failed, and interrupted states that come only from the frozen call/result slice, and can open files or inspect calls through the Host callbacks.
 
 ### Registering a business tool view
@@ -44,6 +46,20 @@ The owner payload is `ToolCallOwnerProps`: `callId`, `toolName`, the frozen `blo
 ### Built-in views
 
 This package owns the generic fallback and the built-in shell/pwsh, read, read_image, write/edit, running `str_replace_editor` `create`/`str_replace`, grep/glob, web, todo, question, and Code Dispatch presentations. Structured cards derive directly from first-party raw event fields; Host `presentCall` and `presentResult` values never enter the Client. Foreground one-shot shell results use terminal cards. Settled persistent-shell results use the expandable generic input/output card because reset and partial-output diagnostics do not always describe one process exit status; background acknowledgements remain collapsed. A successful question row pairs call questions with result answers by their stable ids and shows readable question/answer lines when expanded. A cancelled or interrupted row shows its verdict and original questions without inventing answers. Unsupported, malformed, or ambiguous inputs fall back to flattened Tool input/result text. `ui-skill` demonstrates a business-owned registration for `skill`.
+
+A business package may independently register a full-height details body under the same wire Tool name:
+
+```ts ignore-check
+ctx.slots.inject('tool.result.detailview', () =>
+  ctx.slots.register({
+    name: 'tool.result.detailview',
+    key: '<wire tool name>',
+  }, BusinessToolDetails))
+```
+
+Its owner is `ToolResultDetailsOwnerProps`: `callId`, `toolName`, the same frozen running-or-settled `block`, and optional display-only `cwd`. The registrant must handle both lifecycle forms and fail closed on malformed domain results. It must not replace `conversation.details.tool`, which remains the single whole-panel owner and supplies the generic fallback.
+
+Card-specific limits and fallback rules remain in the owning [terminal](../../../.agents/notes/implemented/feature/2026-07-28-web-terminal-card.md), [diff](../../../.agents/notes/implemented/feature/2026-07-30-web-diff-card.md), [read](../../../.agents/notes/implemented/feature/2026-07-30-web-read-card-frontend.md), [search](../../../.agents/notes/implemented/feature/2026-07-30-web-search-card.md), and [web](../../../.agents/notes/implemented/feature/2026-07-30-web-result-card-frontend.md) notes.
 
 -----
 

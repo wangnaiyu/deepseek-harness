@@ -84,6 +84,9 @@ class FakeFs extends FileSystem {
   override async listDir(_target: FsTarget): Promise<FsDirEntry[]> {
     return []
   }
+  override reserveDirectory(): Promise<never> {
+    return Promise.reject(new Error('not implemented'))
+  }
   override async writeText(target: FsTarget, content: string, expected?: FsWriteIntent): Promise<FsWriteOutcome> {
     this.throwIfArmed()
     this.writeIntents.push(expected)
