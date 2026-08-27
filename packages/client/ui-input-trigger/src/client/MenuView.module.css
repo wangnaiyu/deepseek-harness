@@ -52,7 +52,8 @@
 }
 
 .item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px minmax(96px, 32%) minmax(0, 1fr) fit-content(24%);
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -90,7 +91,7 @@
 
 .itemIcon {
   display: inline-flex;
-  flex: none;
+  grid-column: 1;
   width: 14px;
   height: 14px;
   align-items: center;
@@ -104,9 +105,10 @@
 }
 
 .itemName {
-  flex: none;
-  max-width: 40%;
+  grid-column: 2;
+  min-width: 0;
   overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -127,7 +129,7 @@
 /* Right-aligned so every description ends at the same edge and the titles
    read as one left column. */
 .itemDescription {
-  flex: 1;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,11 +196,11 @@
 }
 
 .itemOrigin {
-  flex: none;
-  max-width: 24%;
-  margin-left: auto;
+  grid-column: 4;
+  min-width: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

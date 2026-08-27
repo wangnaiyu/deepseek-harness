@@ -408,6 +408,11 @@ export interface ComposerBarInjected {
   resolveDraftAttachments: ((ids: readonly DraftAttachmentId[]) => readonly ComposerAttachment[]) | undefined
   /** Restart one failed file upload; absent without a session. */
   retryFileUpload: ((id: DraftAttachmentId) => void) | undefined
+  /**
+   * Toggle the command surface at the current selection. Opening inserts `/`;
+   * closing through the same launcher removes that still-adjacent `/`. A
+   * returned caret position is restored by the bar after either edit.
+   */
   toggleCommandMenu: ((selection: EditSelection) => number | undefined) | undefined
   stop: (() => void) | undefined
   hooks: {
