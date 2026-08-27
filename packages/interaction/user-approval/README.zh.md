@@ -11,6 +11,10 @@ kind: "package-reference"
 
 使用本包可要求敏感工具操作在继续前取得一次性决定。`ask` 策略将每个请求发送给部署中的人类或机器应答者；`never` 则直接拒绝，不发出提示。应答者缺失或失败时返回 `unavailable`，使操作以拒绝方式关闭；每项批准也只适用于对应请求。每个请求与结果都会记录在发起请求的会话审计日志中。模型会看到最终工具结果与当前策略，但不会看到人类权限 UI 或审计事件。
 
+`ctx.approval.requestDecision(req)` 执行同一操作，并同时返回由 service 签发的 audit id。确切事件签名见 [approval.md](../../../docs/subsystems/approval.zh.md#cordis-surface) 的生成区块。
+
+每个请求都必须属于一个尚未结束的 agent（智能体）轮次。服务会追加一对 `approval/asked` 与 `approval/decided` 审计记录。`requestDecision()` 只在两次追加都提交后返回 `{ id, outcome }`，使可信复合操作能把自己的持久 receipt 绑定到该 audit pair，而无需从 Session history 恢复 id。模型只会看到由此产生且已写入日志的工具结果。已中止的请求会解析为 `cancelled`；如果审计记录的追加在提交前失败，Promise 会被拒绝，而不会返回一项未记录的决定。
+
 ## 目录
 
 - [使用本包](#use-this-package)

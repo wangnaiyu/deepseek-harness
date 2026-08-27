@@ -175,7 +175,11 @@
     "@deepseek-ai/dsh-client-ui-settings-account": "workspace:*",
     "@deepseek-ai/dsh-client-ui-brand-pto": "workspace:*",
     "@deepseek-ai/dsh-host-composer-catalog": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-composer-catalog": "workspace:*"
+    "@deepseek-ai/dsh-client-ui-composer-catalog": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-pto-experiments": "workspace:*",
+    "@deepseek-ai/dsh-host-pto-experiment-dashboard": "workspace:*",
+    "@deepseek-ai/dsh-pto-experiments": "workspace:*",
+    "@deepseek-ai/dsh-tool-pto-run": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~",

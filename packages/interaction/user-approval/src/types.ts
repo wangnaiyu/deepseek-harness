@@ -31,6 +31,14 @@ export function ApprovalRequestId(id: string): ApprovalRequestId {
  */
 export type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 
+/** Service-issued audit identity paired with the closed outcome of one request. */
+export interface ApprovalDecision {
+  /** Identifier shared by the durable `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed answerer outcome recorded by `approval/decided`. */
+  readonly outcome: ApprovalOutcome
+}
+
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /**

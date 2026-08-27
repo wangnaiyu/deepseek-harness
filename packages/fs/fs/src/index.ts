@@ -13,6 +13,7 @@ import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandb
 import { FsError } from './types.ts'
 import type {
   FsDirEntry,
+  FsDirectoryReservation,
   FsEditOutcome,
   FsEditRequest,
   FsInfo,
@@ -33,6 +34,7 @@ export type {
   FsEditOutcome,
   FsEditRequest,
   FsDirEntry,
+  FsDirectoryReservation,
   FsErrorCode,
   FsInfo,
   FsObservation,
@@ -250,6 +252,23 @@ export abstract class FileSystem extends Service {
    * @returns one entry per direct child, in stable name order.
    */
   abstract listDir(target: FsTarget, signal?: AbortSignal): Promise<FsDirEntry[]>
+
+  /**
+   * Atomically reserve an absent path by creating one empty directory. The
+   * final component must not already exist and the parent must already be a
+   * directory; implementations never merge with or reuse an existing entry.
+   * Once creation commits, a concurrent abort does not turn success into an
+   * ambiguous failure.
+   * @param target - the absent directory path to reserve.
+   * @param signal - aborts before the atomic creation begins.
+   * @param sandboxPolicy - the per-call filesystem mutation policy.
+   * @returns the opaque version of the newly created directory.
+   */
+  abstract reserveDirectory(
+    target: FsTarget,
+    signal?: AbortSignal,
+    sandboxPolicy?: SandboxExecutionPolicy,
+  ): Promise<FsDirectoryReservation>
 
   /**
    * Atomically create or replace UTF-8 text. `expected` guards intent and

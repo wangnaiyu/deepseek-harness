@@ -74,6 +74,17 @@ describe('ApprovalService.request', () => {
     expect(decided?.data['id']).toBe(asked?.data['id'])
   })
 
+  it('returns the service-issued audit id only through requestDecision', async () => {
+    const ctx = await mounted()
+    const { agent, appended } = fakeAgent()
+    ctx.on('approval/request', () => Promise.resolve<ApprovalOutcome>('allowed-once'))
+
+    const decision = await ctx.approval.requestDecision(requestOf(agent))
+
+    expect(decision).toEqual({ id: appended[0]?.data['id'], outcome: 'allowed-once' })
+    expect(appended[1]?.data).toEqual({ id: decision.id, outcome: decision.outcome })
+  })
+
   it('omits absent optional fields from the asked audit event', async () => {
     const ctx = await mounted()
     const { agent, appended } = fakeAgent()
