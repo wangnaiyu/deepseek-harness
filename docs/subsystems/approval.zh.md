@@ -28,6 +28,18 @@ type ApprovalRequestId = Branded<'ApprovalRequestId'>
 type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 ```
 
+必须持久化 audit identity 的可信复合操作使用 `requestDecision()`，而不是从 Session history 重建 id。只有两个 audit event 都提交后才返回 decision。
+
+```ts type-equiv
+/** Service-issued audit identity paired with the closed outcome of one request. */
+interface ApprovalDecision {
+  /** Identifier shared by the durable `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed answerer outcome recorded by `approval/decided`. */
+  readonly outcome: ApprovalOutcome
+}
+```
+
 ## 按会话策略
 
 `ApprovalPolicy` 决定在交互式应答者运行之前发生什么。`ask` 委托给组合的应答者链，链的无应答默认值为 `unavailable`；`never` 确定性地返回 `rejected`，不分发任何应答者。生效值为会话日志中最后一条 `approval/policy` 事件，回退到服务配置。消费方通过 `ctx.approval.effectivePolicy(session)` 读取；`setApprovalPolicy(session, policy)` 是唯一的写入路径，因此回放能重建覆盖值。
@@ -83,7 +95,7 @@ interface ApprovalRequest extends ApprovalRequestEvent {
 
 ## 分发与审计
 
-`ctx.approval.request(req)` 要求发起请求的会话处于一个尚未结束的轮次内。它追加 `approval/asked`，获取一个结果，追加对应的 `approval/decided`，然后以该结果完成。`never` 策略在服务内部、waterfall 分发之前强制执行，因此即使后来以 `prepend` 注册的应答者也无法绕过它。应答者在负责处理该请求时返回结果，否则调用 `next()` 委托；第一个应答占据唯一的决策槽位。
+`ctx.approval.request(req)` 要求发起请求的会话处于一个尚未结束的轮次内。它追加 `approval/asked`，获取一个结果，追加对应的 `approval/decided`，然后以该结果完成。`requestDecision(req)` 走同一路径并返回 `{ id, outcome }`，为可信调用方的 receipt 保留由 service 签发的 audit identity。`never` 策略在服务内部、waterfall 分发之前强制执行，因此即使后来以 `prepend` 注册的应答者也无法绕过它。应答者在负责处理该请求时返回结果，否则调用 `next()` 委托；第一个应答占据唯一的决策槽位。
 
 审计事件仅写入日志，不进入模型 transcript（文本记录）。模型可见的行为是调用方派生的工具结果与当前运行时上下文快照。服务 dispose（资源释放）时会移除其上下文贡献；应答者监听器独立地通过 effect 绑定到其所属插件。
 
@@ -130,6 +142,18 @@ setPolicy(agent: Agent, policy: ApprovalPolicy): void
  *   append commit point.
  */
 async request(req: ApprovalRequest): Promise<ApprovalOutcome>
+
+/**
+ * Ask exactly like {@link request}, retaining the service-issued audit id.
+ * A trusted composite operation uses the id to bind its own durable receipt
+ * to the approval audit pair without manufacturing or recovering an id from
+ * Session history.
+ * @param req - the pending decision (agent, tool identity, reason, signal).
+ * @returns the service-issued audit id and its closed committed outcome.
+ * @throws when no turn is open or either audit event fails before the session
+ *   append commit point.
+ */
+async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision>
 
 /**
  * Read the session override without applying the configured default.

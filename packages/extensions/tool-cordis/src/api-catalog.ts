@@ -460,6 +460,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['when no turn is open or either audit event fails before the session append commit point.'],
       },
       {
+        signature: 'async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision>',
+        description: 'Ask exactly like request, retaining the service-issued audit id. A trusted composite operation uses the id to bind its own durable receipt to the approval audit pair without manufacturing or recovering an id from Session history.',
+        parameters: [{ name: 'req', description: 'the pending decision (agent, tool identity, reason, signal).' }],
+        returns: 'the service-issued audit id and its closed committed outcome.',
+        throws: ['when no turn is open or either audit event fails before the session append commit point.'],
+      },
+      {
         signature: 'overrideOf(session: Session): ApprovalPolicy | undefined',
         description: 'Read the session override without applying the configured default.',
         parameters: [{ name: 'session', description: 'session whose log supplies the override.' }],
@@ -1070,6 +1077,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List direct children of a directory in stable name order. Returns resolved child targets plus cheap metadata only; never reads file contents.',
         parameters: [{ name: 'target', description: 'the resolved directory target.' }, { name: 'signal', description: 'aborts the listing.' }],
         returns: 'one entry per direct child, in stable name order.',
+      },
+      {
+        signature: 'abstract reserveDirectory( target: FsTarget, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsDirectoryReservation>',
+        description: 'Atomically reserve an absent path by creating one empty directory. The final component must not already exist and the parent must already be a directory; implementations never merge with or reuse an existing entry. Once creation commits, a concurrent abort does not turn success into an ambiguous failure.',
+        parameters: [{ name: 'target', description: 'the absent directory path to reserve.' }, { name: 'signal', description: 'aborts before the atomic creation begins.' }, { name: 'sandboxPolicy', description: 'the per-call filesystem mutation policy.' }],
+        returns: 'the opaque version of the newly created directory.',
       },
       {
         signature: 'abstract writeText( target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsWriteOutcome>',
@@ -4735,6 +4748,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FinishReasonMap',
     declaration: 'export interface FinishReasonMap {\n    \'stop\': {\n        kind: \'stop\';\n    };\n    \'tool-calls\': {\n        kind: \'tool-calls\';\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    \'aborted\': {\n        kind: \'aborted\';\n        failure: LlmFailure;\n    };\n    \'error\': {\n        kind: \'error\';\n        failure: LlmFailure;\n    };\n}',
+  },
+  {
+    name: 'FsDirectoryReservation',
+    declaration: 'export interface FsDirectoryReservation {\n    version: FsVersion;\n}',
   },
   {
     name: 'FsDirEntry',
