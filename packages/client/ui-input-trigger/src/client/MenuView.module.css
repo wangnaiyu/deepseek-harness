@@ -32,9 +32,10 @@
 }
 
 .item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px minmax(96px, 32%) minmax(0, 1fr) fit-content(24%);
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
   width: 100%;
   min-height: 40px;
   padding: 8px 10px;
@@ -70,7 +71,7 @@
 
 .itemIcon {
   display: inline-flex;
-  flex: none;
+  grid-column: 1;
   width: 16px;
   height: 16px;
   align-items: center;
@@ -79,20 +80,22 @@
 }
 
 .itemName {
-  flex: none;
-  max-width: 40%;
+  grid-column: 2;
+  min-width: 0;
   overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .itemDescription {
-  flex: 1;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
+  text-align: right;
 }
 
 /* Trailing seat on drillable rows (directories): the Tab keycap hint plus the
@@ -151,11 +154,11 @@
 }
 
 .itemOrigin {
-  flex: none;
-  max-width: 24%;
-  margin-left: auto;
+  grid-column: 4;
+  min-width: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
