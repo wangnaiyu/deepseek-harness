@@ -39,10 +39,10 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 import { ApprovalRequestId } from './types.ts'
-import type { ApprovalOutcome, ApprovalRequestEvent } from './types.ts'
+import type { ApprovalDecision, ApprovalOutcome, ApprovalRequestEvent } from './types.ts'
 
 export { ApprovalRequestId } from './types.ts'
-export type { ApprovalOutcome } from './types.ts'
+export type { ApprovalDecision, ApprovalOutcome } from './types.ts'
 
 /** Every {@link ApprovalOutcome}, for runtime normalization of answerer returns. */
 const OUTCOMES: readonly ApprovalOutcome[] = ['allowed-once', 'rejected', 'cancelled', 'unavailable']
@@ -205,6 +205,20 @@ export class ApprovalService extends Service {
    *   append commit point.
    */
   async request(req: ApprovalRequest): Promise<ApprovalOutcome> {
+    return (await this.requestDecision(req)).outcome
+  }
+
+  /**
+   * Ask exactly like {@link request}, retaining the service-issued audit id.
+   * A trusted composite operation uses the id to bind its own durable receipt
+   * to the approval audit pair without manufacturing or recovering an id from
+   * Session history.
+   * @param req - the pending decision (agent, tool identity, reason, signal).
+   * @returns the service-issued audit id and its closed committed outcome.
+   * @throws when no turn is open or either audit event fails before the session
+   *   append commit point.
+   */
+  async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision> {
     const session = req.agent.session
     if (!hasOpenTurn(session)) {
       throw new Error(
@@ -222,7 +236,7 @@ export class ApprovalService extends Service {
     })
     const outcome = await this.decide(req, session)
     session.append('approval/decided', { id, outcome })
-    return outcome
+    return { id, outcome }
   }
 
   /**

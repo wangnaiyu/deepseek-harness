@@ -66,6 +66,7 @@ async function bench(nodes: ToolResultNode[]) {
   const sidebarRight = { openResource: vi.fn<(address: string) => void>() }
   runtime.ctx.provide('sidebarRight', sidebarRight as never)
   runtime.ctx.provide('uiWorkspace', {
+    ...runtime.workspaces,
     connectWorkspace: vi.fn(async () => SID),
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
@@ -212,6 +213,7 @@ describe('registrant declaration injection', () => {
     runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
     runtime.ctx.provide('sidebarRight', { openResource: vi.fn() } as never)
     runtime.ctx.provide('uiWorkspace', {
+      ...runtime.workspaces,
       connectWorkspace: vi.fn(async () => SID),
     } as never)
     const locale = new LocaleRuntime(runtime.ctx)

@@ -33,6 +33,8 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`, `ctx.workflowEngine`, `ctx.subagents`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents every fresh round)` | `tool/call`, `tool/result`, `workflow and child session events during execution` | - | A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap. |
 | `@deepseek-ai/dsh-tool-skill` | `skill` | `ctx.tools`, `ctx.agents`, `ctx.skills` | `tool/call`, `tool/result`, `user/message replacement catalogs via agent.inject()` | - | - |
 | `@deepseek-ai/dsh-tool-session-query` | `session_event_read`, `session_event_search`, `session_event_trace`, `session_search`, `session_trace` | `ctx.tools`, `ctx.systemPrompt`, `ctx.sessionQuery`, `a calling Agent for workspace authority` | `tool/call`, `tool/result` | - | The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies. |
+| `@deepseek-ai/dsh-pto-experiments` | `pto_experiment_compare`, `pto_experiment_get`, `pto_experiment_list`, `pto_experiment_plan` | `ctx.tools`, `ctx.fs`, `ctx.storageDomain`, `ctx.systemPrompt`, `ctx.subprocess at comparison time`, `a calling Agent with a Session workspace` | `tool/call`, `tool/result`, `pto_experiments domain records` | - | The four PTO profile tools persist and query Workspace-confined experiments, and compare app-owned L2 chip-swimlane metrics only when every registered identity matches. Planning does not authorize work, reserve output, modify source, or execute a workload; execution remains a trusted Host operation. |
+| `@deepseek-ai/dsh-tool-pto-run` | `pto_run_discover`, `pto_run_inspect` | `ctx.tools`, `ctx.fs`, `ctx.systemPrompt`, `a calling Agent with a Session workspace` | `tool/call`, `tool/result` | - | The two read-only PTO profile tools recognize PyPTO 3.0 runs by artifact markers, confine paths to the calling Session workspace, and report bounded evidence, collection literals, compile health, and rerun capability observations without diagnosing causality. |
 | `@deepseek-ai/dsh-tool-subagent` | `list_subagent_models`, `subagent` | `ctx.tools`, `ctx.subagents`, `ctx.systemPrompt`, `ctx.llm for model discovery and selected-route validation` | `tool/call`, `tool/result`, `child session events through the chosen provider` | `subagent`, `subagent_fork` | The registered delegation name is the load-time `toolName` config (default `subagent`); the default schema above has model selection off, while the discovery schema is shown as the fixed companion available in an enabled Session. Web presets sample the Plugins preference for each new top-level Session and preserve that decision for its child Sessions; `subagent_fork` remains fixed-route. Each instance independently controls whether it reads model-selection settings and its background behavior through `modelSelectionSettings`, `backgroundMode`, and `enableRunInBackground`. |
 | `@deepseek-ai/dsh-tool-subagent-control` | `interrupt_agent`, `list_agents`, `send_message` | `ctx.tools`, `ctx.subagents`, `ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`, `tool/result`, `child session events through ctx.subagents` | - | The globally named control tools over continuable background subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries). |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
@@ -1531,6 +1533,179 @@ Read the authorized session lineage around one session, including complete visib
 Source: [`packages/session-query/tool-session-query/src/index.ts`](../packages/session-query/tool-session-query/src/index.ts)
 
 The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.
+
+<a id="deepseek-aidsh-pto-experiments"></a>
+
+## `@deepseek-ai/dsh-pto-experiments`
+
+### `pto_experiment_compare`
+
+Compare a completed experiment candidate with its app-owned registered baseline using collected chip-swimlane identities. Identity mismatches return incomparable without a combined delta.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "description": "Host-generated completed experiment id."
+    },
+    "expected_revision": {
+      "type": "integer",
+      "description": "Exact current completed-record revision."
+    }
+  },
+  "required": [
+    "experiment_id",
+    "expected_revision"
+  ]
+}
+```
+
+Source: [`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_get`
+
+Read one PTO experiment record owned by the current Session workspace.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "description": "Host-generated experiment id."
+    }
+  },
+  "required": [
+    "experiment_id"
+  ]
+}
+```
+
+Source: [`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_list`
+
+List the newest PTO experiment records owned by the current Session workspace.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "description": "Maximum records to return, from 1 to 100. Defaults to 20."
+    }
+  }
+}
+```
+
+Source: [`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+### `pto_experiment_plan`
+
+Persist a Workspace-confined PTO experiment proposal with an immutable recognized baseline, one declared change, a new candidate output path, and explicit stop and rollback controls. This does not authorize or execute the experiment.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source_workspace_path": {
+      "type": "string",
+      "description": "Existing source workspace directory inside the current Session workspace."
+    },
+    "baseline_run_path": {
+      "type": "string",
+      "description": "Existing recognized PyPTO 3.0 baseline run inside the current Session workspace."
+    },
+    "candidate_output_path": {
+      "type": "string",
+      "description": "Currently absent output path inside the source workspace and disjoint from the baseline."
+    },
+    "declared_change": {
+      "type": "string",
+      "description": "The single material change or explicitly bound change set proposed for the candidate."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "description": "Evidence references supporting the proposal. Defaults to an empty list.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stop_conditions": {
+      "type": "string",
+      "description": "Conditions that stop execution or invalidate the candidate."
+    },
+    "rollback_plan": {
+      "type": "string",
+      "description": "How a future executor restores or discards the recoverable source working copy."
+    },
+    "execution_command": {
+      "type": "string",
+      "description": "Exact command a trusted Host executor may run only after identity binding and user approval. It must write a recognized run directly into $DSH_PTO_EXPERIMENT_OUTPUT_DIR."
+    },
+    "execution_timeout_ms": {
+      "type": "integer",
+      "description": "Positive timeout in milliseconds. Defaults to 3600000 and is capped at 86400000."
+    }
+  },
+  "required": [
+    "source_workspace_path",
+    "baseline_run_path",
+    "candidate_output_path",
+    "declared_change",
+    "stop_conditions",
+    "rollback_plan",
+    "execution_command"
+  ]
+}
+```
+
+Source: [`packages/pto/pto-experiments/src/index.ts`](../packages/pto/pto-experiments/src/index.ts)
+
+The four PTO profile tools persist and query Workspace-confined experiments, and compare app-owned L2 chip-swimlane metrics only when every registered identity matches. Planning does not authorize work, reserve output, modify source, or execute a workload; execution remains a trusted Host operation.
+
+<a id="deepseek-aidsh-tool-pto-run"></a>
+
+## `@deepseek-ai/dsh-tool-pto-run`
+
+### `pto_run_discover`
+
+Discover PyPTO 3.0 L2/L3 run directories inside the current Session workspace using artifact markers, not path names.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/pto/tool-pto-run/src/index.ts`](../packages/pto/tool-pto-run/src/index.ts)
+
+### `pto_run_inspect`
+
+Inspect one workspace-contained PyPTO 3.0 run for evidence, compile health, collection literals, and rerun capabilities without reading artifact contents.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "run_path": {
+      "type": "string",
+      "description": "Run path from pto_run_discover, relative to or inside the current Session workspace."
+    }
+  },
+  "required": [
+    "run_path"
+  ]
+}
+```
+
+Source: [`packages/pto/tool-pto-run/src/index.ts`](../packages/pto/tool-pto-run/src/index.ts)
+
+The two read-only PTO profile tools recognize PyPTO 3.0 runs by artifact markers, confine paths to the calling Session workspace, and report bounded evidence, collection literals, compile health, and rerun capability observations without diagnosing causality.
 
 <a id="deepseek-aidsh-tool-subagent"></a>
 

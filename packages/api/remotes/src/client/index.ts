@@ -8,6 +8,7 @@ import goalsRemote from '@deepseek-ai/dsh-goal/remote'
 import llmRemote from '@deepseek-ai/dsh-llm/remote'
 import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import composerCatalogRemote from '@deepseek-ai/dsh-host-composer-catalog/remote'
+import ptoExperimentDashboardRemote from '@deepseek-ai/dsh-host-pto-experiment-dashboard/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
 import fileUploadsRemote from '@deepseek-ai/dsh-client-file-upload/remote'
@@ -25,11 +26,18 @@ export type {
   DraftComposerCatalogRequest, DraftSkillDescriptor, SessionComposerCatalogRequest,
 } from '@deepseek-ai/dsh-host-composer-catalog/types'
 export type {} from '@deepseek-ai/dsh-agent-presets/remote'
+export type {
+  PtoExperimentDashboardCancelRequest, PtoExperimentDashboardCancelResult,
+  PtoExperimentDashboardEntry, PtoExperimentDashboardExecuteRequest,
+  PtoExperimentDashboardExecutionActivity, PtoExperimentDashboardMetric,
+  PtoExperimentDashboardRequest, PtoExperimentDashboardSnapshot,
+} from '@deepseek-ai/dsh-host-pto-experiment-dashboard/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'
 export type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-llm/remote'
 export type {} from '@deepseek-ai/dsh-host-composer-catalog/remote'
+export type {} from '@deepseek-ai/dsh-host-pto-experiment-dashboard/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
 export type {} from '@deepseek-ai/dsh-client-file-upload/remote'
@@ -156,7 +164,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       agentPresetsRemote, commandsRemote, settingsControllerRemote, goalsRemote, llmRemote, dynamicRemote,
-      composerCatalogRemote, pluginInventoryRemote, messageFeedbackRemote, fileUploadsRemote, sessionReferencesRemote,
+      composerCatalogRemote, ptoExperimentDashboardRemote, pluginInventoryRemote, messageFeedbackRemote, fileUploadsRemote, sessionReferencesRemote,
       subagentsRemote, sessionRemote, workspaceRemote, workspaceFilesRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
