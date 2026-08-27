@@ -71,12 +71,19 @@ export function MenuView({
     updateOverflowHint()
   }, [state, maxHeight, updateOverflowHint])
   const highlight = state.open ? state.highlight : null
-  // Focus stays in the textarea (combobox pattern), so the browser never
-  // scrolls the active option into view on keyboard moves — do it here.
+  // Focus stays in the textarea (combobox pattern), so keyboard moves must
+  // reveal the active option explicitly. Native scrollIntoView walks every
+  // scrollable ancestor and can move the conversation column; constrain the
+  // adjustment to the menu's own viewport instead.
   useEffect(() => {
     if (highlight === null) return
-    document.getElementById(optionId(highlight.source, highlight.index))
-      ?.scrollIntoView({ block: 'nearest' })
+    const viewport = viewportRef.current
+    const option = document.getElementById(optionId(highlight.source, highlight.index))
+    if (viewport === null || option === null) return
+    const viewportRect = viewport.getBoundingClientRect()
+    const optionRect = option.getBoundingClientRect()
+    if (optionRect.top < viewportRect.top) viewport.scrollTop -= viewportRect.top - optionRect.top
+    else if (optionRect.bottom > viewportRect.bottom) viewport.scrollTop += optionRect.bottom - viewportRect.bottom
   }, [highlight])
   // Dismiss on pointer outside the menu AND outside the composer card
   // (clicking the textarea or bottom bar must not close the menu).
