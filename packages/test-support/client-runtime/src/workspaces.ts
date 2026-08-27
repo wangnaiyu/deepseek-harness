@@ -58,6 +58,12 @@ export class TestWorkspaces implements IWorkspaces {
     this.stubs.get('selectDraftWorkspace')?.(workspaceId)
   }
 
+  /** Stage an Agent preset target without creating a Session (recorded). */
+  selectDraftAgentPreset(agentPreset: string): void {
+    this.calls.push({ method: 'selectDraftAgentPreset', args: [agentPreset] })
+    this.stubs.get('selectDraftAgentPreset')?.(agentPreset)
+  }
+
   /**
    * New-session flow (recorded; stubbed behavior runs when installed).
    * @param workspaceId - optional explicit workspace target.

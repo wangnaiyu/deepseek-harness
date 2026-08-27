@@ -29,7 +29,7 @@ export interface TriggerHit {
  */
 export type DetectTrigger = (draft: string, caret: number, guard: TriggerGuard) => TriggerHit | null
 
-/** Menu state: one group per source; empty ready groups auto-close the menu. */
+/** Menu state: one group per source; empty successful groups auto-close the menu. */
 export interface MenuState {
   readonly open: boolean
   readonly hit: TriggerHit | null
@@ -39,17 +39,22 @@ export interface MenuState {
     readonly source: string
     /** False when candidate section rows own all visible group labeling. */
     readonly showGroupTitle?: boolean
-    readonly status: 'pending' | 'ready'
+    readonly status: 'pending' | 'ready' | 'error'
     readonly items: readonly InputTriggerCandidate[]
+    readonly issues?: readonly import('../types.ts').InputTriggerSectionIssue[]
+    /** A contained-error retry is in flight while stale successful rows remain visible. */
+    readonly refreshing?: boolean
   }[]
   readonly highlight: { readonly source: string; readonly index: number } | null
 }
 
-/** Menu reduction events. Source failure = silent group removal (log only; no error UI tier). */
+/** Menu reduction events. Source failures remain isolated and retryable. */
 export type MenuEvent =
   | { readonly type: 'hit'; readonly hit: TriggerHit | null }
-  | { readonly type: 'source-settled'; readonly generation: number; readonly source: string; readonly items?: readonly InputTriggerCandidate[] }
-  | { readonly type: 'source-failed'; readonly generation: number; readonly source: string }
+  | { readonly type: 'source-settled'; readonly generation: number; readonly source: string; readonly items?: readonly InputTriggerCandidate[]; readonly issues?: readonly import('../types.ts').InputTriggerSectionIssue[] }
+  | { readonly type: 'source-failed'; readonly generation: number; readonly source: string; readonly message?: string }
+  | { readonly type: 'source-retry'; readonly generation: number; readonly source: string }
+  | { readonly type: 'source-removed'; readonly generation: number; readonly source: string }
   | { readonly type: 'move'; readonly dir: 1 | -1 }
   | { readonly type: 'hover'; readonly source: string; readonly index: number }
   | { readonly type: 'close' }

@@ -25,6 +25,7 @@ Status: implemented
 - **常驻挂载挂在服务未追踪的 `selfCtx` 上。** 经 traceable 代理调用的方法看到的 `this.ctx` 被重绑到调用方并携带 shadow；从它派生的子树里每个 fiber 的 reflect 解析都从 shadow 的 fiber 起步，entry 会在自己 `inject` 声明的服务上失败（`cannot get property "tools" without inject`，而它的 store 里明明有）。`jobs-local` 的 selfCtx 先例，如今有了第二个消费者。
 - **挂载一旦成功即持续供职，直到组装文件的 stamp 变化。** 运行中会话加入的组装必须在其文件被修改或删除后继续存活；每个代际记录文件 stamp（mtime + 大小），会话发现当前代际已陈旧时，会开启下一个代际，因此文件编辑——创作改为仅复制之后唯一的组装编辑器——无需任何创作调用丢弃指针即可达到后续会话。已加入的会话保持其代际，被替代的代际只由整树卸载回收——刻意为之，上限取决于编辑频率，已记入包的 Known Limitations。
 - **`peek()` 保持不看链。** 限制与守卫定位的是单个作用域**自己**的贡献；只有注册**视图**沿链继承。链上的限制求交（链上任一作用域都可为嵌套其内的一切遮蔽某个全局注册名称）。
+- **宿主读取方通过常驻挂载寻址注册表与隔离服务。** `standingKeyFor()` 提供作用域链的 key，`serviceForStanding()` 则解析 provider 位于挂载 entry-local realm 内的服务。后者返回缺失而不会拿宿主根的同名服务代替，因此无 Agent 读取仍保留 preset 的实际组装语义。
 - **重新认父只能经由挂载首绑返回的 `ScopeParentBinding`**——roster 私藏该句柄，空白会话 recompose 因此是唯一的重链路径，其他调用方无法挪动已组合的 agent；其合法性仍以旧父之下产出一概不被保留为前提，由持有方保证，因为该关系看不见会话日志。
 
 ## 考虑过的替代方案

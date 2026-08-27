@@ -2,12 +2,12 @@
  * Skill reference plugin, browser half: registers the '/' skill source —
  * candidates from the `skills/list` Remote addressed by the per-call session
  * projection's sessionId (sessions are always agent-backed; the host
- * resolves cwd from the session header). A pick lands the literal `/name `
+ * resolves cwd from the session header). A pick lands the literal `/skill <name> `
  * text and the prompt ships the same literal (plain-text-reference decision;
  * see .agents/notes/implemented/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md);
  * determinism
  * lives host-side — the pre-step boundary (`dsh-tool-skill`) recognizes a
- * leading `/name` naming a user-invocable skill and injects the rendered
+ * `/skill <name>` naming a user-invocable skill and injects the rendered
  * body for every entry point, including `disable-model-invocation` skills the
  * model-side catalog never lists (issue #1470). The RPC rides the plugin's
  * root-context Remote captured at registration — the source never reads
@@ -31,10 +31,12 @@
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type { DraftSkillDescriptor, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type {
+  InputTriggerCandidate, InputTriggerCandidateIcon, InputTriggerServiceContract, InputTriggerSource,
+} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
@@ -51,10 +53,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** One session's catalog fetch: the shared promise plus its own abort handle. */
 interface CatalogFetch {
-  readonly promise: Promise<readonly SkillEntry[]>
+  readonly promise: Promise<readonly SessionSkillEntry[]>
   readonly abort: AbortController
   /** Settled catalog for synchronous lexicon reads (unset while in flight or on failure). */
-  settled?: readonly SkillEntry[]
+  settled?: readonly SessionSkillEntry[]
+}
+
+type SessionSkillEntry = SkillEntry & Partial<Pick<DraftSkillDescriptor, 'origin' | 'iconId'>>
+
+/** Admit only icon identifiers the shared reference glyph set can render. */
+function candidateIcon(iconId: string | undefined): InputTriggerCandidateIcon | undefined {
+  return iconId === 'file' || iconId === 'folder' || iconId === 'session' ? iconId : undefined
 }
 
 /** Required services: reference source faces plus the tool-row and locale registries. */
@@ -71,13 +80,18 @@ export function apply(ctx: ClientContext): void {
     SkillRow,
   ))
 
-  const skills = ctx.remote.skills
+  const legacySkills = ctx.remote.skills
   const sessions = ctx.sessions
   // Session-keyed catalog cache; single-flight per key. Plugin-closure state:
   // the fiber effect below is its teardown boundary.
   const fetches = new Map<SessionId, CatalogFetch>()
   // Per-session lexicon invalidation listeners (subscribeLexicon consumers).
   const lexiconListeners = new Map<SessionId, Set<() => void>>()
+  let formal: (typeof ctx.remote)['composerCatalog'] | undefined
+  ctx.inject(['remote.composerCatalog'], (scope) => {
+    formal = scope.remote.composerCatalog
+    return () => { formal = undefined }
+  })
 
   const notifyLexicon = (sessionId: SessionId): void => {
     for (const listener of [...(lexiconListeners.get(sessionId) ?? [])]) {
@@ -92,13 +106,18 @@ export function apply(ctx: ClientContext): void {
     }
   }
 
-  const fetchCatalog = (sessionId: SessionId): Promise<readonly SkillEntry[]> => {
+  const fetchCatalog = (sessionId: SessionId): Promise<readonly SessionSkillEntry[]> => {
     if (sessions.subagentAddress(sessionId) !== undefined) return Promise.resolve([])
     const existing = fetches.get(sessionId)
     if (existing !== undefined) return existing.promise
     const abort = new AbortController()
     const promise = (async () => {
-      const result = await skills.list({ sessionId }, abort.signal)
+      if (formal !== undefined) {
+        const result = await formal.listSession({ sessionId })
+        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+        return result.value.skills
+      }
+      const result = await legacySkills.list({ sessionId }, abort.signal)
       if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`)
       return result.value.skills
     })()
@@ -138,29 +157,40 @@ export function apply(ctx: ClientContext): void {
     trigger: '/',
     name: 'skill',
     order: 2,
-    async candidates(session, { query, signal }) {
-      const skills = await fetchCatalog(session.sessionId)
+    showGroupTitle: false,
+    async candidates(target, { query, signal }) {
+      if (target.kind === 'draft') return []
+      const skills = await fetchCatalog(target.sessionId)
       // Superseded keystroke: the shared fetch stays warm, this caller yields.
       if (signal.aborted) return []
       return skills
         .filter(skill => skill.name.startsWith(query))
-        .map(skill => ({
-          name: skill.name,
-          // The user-only marker rides the description (the menu's only
-          // secondary text); `hint` is the claim-state ghost text, not a badge.
-          description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
-        }))
+        .map((skill): InputTriggerCandidate => {
+          const icon = candidateIcon(skill.iconId)
+          return {
+            name: skill.name,
+            // The user-only marker rides the description (the menu's only
+            // secondary text); `hint` is the claim-state ghost text, not a badge.
+            description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
+            origin: skill.origin?.label ?? 'DSH',
+            section: 'Skills',
+            ...icon === undefined ? {} : { icon },
+          }
+        })
     },
-    warm(session) {
+    warm(target) {
       // Fire-and-forget scope-birth prewarm; the shared fetch reports
       // through candidates.
-      fetchCatalog(session.sessionId).catch(() => {})
+      if (target.kind !== 'draft') fetchCatalog(target.sessionId).catch(() => {})
     },
-    lexicon(session) {
-      return fetches.get(session.sessionId)?.settled?.map(skill => skill.name)
+    lexicon(target) {
+      if (target.kind === 'draft') return []
+      const skills = fetches.get(target.sessionId)?.settled
+      return skills?.flatMap(skill => [skill.name, `skill ${skill.name}`])
     },
-    subscribeLexicon(session, listener) {
-      const key = session.sessionId
+    subscribeLexicon(target, listener) {
+      if (target.kind === 'draft') return () => {}
+      const key = target.sessionId
       const listeners = lexiconListeners.get(key) ?? new Set()
       listeners.add(listener)
       lexiconListeners.set(key, listeners)
@@ -171,13 +201,10 @@ export function apply(ctx: ClientContext): void {
     },
     onPick({ candidate }) {
       // Plain-text-reference decision (web-input-machine note): the pick
-      // lands plain text and the prompt ships the same
-      // literal. Determinism lives host-side — the host's
-      // pre-step boundary (dsh-tool-skill) recognizes the leading /name and
-      // injects the rendered body for every entry point. A name shared with a
-      // host command still resolves to the command: adjudication claims the
-      // line client-side before it ever becomes a prompt.
-      return { text: `/${candidate.name} ` }
+      // lands plain text and the prompt ships the same literal. The explicit
+      // namespace keeps same-name Commands and Skills independently usable;
+      // determinism lives at the host pre-step boundary for every client.
+      return { text: `/skill ${candidate.name} ` }
     },
   }
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerServiceContract

@@ -241,6 +241,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the standing scope key readers pass as a registry view scope.',
         throws: ['when the preset is unknown or its composition is unusable.'],
       },
+      {
+        signature: 'serviceForStanding<K extends string & keyof Context>( standingKey: ScopeKey, name: K, ): Context[K] | undefined',
+        description: 'Resolve one service from an already ensured standing composition without an Agent. An absent service returns `undefined` rather than falling back to the host root.',
+        parameters: [{ name: 'standingKey', description: 'opaque key returned by {@link standingKeyFor}.' }, { name: 'name', description: 'service name as the preset\'s rows resolve it.' }],
+        returns: 'the standing service instance, or undefined when not mounted by the preset.',
+      },
     ],
   },
   {
@@ -447,6 +453,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['when no turn is open or either audit event fails before the session append commit point.'],
       },
       {
+        signature: 'async requestDecision(req: ApprovalRequest): Promise<ApprovalDecision>',
+        description: 'Ask exactly like request, retaining the service-issued audit id. A trusted composite operation uses the id to bind its own durable receipt to the approval audit pair without manufacturing or recovering an id from Session history.',
+        parameters: [{ name: 'req', description: 'the pending decision (agent, tool identity, reason, signal).' }],
+        returns: 'the service-issued audit id and its closed committed outcome.',
+        throws: ['when no turn is open or either audit event fails before the session append commit point.'],
+      },
+      {
         signature: 'overrideOf(session: Session): ApprovalPolicy | undefined',
         description: 'Read the session override without applying the configured default.',
         parameters: [{ name: 'session', description: 'session whose log supplies the override.' }],
@@ -624,6 +637,24 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List the effective immutable command descriptors for one agent.',
         parameters: [{ name: 'agent', description: 'exact receiving agent and scoped-layer key.' }],
         returns: 'name-sorted descriptors after scoped shadowing.',
+      },
+      {
+        signature: 'listGlobalDescriptors(): readonly CommandDescriptor[]',
+        description: 'List immutable descriptors from the unscoped registration layer only. Host discovery consumers use this without creating an Agent or Session.',
+        parameters: [],
+        returns: 'name-sorted global command descriptors.',
+      },
+      {
+        signature: 'listForScope(scope: ScopeKey | undefined): readonly CommandDescriptor[]',
+        description: 'List effective immutable descriptors for a host-addressed scope chain. The caller obtains the opaque key from the scope owner; this method reads registrations only and does not create an Agent or Session.',
+        parameters: [{ name: 'scope', description: 'viewing scope key, or `undefined` for the global view.' }],
+        returns: 'name-sorted descriptors after scope-chain shadowing.',
+      },
+      {
+        signature: 'listDiscoveryForScope(scope: ScopeKey | undefined): readonly CommandDiscoveryEntry[]',
+        description: 'List effective command descriptors together with their winning registration layer and opaque provider identity. Host discovery consumers use these facts instead of comparing descriptor values, which can be identical across a scoped override and its global fallback.',
+        parameters: [{ name: 'scope', description: 'viewing scope key, or `undefined` for the global view.' }],
+        returns: 'name-sorted immutable discovery entries.',
       },
       {
         signature: 'find(agent: Agent, name: string): CommandDefinition | undefined',
@@ -914,6 +945,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List direct children of a directory in stable name order. Returns resolved child targets plus cheap metadata only; never reads file contents.',
         parameters: [{ name: 'target', description: 'the resolved directory target.' }, { name: 'signal', description: 'aborts the listing.' }],
         returns: 'one entry per direct child, in stable name order.',
+      },
+      {
+        signature: 'abstract reserveDirectory( target: FsTarget, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsDirectoryReservation>',
+        description: 'Atomically reserve an absent path by creating one empty directory. The final component must not already exist and the parent must already be a directory; implementations never merge with or reuse an existing entry. Once creation commits, a concurrent abort does not turn success into an ambiguous failure.',
+        parameters: [{ name: 'target', description: 'the absent directory path to reserve.' }, { name: 'signal', description: 'aborts before the atomic creation begins.' }, { name: 'sandboxPolicy', description: 'the per-call filesystem mutation policy.' }],
+        returns: 'the opaque version of the newly created directory.',
       },
       {
         signature: 'abstract writeText( target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy, ): Promise<FsWriteOutcome>',
@@ -1278,6 +1315,68 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Select whether plan mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
         parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'active', description: 'Whether plan mode should be active.' }],
         returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperimentDashboard',
+    summary: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    description: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    methods: [
+      {
+        signature: '@Remote(\'listSession\') async listSession(request: PtoExperimentDashboardRequest): Promise<PtoExperimentDashboardSnapshot>',
+        description: 'List one existing Session\'s newest durable experiments. The caller supplies no path: Host-owned Session metadata selects the Workspace, and the read never creates or resumes an Agent, Session, or turn.',
+        parameters: [{ name: 'request', description: 'existing Session identity and optional bounded limit.' }],
+        returns: 'minimal dashboard projection without storage identity keys.',
+      },
+      {
+        signature: '@Remote(\'executeSession\') async executeSession(request: PtoExperimentDashboardExecuteRequest): Promise<PtoExperimentDashboardEntry>',
+        description: 'Execute one planned experiment through the trusted registry admission loop. The long Remote survives view unmount. A private plugin follow-up opens a normal Agent turn; this gateway consumes it at pre-step, so the existing approval surface can append its audit pair inside a durable turn without sending any synthetic prompt to the model. Optimistic revision is preserved exactly.',
+        parameters: [{ name: 'request', description: 'initiating Session and planned experiment identity.' }],
+        returns: 'terminal dashboard projection after approval and execution settle.',
+      },
+      {
+        signature: '@Remote(\'cancelSession\') async cancelSession(request: PtoExperimentDashboardCancelRequest): Promise<PtoExperimentDashboardCancelResult>',
+        description: 'Cancel an active execution owned by the same initiating Session. The call returns only after the long execution Remote has settled its Host state.',
+        parameters: [{ name: 'request', description: 'initiating Session and active experiment identity.' }],
+        returns: 'cancellation confirmation after executor settlement.',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperiments',
+    summary: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    description: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    methods: [
+      {
+        signature: 'plan(scope: PtoExperimentScope, input: PtoExperimentPlanInput): Promise<PtoExperimentView>',
+        description: 'Persist one proposal after resolving all paths through the active filesystem. The operation serializes candidate ownership checks with the durable put. It records only an absence observation; no output directory is created or reserved.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'Proposed experiment identities, change, and controls.' }],
+        returns: 'a detached public view of the durable planned record.',
+      },
+      {
+        signature: 'async get(scope: PtoExperimentScope, id: string): Promise<PtoExperimentView>',
+        description: 'Read one record only when it belongs to the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'id', description: 'Host-generated experiment id.' }],
+        returns: 'a detached public record view.',
+      },
+      {
+        signature: 'async list(scope: PtoExperimentScope, limit: number = 20): Promise<PtoExperimentList>',
+        description: 'List the newest bounded records owned by the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'limit', description: 'Inclusive result cap from 1 to 100.' }],
+        returns: 'detached records plus total and truncation facts.',
+      },
+      {
+        signature: 'async compare( scope: PtoExperimentScope, input: PtoExperimentCompareInput, ): Promise<PtoExperimentComparison>',
+        description: 'Compare one completed candidate only with an app-owned registered baseline. Every admitted identity comes from stored adapter output or a fixed Git probe. Any missing or unequal dimension returns `incomparable` without a combined delta; an admitted delta remains `inconclusive` without a user-owned threshold and repetition rule.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'completed experiment id and optimistic record revision.' }],
+        returns: 'identity checks, side-by-side metrics, and an optional derived delta.',
+      },
+      {
+        signature: 'async execute( scope: PtoExperimentExecutionScope, input: PtoExperimentExecuteInput, ): Promise<PtoExperimentView>',
+        description: 'Execute one planned proposal through the complete trusted admission loop. This Host API is intentionally not registered as a model-facing tool.',
+        parameters: [{ name: 'scope', description: 'live Agent, Workspace, call identity, and cancellation.' }, { name: 'input', description: 'experiment id and optimistic planned revision.' }],
+        returns: 'the terminal durable record view, or throws before workload start.',
       },
     ],
   },
@@ -3632,11 +3731,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CommandDefinition',
-    declaration: 'export interface CommandDefinition {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n    readonly recordInput?: boolean;\n    readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>;\n}',
+    declaration: 'export interface CommandDefinition {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n    readonly provider?: string;\n    readonly recordInput?: boolean;\n    readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>;\n}',
   },
   {
-    name: 'CommandDescriptor',
-    declaration: 'export interface CommandDescriptor {\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n}',
+    name: 'CommandDiscoveryEntry',
+    declaration: 'export interface CommandDiscoveryEntry {\n    readonly descriptor: CommandDescriptor;\n    readonly layer: \'global\' | \'scoped\';\n    readonly provider?: string;\n}',
   },
   {
     name: 'CommandExecution',
@@ -3985,6 +4084,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FinishReasonMap',
     declaration: 'export interface FinishReasonMap {\n    \'stop\': {\n        kind: \'stop\';\n    };\n    \'tool-calls\': {\n        kind: \'tool-calls\';\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    \'aborted\': {\n        kind: \'aborted\';\n        failure: LlmFailure;\n    };\n    \'error\': {\n        kind: \'error\';\n        failure: LlmFailure;\n    };\n}',
+  },
+  {
+    name: 'FsDirectoryReservation',
+    declaration: 'export interface FsDirectoryReservation {\n    version: FsVersion;\n}',
   },
   {
     name: 'FsDirEntry',
@@ -4583,6 +4686,82 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PtcDispatchLog {\n    readonly exec: ToolExecution;\n    readonly agent?: Agent;\n    readonly subCallId: ToolCallId;\n    readonly name: string;\n    readonly isError: boolean;\n    readonly content: ContentBlock[];\n}',
   },
   {
+    name: 'PtoExperimentCompareInput',
+    declaration: 'export interface PtoExperimentCompareInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentComparison',
+    declaration: 'export interface PtoExperimentComparison {\n    experimentId: string;\n    baselineExperimentId: string | null;\n    result: \'incomparable\' | \'inconclusive\';\n    reasons: string[];\n    identity: {\n        metric: PtoExperimentComparisonDimension;\n        task: PtoExperimentComparisonDimension;\n        hardware: PtoExperimentComparisonDimension;\n        environment: PtoExperimentComparisonDimension;\n        executionCommand: PtoExperimentComparisonDimension;\n        sourceLineage: PtoExperimentComparisonDimension;\n        changeSet: PtoExperimentComparisonDimension;\n    };\n    baseline: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    candidate: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    delta: {\n        absolute: number;\n        relativePct: number | null;\n        direction: \'improved\' | \'regressed\' | \'unchanged\';\n        significance: \'needs-user-confirmation\';\n    } | null;\n}',
+  },
+  {
+    name: 'PtoExperimentComparisonDimension',
+    declaration: 'export interface PtoExperimentComparisonDimension {\n    status: \'matched\' | \'unmatched\' | \'unavailable\';\n    baseline: string | null;\n    candidate: string | null;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelRequest',
+    declaration: 'export interface PtoExperimentDashboardCancelRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelResult',
+    declaration: 'export interface PtoExperimentDashboardCancelResult {\n    readonly cancelled: true;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardEntry',
+    declaration: 'export interface PtoExperimentDashboardEntry {\n    readonly id: string;\n    readonly status: \'planned\' | \'authorized\' | \'running\' | \'completed\' | \'failed\' | \'cancelled\';\n    readonly revision: number;\n    readonly declaredChange: string;\n    readonly baselinePath: string;\n    readonly candidateOutputPath: string;\n    readonly actualRunPath: string | null;\n    readonly metric: PtoExperimentDashboardMetric | null;\n    readonly failureReason: string | null;\n    readonly executionActivity: PtoExperimentDashboardExecutionActivity;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecuteRequest',
+    declaration: 'export interface PtoExperimentDashboardExecuteRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n    readonly expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecutionActivity',
+    declaration: 'export interface PtoExperimentDashboardExecutionActivity {\n    readonly active: boolean;\n    readonly cancellable: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardMetric',
+    declaration: 'export type PtoExperimentDashboardMetric = {\n    readonly status: \'collected\';\n    readonly value: number;\n    readonly unit: \'us\';\n    readonly definition: \'device-dispatch-makespan\';\n} | {\n    readonly status: \'not-observed\' | \'invalid\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'PtoExperimentDashboardRequest',
+    declaration: 'export interface PtoExperimentDashboardRequest {\n    readonly sessionId: string;\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardSnapshot',
+    declaration: 'export interface PtoExperimentDashboardSnapshot {\n    readonly experiments: readonly PtoExperimentDashboardEntry[];\n    readonly total: number;\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentExecuteInput',
+    declaration: 'export interface PtoExperimentExecuteInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentExecutionScope',
+    declaration: 'export interface PtoExperimentExecutionScope extends PtoExperimentScope {\n    agent: Agent;\n    callId?: ToolCallId;\n}',
+  },
+  {
+    name: 'PtoExperimentList',
+    declaration: 'export interface PtoExperimentList {\n    experiments: PtoExperimentView[];\n    total: number;\n    truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentMetric',
+    declaration: 'export type PtoExperimentMetric = z.infer<typeof ptoExperimentMetricSchema>;',
+  },
+  {
+    name: 'PtoExperimentPlanInput',
+    declaration: 'export interface PtoExperimentPlanInput {\n    sourceWorkspacePath: string;\n    baselineRunPath: string;\n    candidateOutputPath: string;\n    declaredChange: string;\n    evidenceRefs: readonly string[];\n    stopConditions: string;\n    rollbackPlan: string;\n    executionCommand: string;\n    executionTimeoutMs?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentRecord',
+    declaration: 'export type PtoExperimentRecord = z.infer<typeof ptoExperimentRecordSchema>;',
+  },
+  {
+    name: 'PtoExperimentScope',
+    declaration: 'export interface PtoExperimentScope {\n    cwd: string;\n    signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'PtoExperimentView',
+    declaration: 'export type PtoExperimentView = Omit<PtoExperimentRecord, \'workspaceKey\' | \'baseline\' | \'source\' | \'candidateOutput\' | \'actualRun\'> & {\n    baseline: Omit<PtoExperimentRecord[\'baseline\'], \'targetKey\'>;\n    source: Omit<PtoExperimentRecord[\'source\'], \'targetKey\'>;\n    candidateOutput: Omit<PtoExperimentRecord[\'candidateOutput\'], \'targetKey\'>;\n    actualRun: null | Omit<NonNullable<PtoExperimentRecord[\'actualRun\']>, \'targetKey\'>;\n};',
+  },
+  {
     name: 'ReadFileLine',
     declaration: 'export interface ReadFileLine {\n    number: number;\n    text: string;\n}',
   },
@@ -4604,7 +4783,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RemoteEventHostInfo',
-    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n}',
+    declaration: 'export interface RemoteEventHostInfo {\n    readonly home: string;\n    readonly cwd?: string;\n}',
   },
   {
     name: 'ReplayEnvelope',
@@ -4784,7 +4963,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionCreateValue',
-    declaration: 'export interface SessionCreateValue {\n    readonly sessionId: SessionId;\n    readonly agentPreset?: string;\n}',
+    declaration: 'export interface SessionCreateValue {\n    readonly sessionId: SessionId;\n    readonly cwd: string;\n    readonly agentPreset?: string;\n}',
   },
   {
     name: 'SessionError',
@@ -4792,7 +4971,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionErrorDetailsMap',
-    declaration: 'export interface SessionErrorDetailsMap {\n    \'bad-request\': Record<never, never>;\n    cancelled: Record<never, never>;\n    \'session-not-found\': {\n        readonly sessionId: SessionId;\n    };\n    \'model-unavailable\': {\n        readonly provider: string;\n        readonly model: string;\n    };\n    \'session-conflict\': {\n        readonly sessionId: SessionId;\n        readonly requestedCwd: string;\n        readonly existingCwd?: string;\n    };\n    \'invalid-time-zone\': {\n        readonly value: string;\n    };\n    \'workspace-attach-failed\': {\n        readonly sessionId: SessionId;\n        readonly workspaceId: string;\n    };\n    \'workspace-not-found\': {\n        readonly workspaceId: string;\n    };\n    \'agent-preset-conflict\': {\n        readonly sessionId: SessionId;\n        readonly requestedPreset: string;\n        readonly existingPreset?: string;\n    };\n    \'agent-preset-not-found\': {\n        readonly agentPreset: string;\n        readonly available: readonly string[];\n    };\n    \'agent-preset-invalid\': {\n        readonly agentPreset: string;\n        readonly reason: string;\n    };\n    \'agent-busy\': {\n        readonly reason: string;\n    };\n    \'attachment-error\': {\n        readonly reason: string;\n    };\n    \'queue-item-not-found\': {\n        readonly itemId: MessageId;\n    };\n    \'steer-unavailable\': {\n        readonly itemId: MessageId;\n    };\n    \'title-invalid\': {\n        readonly sessionId: SessionId;\n    };\n    \'fork-unavailable\': {\n        readonly sessionId: SessionId;\n    /* …truncated — full shape in source */',
+    declaration: 'export interface SessionErrorDetailsMap {\n    \'bad-request\': Record<never, never>;\n    cancelled: Record<never, never>;\n    \'session-not-found\': {\n        readonly sessionId: SessionId;\n    };\n    \'model-unavailable\': {\n        readonly provider: string;\n        readonly model: string;\n    };\n    \'skill-catalog-unavailable\': {\n        readonly reason?: string;\n    };\n    \'skill-unavailable\': {\n        readonly name: string;\n    };\n    \'session-conflict\': {\n        readonly sessionId: SessionId;\n        readonly requestedCwd: string;\n        readonly existingCwd?: string;\n    };\n    \'invalid-time-zone\': {\n        readonly value: string;\n    };\n    \'workspace-attach-failed\': {\n        readonly sessionId: SessionId;\n        readonly workspaceId: string;\n    };\n    \'workspace-not-found\': {\n        readonly workspaceId: string;\n    };\n    \'agent-preset-conflict\': {\n        readonly sessionId: SessionId;\n        readonly requestedPreset: string;\n        readonly existingPreset?: string;\n    };\n    \'agent-preset-not-found\': {\n        readonly agentPreset: string;\n        readonly available: readonly string[];\n    };\n    \'agent-preset-invalid\': {\n        readonly agentPreset: string;\n        readonly reason: string;\n    };\n    \'agent-busy\': {\n        readonly reason: string;\n    };\n    \'attachment-error\': {\n        readonly reason: string;\n    };\n    \'queue-item-not-found\': {\n        readonly itemId: MessageId;\n    };\n    \'steer-unavailable\': {\n        readonly itemId: MessageId;\n    /* …truncated — full shape in source */',
   },
   {
     name: 'SessionEvent',

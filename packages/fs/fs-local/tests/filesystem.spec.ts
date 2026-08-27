@@ -352,6 +352,42 @@ describe('listDir', () => {
   })
 })
 
+describe('reserveDirectory', () => {
+  it('atomically creates one absent empty directory', async () => {
+    const target = await fs.resolve('candidate')
+    const reservation = await fs.reserveDirectory(target)
+
+    expect(reservation.version).toBe((await fs.stat(target))?.version)
+    expect((await stat(join(dir, 'candidate'))).isDirectory()).toBe(true)
+  })
+
+  it('lets exactly one concurrent reservation win', async () => {
+    const target = await fs.resolve('candidate')
+    const settled = await Promise.allSettled([
+      fs.reserveDirectory(target),
+      fs.reserveDirectory(target),
+    ])
+
+    expect(settled.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+    const rejected = settled.find(result => result.status === 'rejected') as PromiseRejectedResult
+    expect(rejected.reason).toMatchObject({ code: 'FS_ALREADY_EXISTS' })
+  })
+
+  it('rejects an existing file or directory without reusing it', async () => {
+    await writeFile(join(dir, 'candidate'), 'occupied')
+    await expect(fs.reserveDirectory(await fs.resolve('candidate')))
+      .rejects.toMatchObject({ code: 'FS_ALREADY_EXISTS' })
+    expect(await readFile(join(dir, 'candidate'), 'utf8')).toBe('occupied')
+  })
+
+  it('requires an existing parent and honors pre-abort', async () => {
+    await expect(fs.reserveDirectory(await fs.resolve('missing/candidate')))
+      .rejects.toMatchObject({ code: 'FS_NOT_FOUND' })
+    await expect(fs.reserveDirectory(await fs.resolve('cancelled'), AbortSignal.abort()))
+      .rejects.toMatchObject({ code: 'FS_ABORTED' })
+  })
+})
+
 describe('writeText', () => {
   it('createIfAbsent creates a new file', async () => {
     const target = await fs.resolve('new.txt')

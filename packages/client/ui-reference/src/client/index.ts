@@ -20,7 +20,7 @@ import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  ClientSessionContext, InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
+  InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
@@ -47,14 +47,15 @@ export function apply(ctx: ClientContext): void {
     trigger: '@',
     name: 'reference',
     showGroupTitle: false,
-    async candidates(session: ClientSessionContext, { query, quoted, drilled, signal }) {
-      const fileLookup = ctx.remote.fileReferences.list(session.sessionId, query, signal).then(
+    async candidates(target, { query, quoted, drilled, signal }) {
+      if (target.kind === 'draft') return []
+      const fileLookup = ctx.remote.fileReferences.list(target.sessionId, query, signal).then(
         result => result.ok ? result.value : [],
         () => [],
       )
       const sessionLookup = quoted === true
         ? Promise.resolve([] as SessionReferenceMentionCandidate[])
-        : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal).then(
+        : ctx.remote.sessionReferenceResolver.candidates(target.sessionId, query, signal).then(
           result => result.ok ? result.value : [],
           () => [],
         )
@@ -77,7 +78,8 @@ export function apply(ctx: ClientContext): void {
         )),
       ]
     },
-    header(_session: ClientSessionContext, req) {
+    header(target, req) {
+      if (target.kind === 'draft') return undefined
       return crumbsFor(req.query, req.quoted === true, req.drilled, t)
     },
     onPick({ candidate, action }) {

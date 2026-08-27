@@ -118,7 +118,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     /** Registered Conversation target Views, rendered one at a time. */
     'conversation.view': { kind: 'list'; scope: 'session'; owner: ConvViewOwnerProps }
-    /** Selector-routed replacements for the current Session's resident composer. */
+    /**
+     * The composer takeover chain: entries are selector-routed replacements
+     * of the default InputBar. Declared by this package's 'conversation'
+     * entry; the owner dispatches the {@link ComposerChainProps} currency and
+     * routing lives in entry selectors — new takeover kinds register with
+     * zero owner changes.
+     */
     'conversation.composer': { kind: 'chain'; scope: 'session'; owner: ComposerChainProps }
     /**
      * The hero-phase Workspace picker hole: rendered by ConversationRoot
@@ -133,8 +139,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'root'; owner: HeroAgentPresetOwnerProps }
     /** Full-width entries above the composer card. */
     'conversation.input.dock': { kind: 'list'; scope: 'session'; owner: InputZone }
-    /** Floating entries rendered inside the resident composer card. */
-    'conversation.input.overlay': { kind: 'list'; scope: 'session' }
+    /** Floating entries rendered inside the resident composer card, including browser drafts. */
+    'conversation.input.overlay': { kind: 'list'; scope: 'session-maybe' }
     /** Ambient entries below the composer card. */
     'conversation.composer.dock': { kind: 'list'; scope: 'session'; owner: InputZone }
     /** Compact controls at the left of the composer tool row. */
@@ -289,9 +295,9 @@ export interface ComposerBarInjected {
     steeringAvailable: boolean,
   ) => InputSubmitMode
   /**
-   * Start the command surface at the current selection. A real Session opens
-   * its command menu and returns nothing; a browser draft inserts `/` and
-   * returns the caret position the bar must restore.
+   * Toggle the command surface at the current selection. Opening inserts `/`;
+   * closing through the same launcher removes that still-adjacent `/`. A
+   * returned caret position is restored by the bar after either edit.
    */
   toggleCommandMenu: ((selection: EditSelection) => number | undefined) | undefined
   /** Cancel the in-flight turn; absent with the session. */

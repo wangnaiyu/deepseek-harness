@@ -143,6 +143,12 @@ export interface FsWriteOutcome {
   after: string
 }
 
+/** Outcome of an atomic fail-if-present directory reservation. */
+export interface FsDirectoryReservation {
+  /** Opaque version of the newly created empty directory. */
+  version: FsVersion
+}
+
 /** A literal-replacement edit request. */
 export interface FsEditRequest {
   /** Literal non-empty text to replace. Must match exactly (after line-ending normalization). */
@@ -183,6 +189,7 @@ export type FsErrorCode =
   | 'FS_IO_ERROR'
   | 'FS_STALE_VERSION'
   | 'FS_NOT_OBSERVED'
+  | 'FS_ALREADY_EXISTS'
   | 'FS_AMBIGUOUS_EDIT'
   | 'FS_EDIT_NOT_FOUND'
   | 'FS_ABORTED'

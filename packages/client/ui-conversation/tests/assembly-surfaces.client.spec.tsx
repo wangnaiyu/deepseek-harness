@@ -58,7 +58,7 @@ function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
 
 async function bench(opts?: { blank?: boolean }) {
   const runtime = await SlotTestRuntime.create()
-  runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
+  runtime.ctx.provide('uiWorkspace', { ...runtime.workspaces, connectWorkspace: vi.fn(async () => SID) } as never)
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
@@ -80,7 +80,7 @@ async function bench(opts?: { blank?: boolean }) {
 describe('resident composer', () => {
   it('renders the locked view state while no session exists at all', async () => {
     const runtime = await SlotTestRuntime.create()
-    runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
+    runtime.ctx.provide('uiWorkspace', { ...runtime.workspaces, connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
@@ -107,7 +107,7 @@ describe('resident composer', () => {
 
   it('keeps the complete Hero tree mounted when the first Workspace session appears', async () => {
     const runtime = await SlotTestRuntime.create()
-    runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
+    runtime.ctx.provide('uiWorkspace', { ...runtime.workspaces, connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
@@ -172,7 +172,7 @@ describe('resident composer', () => {
 describe('prompt rejection through the assembled composer', () => {
   it('renders the promptError alert strip and keeps the draft in the machine', async () => {
     const runtime = await SlotTestRuntime.create()
-    runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
+    runtime.ctx.provide('uiWorkspace', { ...runtime.workspaces, connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)

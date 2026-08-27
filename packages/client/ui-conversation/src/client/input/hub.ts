@@ -32,6 +32,8 @@ interface CommandFace {
 interface InputTriggerServiceFace {
   /** @param actx - Session scope. @returns that Session's trigger provider. */
   sessionOf(actx: Context): InputTriggerController
+  /** @returns the browser-draft trigger provider after it has been bound. */
+  draft(): InputTriggerController | undefined
 }
 
 /** Attachment-send face resolved lazily to keep hub/service construction acyclic. */
@@ -81,6 +83,7 @@ export class InputHub implements SessionInputResolver {
     if (this.browserDraft !== undefined) return this.browserDraft
     this.browserDraft = new SessionInputShell({
       actx: this.rootCtx,
+      inputTriggers: () => this.rootCtx.get('inputTriggers')?.draft(),
       defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
       commandImages: {
         serialize: ids => this.conversation().serializeDraftImages(ids),
@@ -200,6 +203,14 @@ export class InputHub implements SessionInputResolver {
   }
 
   /**
+   * Resolve the browser-only draft controller for shared `/` and `+` discovery.
+   * @returns the resident draft controller, or undefined before the optional trigger plugin binds it.
+   */
+  draftInputTriggers(): InputTriggerController | undefined {
+    return this.rootCtx.get('inputTriggers')?.draft()
+  }
+
+  /**
    * Default sink: optimistic clear + prompt. The session is always a real
    * host entity (materialized when its workspace was picked), so there is
    * exactly one path; a failed first prompt is an ordinary prompt failure
@@ -228,15 +239,29 @@ export class InputHub implements SessionInputResolver {
     text: string,
     imageIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
-    _signal: AbortSignal,
+    signal: AbortSignal,
   ): Promise<SubmitOutcome> {
     if (text === '' && imageIds.length === 0) return { kind: 'success' }
+    const draftTriggers = this.draftInputTriggers()
+    const draftTarget = draftTriggers?.target()
     const sessionId = await this.uiWorkspace().materializeSessionDraft()
     const binding = this.sessions().binding(sessionId)
     if (binding === undefined) throw new Error(`conversation.input: created session "${sessionId}" resolved no binding`)
     const shell = this.shellFor(binding)
     if (text !== '') shell.setDraft(text)
     if (imageIds.length > 0) shell.addImages(imageIds)
+    if (draftTarget?.kind === 'draft') {
+      try {
+        await draftTriggers?.admitMaterialized(draftTarget, { sessionId }, text, signal)
+      } catch (error) {
+        // Materialization has already navigated to the real Session. Keep the
+        // captured payload in that visible shell and surface the rejection
+        // there; the superseded browser shell remains only long enough to
+        // settle its submit promise.
+        shell.notify('error', error instanceof Error ? error.message : String(error))
+        throw error
+      }
+    }
     shell.submit(mode)
     // The draft now belongs to the real Session. Report success to the old
     // browser machine only so it clears its duplicate state; the real shell

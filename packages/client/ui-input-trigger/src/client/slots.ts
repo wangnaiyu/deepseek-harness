@@ -32,4 +32,6 @@ export interface MenuViewInjected {
   onCrumb: (source: string, index: number) => void
   /** Dismiss the menu (external pointer outside the composer area). */
   onDismiss: () => void
+  /** Retry a failed source while retaining successful groups. */
+  onRetry?: (source: string) => void
 }

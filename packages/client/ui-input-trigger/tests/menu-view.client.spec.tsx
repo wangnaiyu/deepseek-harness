@@ -7,7 +7,7 @@
  * focus, the highlight is exposed through aria-activedescendant +
  * aria-selected, and the list height clamps to the space above the composer.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -42,13 +42,6 @@ function openState(partial?: Partial<MenuState>): MenuState {
   }
 }
 
-// jsdom has no scrollIntoView; the view calls it on the highlighted option.
-const scrollIntoView = vi.fn()
-beforeEach(() => {
-  Element.prototype.scrollIntoView = scrollIntoView
-  scrollIntoView.mockClear()
-})
-
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -66,6 +59,7 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
   const onCrumb = vi.fn()
   const onHover = vi.fn()
   const onDismiss = vi.fn()
+  const onRetry = vi.fn()
   const view = render(
     <MenuView
       menu={menu}
@@ -74,10 +68,11 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
       onCrumb={onCrumb}
       onHover={onHover}
       onDismiss={onDismiss}
+      onRetry={onRetry}
       t={t}
     />,
   )
-  return { menu, headers, onPick, onCrumb, onHover, onDismiss, view }
+  return { menu, headers, onPick, onCrumb, onHover, onDismiss, onRetry, view }
 }
 
 /** The bounded menu shell: it owns the height clamp, the listbox scrolls inside it. */
@@ -182,6 +177,36 @@ describe('MenuView', () => {
     expect(onPick).toHaveBeenCalledWith('reference', 0)
   })
 
+  it('reserves the icon cell and exposes bounded description plus trailing origin accessibly', () => {
+    const description = 'x'.repeat(120)
+    const { view } = mount(openState({
+      groups: [{ source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'evidence', description, origin: 'PTO' }] }],
+    }))
+    const option = screen.getByRole('option')
+    expect(option.textContent).toBe(`evidence${'x'.repeat(77)}...PTO`)
+    expect(option.getAttribute('aria-label')).toBe(`evidence, ${description}, PTO`)
+    expect(option.querySelector('span')?.textContent).toBe('')
+    expect(view.container.querySelector('[title="PTO"]')).not.toBeNull()
+    expect(view.container.querySelector(`[title="${description}"]`)).not.toBeNull()
+  })
+
+  it('keeps source and contained-section failures visible and retryable', () => {
+    const { onRetry } = mount(openState({
+      groups: [
+        { source: 'command', status: 'error', items: [] },
+        { source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'plan' }], issues: [{ section: 'Skills', message: 'Acme failed' }] },
+      ],
+      highlight: { source: 'catalog', index: 0 },
+    }))
+    expect(screen.getByText('加载失败')).not.toBeNull()
+    expect(screen.getByText('Skills')).not.toBeNull()
+    expect(screen.getByText('Acme failed')).not.toBeNull()
+    const retries = screen.getAllByRole('button', { name: '重试' })
+    fireEvent.mouseDown(retries[0]!)
+    fireEvent.mouseDown(retries[1]!)
+    expect(onRetry.mock.calls).toEqual([['command'], ['catalog']])
+  })
+
   it('exposes the highlight via aria-activedescendant and aria-selected', () => {
     mount(openState({ highlight: { source: 'command', index: 1 } }))
     const listbox = screen.getByRole('listbox')
@@ -197,13 +222,15 @@ describe('MenuView', () => {
     expect(screen.getByRole('listbox').getAttribute('aria-activedescendant')).toBeNull()
   })
 
-  it('scrolls the highlighted option into view when the highlight moves', () => {
+  it('scrolls only the menu viewport when the highlight moves', () => {
     const { menu } = mount(openState())
-    scrollIntoView.mockClear()
-    act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    const viewport = screen.getByRole('listbox')
     const options = screen.getAllByRole('option')
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
-    expect(scrollIntoView.mock.instances.at(-1)).toBe(options[1])
+    Object.defineProperty(viewport, 'scrollTop', { value: 0, writable: true })
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 40 } as DOMRect)
+    vi.spyOn(options[1]!, 'getBoundingClientRect').mockReturnValue({ top: 50, bottom: 70 } as DOMRect)
+    act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    expect(viewport.scrollTop).toBe(30)
   })
 
   it('caps the list height at the design maximum when the composer sits low enough', () => {

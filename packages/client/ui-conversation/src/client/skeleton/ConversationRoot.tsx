@@ -365,7 +365,7 @@ export function ConversationRoot({
         // user clears it.
         ? { blocked: composerBlock, placeholder: composerBlock.reason }
         : hero ? { placeholder: t('placeholder.hero') } : {}),
-    overlay: sessionId === undefined ? undefined : renderSlot('conversation.input.overlay', {}),
+    overlay: renderSlot('conversation.input.overlay', {}),
     leftItems: zone === undefined ? null : renderSlot('conversation.input.left', zone),
     rightItems: zone === undefined ? null : renderSlot('conversation.input.right', zone),
     // Ambient dock under the card shares the composer's width constraint.
@@ -374,7 +374,7 @@ export function ConversationRoot({
 
   const composerBar = (
     <div className={clsx(css.composerStack, hero && css.composerHero)}>
-      {hero && <HeroGlow className={css.heroGlow} />}
+      {hero && <div className={css.heroGlowClip} data-hero-glow-clip=""><HeroGlow className={css.heroGlow} /></div>}
       {hero && (
         <div className={css.heroWelcome} data-hero-welcome="">
           <HeroShell t={t} />
