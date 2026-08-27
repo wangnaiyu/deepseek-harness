@@ -145,6 +145,7 @@ describe('ComposerCatalogGateway', () => {
       },
       providers: [provider('filesystem', filesystemList), provider('third-party', thirdPartyList)],
     })
+    ctx.commands.register(command('archive'))
     ctx.commands.register(command('feedback'))
     ctx.commands.register(command('pto-panel', 'Open the PTO panel', 'pto.commands'))
     ctx.commands.register(command('extension', 'Plugin command', 'unknown-plugin'))
@@ -163,10 +164,11 @@ describe('ComposerCatalogGateway', () => {
 
     expect(ctx.sessions.list()).toEqual(sessionsBefore)
     expect(result.commands).toEqual([
+      expect.objectContaining({ name: 'archive', origin: { kind: 'dsh', label: 'DSH' } }),
       expect.objectContaining({ name: 'compact', origin: { kind: 'agent', label: 'Agent' } }),
-      expect.objectContaining({ name: 'extension', origin: { kind: 'plugin', label: 'Plugin' } }),
       expect.objectContaining({ name: 'feedback', origin: { kind: 'agent', label: 'Agent' } }),
       expect.objectContaining({ name: 'pto-panel', origin: { kind: 'pto', label: 'PTO' } }),
+      expect.objectContaining({ name: 'extension', origin: { kind: 'plugin', label: 'Plugin' } }),
     ])
     expect(result.skills.map(skill => [skill.name, skill.origin.label, skill.modelInvocable])).toEqual([
       ['user-first', 'User', true],

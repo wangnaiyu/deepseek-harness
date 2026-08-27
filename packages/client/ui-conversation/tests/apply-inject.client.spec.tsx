@@ -19,6 +19,7 @@ import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@
 import type { SessionBehaviorOverrides } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import { InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
   ChatViewInjected, ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
@@ -45,7 +46,9 @@ function sessionFakeFor() {
   } satisfies SessionBehaviorOverrides
 }
 
-async function bench() {
+async function bench(options: {
+  admitMaterialized?: (draft: unknown, session: unknown, line: string, signal: AbortSignal) => Promise<void>
+} = {}) {
   const runtime = await SlotTestRuntime.create()
   runtime.provide('connection', { api: { settings: {} }, isLoopback: false })
   // The plugin injects both; these specs exercise no settings path.
@@ -62,6 +65,25 @@ async function bench() {
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
+  if (options.admitMaterialized !== undefined) {
+    await runtime.ctx.plugin(InputTriggerService)
+    const inputTriggers = runtime.ctx.get('inputTriggers') as InputTriggerService
+    inputTriggers.registerSource({
+      trigger: '/',
+      name: 'formal-admission-probe',
+      targets: ['draft'],
+      candidates: () => Promise.resolve([]),
+      onPick: () => undefined,
+      admitMaterialized: options.admitMaterialized,
+    })
+    inputTriggers.registerSource({
+      trigger: '/',
+      name: 'command',
+      targets: ['session'],
+      candidates: () => Promise.resolve([]),
+      onPick: () => undefined,
+    })
+  }
 
   // The AppFrame role: the conversation-package slots must be declared by a
   // live entry before apply can contribute into them.
@@ -235,6 +257,52 @@ describe('conversation slot inject API', () => {
     await b.runtime.dispose()
   })
 
+  it('writes one slash when the draft plus launcher opens and removes it when the same launcher closes', async () => {
+    const b = await bench({ admitMaterialized: () => Promise.resolve() })
+    const draft = b.draftInputApi()
+    const composer = b.composerApi(undefined)
+    draft.actions.setDraft('draft tail')
+
+    expect(composer.toggleCommandMenu!({ start: 0, end: 0 })).toBe(1)
+    expect(draft.state.getSnapshot().draft).toBe('/draft tail')
+    expect(composer.hooks.menuLauncher.getSnapshot()).toBe('/')
+
+    expect(composer.toggleCommandMenu!({ start: 1, end: 1 })).toBe(0)
+    expect(draft.state.getSnapshot().draft).toBe('draft tail')
+    expect(composer.hooks.menuLauncher.getSnapshot()).toBeNull()
+    await b.runtime.dispose()
+  })
+
+  it('removes the slash inserted by the session plus launcher when clicked again', async () => {
+    const b = await bench({ admitMaterialized: () => Promise.resolve() })
+    const input = b.inputApi(ROOT)
+    const composer = b.composerApi(ROOT)
+    input.actions.setDraft('tail')
+
+    expect(composer.toggleCommandMenu!({ start: 0, end: 0 })).toBe(1)
+    expect(input.state.getSnapshot().draft).toBe('/tail')
+    expect(composer.hooks.menuLauncher.getSnapshot()).toBe('command')
+
+    expect(composer.toggleCommandMenu!({ start: 1, end: 1 })).toBe(0)
+    expect(input.state.getSnapshot().draft).toBe('tail')
+    expect(composer.hooks.menuLauncher.getSnapshot()).toBeNull()
+    await b.runtime.dispose()
+  })
+
+  it('never deletes another slash after the caret moves away from the launcher token', async () => {
+    const b = await bench({ admitMaterialized: () => Promise.resolve() })
+    const draft = b.draftInputApi()
+    const composer = b.composerApi(undefined)
+    draft.actions.setDraft('tail/')
+
+    expect(composer.toggleCommandMenu!({ start: 0, end: 0 })).toBe(1)
+    expect(draft.state.getSnapshot().draft).toBe('/tail/')
+    expect(composer.toggleCommandMenu!({ start: 6, end: 6 })).toBeUndefined()
+    expect(draft.state.getSnapshot().draft).toBe('/tail/')
+    expect(composer.hooks.menuLauncher.getSnapshot()).toBeNull()
+    await b.runtime.dispose()
+  })
+
   it('openDetails (chat view face) writes the selection through the store actions and opens the panel', async () => {
     const b = await bench()
     const { instance, injected } = b.chatViewApi(ROOT)
@@ -311,6 +379,48 @@ describe('conversation slot inject API', () => {
       [{ type: 'text', text: 'first prompt' }], 'queue', expect.any(AbortSignal),
     )
     await vi.waitFor(() => { expect(state.getSnapshot().draft).toBe('') })
+    await b.runtime.dispose()
+  })
+
+  it('revalidates the materialized Session catalog before admitting the first prompt', async () => {
+    const admitMaterialized = vi.fn(() => Promise.resolve())
+    const b = await bench({ admitMaterialized })
+    b.runtime.sessions.clear()
+    b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
+    const { actions } = b.draftInputApi()
+    actions.setDraft('/skill pto-analyze')
+
+    actions.submit()
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+
+    expect(admitMaterialized).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'draft' }),
+      { sessionId: ROOT },
+      '/skill pto-analyze',
+      expect.any(AbortSignal),
+    )
+    expect(admitMaterialized.mock.invocationCallOrder[0])
+      .toBeLessThan(b.sessionFake.prompt.mock.invocationCallOrder[0]!)
+    expect(b.runtime.workspaces.calls.filter(call => call.method === 'materializeSessionDraft')).toHaveLength(1)
+    await b.runtime.dispose()
+  })
+
+  it('keeps the first prompt in the new Session when formal catalog admission rejects it', async () => {
+    const admitMaterialized = vi.fn(() => Promise.reject(new Error('Skill "pto-analyze" is no longer available')))
+    const b = await bench({ admitMaterialized })
+    b.runtime.sessions.clear()
+    b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
+    const draft = b.draftInputApi()
+    draft.actions.setDraft('/skill pto-analyze')
+
+    draft.actions.submit()
+    await vi.waitFor(() => { expect(admitMaterialized).toHaveBeenCalledOnce() })
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(0)
+    expect(b.inputApi(ROOT).state.getSnapshot().draft).toBe('/skill pto-analyze')
+    expect(draft.state.getSnapshot().draft).toBe('/skill pto-analyze')
     await b.runtime.dispose()
   })
 

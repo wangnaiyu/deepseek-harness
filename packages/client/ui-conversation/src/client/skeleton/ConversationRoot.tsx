@@ -182,7 +182,7 @@ export function ConversationRoot({
 
   const composerBar = (
     <div className={clsx(css.composerStack, hero && css.composerHero)}>
-      {hero && <HeroGlow className={css.heroGlow} />}
+      {hero && <div className={css.heroGlowClip} data-hero-glow-clip=""><HeroGlow className={css.heroGlow} /></div>}
       {hero && (
         <div className={css.heroWelcome} data-hero-welcome="">
           <HeroShell t={t} />
