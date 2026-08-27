@@ -674,7 +674,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/fs/fs-local/src/index.ts:41`](../packages/fs/fs-local/src/index.ts)
+来源：[`packages/fs/fs-local/src/index.ts:43`](../packages/fs/fs-local/src/index.ts)
 
 <a id="deepseek-aidsh-fs-sandbox"></a>
 
@@ -1563,6 +1563,28 @@ export interface PlanModeConfig {
 ```
 
 来源：[`packages/plan/plan-mode/src/index.ts:70`](../packages/plan/plan-mode/src/index.ts)
+
+<a id="deepseek-aidsh-pto-experiments"></a>
+
+## `@deepseek-ai/dsh-pto-experiments`
+
+需要：`fs` · `storageDomain` · `systemPrompt` · `tools`
+
+```ts config-catalog
+/** Deployment-owned executables and execution/metric-collection bounds. */
+export interface Config {
+  /** Trusted Git executable used only with fixed identity-probe arguments. */
+  gitCommand?: string
+  /** Trusted Python executable used only with the fixed PyPTO environment probe. */
+  pythonCommand?: string
+  /** Maximum accepted planned workload timeout in milliseconds. */
+  maxExecutionTimeoutMs?: number
+  /** Maximum chip-swimlane artifact size admitted by metric collection. */
+  maxMetricArtifactBytes?: number
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts:139`](../packages/pto/pto-experiments/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -2715,6 +2737,28 @@ export interface Config {
 
 来源：[`packages/lsp/tool-lsp/src/index.ts:58`](../packages/lsp/tool-lsp/src/index.ts)
 
+<a id="deepseek-aidsh-tool-pto-run"></a>
+
+## `@deepseek-ai/dsh-tool-pto-run`
+
+依赖：`tools` · `fs` · `systemPrompt`
+
+```ts config-catalog
+/** Deployment-owned discovery and inspection bounds. */
+export interface Config {
+  /** Maximum directory depth below the Session workspace root. Defaults to 8. */
+  maxDepth?: number
+  /** Maximum directories visited by one discovery call. Defaults to 5000. */
+  maxDirectories?: number
+  /** Maximum recognized runs returned by one discovery call. Defaults to 200. */
+  maxRuns?: number
+  /** Maximum file entries inventoried by one inspection call. Defaults to 2000. */
+  maxArtifactEntries?: number
+}
+```
+
+来源：[`packages/pto/tool-pto-run/src/index.ts:31`](../packages/pto/tool-pto-run/src/index.ts)
+
 <a id="deepseek-aidsh-tool-pwsh"></a>
 
 ## `@deepseek-ai/dsh-tool-pwsh`
@@ -3293,6 +3337,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-model-selection`（[`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-permission-presets`（[`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-plan`（[`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-pto-experiments`（[`packages/client/ui-pto-experiments/src/index.ts`](../packages/client/ui-pto-experiments/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-reference`（[`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-renderer`（[`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-settings`（[`packages/client/ui-settings/src/index.ts`](../packages/client/ui-settings/src/index.ts)）
@@ -3320,6 +3365,7 @@ export interface Config {
 - `@deepseek-ai/dsh-host-directory-picker-auto` — 需要 `webServer` · `loader`（[`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts)）
 - `@deepseek-ai/dsh-host-directory-picker-native`（[`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts)）
 - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
+- `@deepseek-ai/dsh-host-pto-experiment-dashboard` — 需要 `sessions` · `agents` · `ptoExperiments`（[`packages/host/pto-experiment-dashboard/src/index.ts`](../packages/host/pto-experiment-dashboard/src/index.ts)）
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
 - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）

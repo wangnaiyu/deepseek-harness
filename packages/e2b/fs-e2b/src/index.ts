@@ -10,6 +10,7 @@ import { posix } from 'node:path'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
   FsDirEntry,
+  FsDirectoryReservation,
   FsEditOutcome,
   FsEditRequest,
   FsInfo,
@@ -371,6 +372,38 @@ export class E2BFileSystem extends FileSystem {
     } catch (error: unknown) {
       throw mapError(error, 'list', target.displayPath, signal)
     }
+  }
+
+  override async reserveDirectory(
+    target: FsTarget,
+    signal?: AbortSignal,
+  ): Promise<FsDirectoryReservation> {
+    return this.withLock(String(target.targetKey), async () => {
+      assertNotAborted(signal, 'directory reservation')
+      const sandbox = await this.ctx.e2b.getSandbox()
+      const path = String(target.targetKey)
+      const parent = posix.dirname(path)
+      try {
+        const result = await sandbox.commands.run(
+          `if mkdir -m 700 -- ${quoteE2BShellArg(path)}; then printf created; elif test -e ${quoteE2BShellArg(path)} || test -L ${quoteE2BShellArg(path)}; then printf exists; elif test ! -d ${quoteE2BShellArg(parent)}; then printf parent-missing; else exit 1; fi`,
+          commandOpts(undefined),
+        )
+        if (result.stdout === 'exists') {
+          throw new FsError(`cannot reserve "${target.displayPath}": path already exists`, 'FS_ALREADY_EXISTS')
+        }
+        if (result.stdout === 'parent-missing') {
+          throw new FsError(`cannot reserve "${target.displayPath}": parent directory does not exist`, 'FS_NOT_FOUND')
+        }
+        if (result.stdout !== 'created') throw new Error('directory reservation returned an invalid result')
+        const created = await this.probe(path, target.displayPath)
+        if (created === undefined || entryType(created) !== 'directory') {
+          throw new Error('created directory is unavailable')
+        }
+        return { version: entryVersion(created) }
+      } catch (error: unknown) {
+        throw mapError(error, 'reserve', target.displayPath, signal)
+      }
+    })
   }
 
   override async writeText(

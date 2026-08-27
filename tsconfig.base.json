@@ -148,6 +148,7 @@
         "./packages/util/*/src/invariant.ts",
         "./packages/mcp/*/src/invariant.ts",
         "./packages/identity/*/src/invariant.ts",
+        "./packages/pto/*/src/invariant.ts",
         "./packages/test-support/*/src/invariant.ts"
       ],
       // host/client package names prefix the group dir (dsh-client-<dir>), so
@@ -179,6 +180,8 @@
       "@deepseek-ai/dsh-host-frontend-static": ["./packages/host/frontend-static/src"],
       "@deepseek-ai/dsh-host-composer-catalog": ["./packages/host/composer-catalog/src"],
       "@deepseek-ai/dsh-host-composer-catalog/types": ["./packages/host/composer-catalog/src/types.ts"],
+      "@deepseek-ai/dsh-host-pto-experiment-dashboard": ["./packages/host/pto-experiment-dashboard/src"],
+      "@deepseek-ai/dsh-host-pto-experiment-dashboard/types": ["./packages/host/pto-experiment-dashboard/src/types.ts"],
       "@deepseek-ai/dsh-host-plugin-inventory": ["./packages/host/plugin-inventory/src"],
       "@deepseek-ai/dsh-host-plugin-inventory/types": ["./packages/host/plugin-inventory/src/types.ts"],
       "@deepseek-ai/dsh-client-ui-slots": ["./packages/client/ui-slots/src"],
@@ -208,9 +211,11 @@
       "@deepseek-ai/dsh-client-ui-brand-pto": ["./packages/client/ui-brand-pto/src"],
       "@deepseek-ai/dsh-client-ui-conversation": ["./packages/client/ui-conversation/src"],
       "@deepseek-ai/dsh-client-ui-tool": ["./packages/client/ui-tool/src"],
+      "@deepseek-ai/dsh-client-ui-pto-experiments": ["./packages/client/ui-pto-experiments/src"],
       "@deepseek-ai/dsh-client-ui-deliverables": ["./packages/client/ui-deliverables/src"],
       "@deepseek-ai/dsh-client-ui-workflow-run": ["./packages/client/ui-workflow-run/src"],
       "@deepseek-ai/dsh-client-ui-input-trigger": ["./packages/client/ui-input-trigger/src"],
+      "@deepseek-ai/dsh-client-ui-composer-catalog": ["./packages/client/ui-composer-catalog/src"],
       "@deepseek-ai/dsh-client-ui-reference": ["./packages/client/ui-reference/src"],
       "@deepseek-ai/dsh-client-ui-commands": ["./packages/client/ui-commands/src"],
       "@deepseek-ai/dsh-client-ui-model-selection": ["./packages/client/ui-model-selection/src"],
@@ -286,6 +291,7 @@
         "./packages/util/*/src",
         "./packages/mcp/*/src",
         "./packages/identity/*/src",
+        "./packages/pto/*/src",
         "./packages/test-support/*/src",
         "./packages/host/*/src",
         "./packages/client/*/src"

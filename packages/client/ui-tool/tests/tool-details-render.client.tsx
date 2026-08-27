@@ -68,6 +68,7 @@ export function renderToolDetails(
       cwd={details.cwd}
       useHostDescription={selector => selector(description)}
       t={t}
+      renderSlot={(_name, _owner, options) => options?.fallback ?? null}
     />
   }
 }

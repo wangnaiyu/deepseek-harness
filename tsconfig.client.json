@@ -68,6 +68,7 @@
     { "path": "./packages/client/ui-brand-pto" },
     { "path": "./packages/client/ui-conversation" },
     { "path": "./packages/client/ui-tool" },
+    { "path": "./packages/client/ui-pto-experiments" },
     { "path": "./packages/client/ui-deliverables" },
     { "path": "./packages/client/ui-workflow-run" },
     { "path": "./packages/client/ui-workspace" },

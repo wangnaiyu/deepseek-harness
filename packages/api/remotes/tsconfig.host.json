@@ -29,6 +29,9 @@
       "path": "../../interaction/commands"
     },
     {
+      "path": "../../host/pto-experiment-dashboard"
+    },
+    {
       "path": "../../llm/llm"
     },
     {

@@ -158,8 +158,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * forms must both be handled: branch on `'kind' in block` (a settled
      * `ToolResultNode` has it, a still-running call does not), and treat
      * `cwd` as display-only, for shortening workspace-rooted paths.
-     * A per-tool renderer belongs in the keyed `tool.call.toolview` seat
-     * instead; this one is the whole panel.
+     * This remains the whole-panel seat. The shipped `ui-tool` occupant may
+     * delegate its output body through its own keyed
+     * `tool.result.detailview` child seat; third-party per-tool details should
+     * register there instead of taking over this single slot.
      */
     'conversation.details.tool': { kind: 'single'; scope: 'session'; owner: DetailsToolOwnerProps }
     /**

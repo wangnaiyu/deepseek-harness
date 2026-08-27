@@ -12,7 +12,7 @@ Client 工具展示插件。`ui-conversation` 通过 `conversation.chat.node` �
 
 每个 root 和 child 包装层都保留 `data-chat-anchor-key="call:<id>"` 与 `data-chat-call-id` DOM 约定，供分页和 selection 使用。
 
-本包还通过 `ToolDetails` 填充 `conversation.details.tool`。行 renderer 与详情 renderer 共用同一组面向 `terminal`、`read`、`diff`、`search` 和 `web` render intent 的纯 card model。未知的 intent 标签和格式错误的 wire card 数据都会回退为压平的工具结果文本。
+本包还通过 `ToolDetails` 填充 `conversation.details.tool`。该整面板 owner 会按 wire 工具名，把输出体委托给 session-scoped keyed 子槽 `tool.result.detailview`；没有注册的 key 保留通用 renderer。行 renderer 与通用详情 renderer 共用同一组面向 `terminal`、`read`、`diff`、`search` 和 `web` render intent 的纯 card model。未知的 intent 标签和格式错误的 wire card 数据都会回退为压平的工具结果文本。
 
 通用行把已知工具名称归类为 search、read、shell、write、edit、code 或 generic 变体。运行中、成功、失败和中断状态只来自冻结的 call/result slice。只有用户调用 Host 打开文件回调时，文件路径才相对会话 `cwd` 解析；展示代码不读取会话服务。
 
@@ -31,6 +31,18 @@ ctx.slots.inject('tool.call.toolview', () =>
 owner 载荷为 `ToolCallOwnerProps`：`callId`、`toolName`、冻结的 `block`、可选 `cwd` 与 `home`，以及普通的 `openFile`、`inspect` 回调。路径摘要先相对会话 cwd 缩短，再把剩余的 POSIX 宿主家目录写成 `~`；`filePath` 与 Host 打开仍使用作者给出的文件系统路径。注册项会收到常规的会话 slot 运行时共享数据，但不会收到 React node、运行时服务或 root/subcall 知识。
 
 本包当前拥有 generic fallback，以及 shell/pwsh、read、write/edit、grep/glob、web、todo、question 和 Code Dispatch 的内置展示。`ui-skill` 展示了业务包自行拥有的 `skill` 注册项。
+
+业务包可以按同一个 wire 工具名独立注册全高 details 内容：
+
+```ts ignore-check
+ctx.slots.inject('tool.result.detailview', () =>
+  ctx.slots.register({
+    name: 'tool.result.detailview',
+    key: '<wire tool name>',
+  }, BusinessToolDetails))
+```
+
+它的 owner 是 `ToolResultDetailsOwnerProps`：`callId`、`toolName`、同一份冻结的 running/settled `block`，以及可选、仅供显示的 `cwd`。注册项必须处理两种生命周期形态，并对格式异常的业务结果 fail closed。它不能替换仍由单一整面板 owner 占用、并负责通用 fallback 的 `conversation.details.tool`。
 
 各类卡片的上限与 fallback 规则仍由对应的 [terminal](../../../.agents/notes/implemented/feature/2026-07-28-web-terminal-card.zh.md)、[diff](../../../.agents/notes/implemented/feature/2026-07-30-web-diff-card.zh.md)、[read](../../../.agents/notes/implemented/feature/2026-07-30-web-read-card-frontend.zh.md)、[search](../../../.agents/notes/implemented/feature/2026-07-30-web-search-card.zh.md) 和 [web](../../../.agents/notes/implemented/feature/2026-07-30-web-result-card-frontend.zh.md) Agent Note 负责。
 
