@@ -1,9 +1,27 @@
+---
+description: "持久、限定于 Workspace 的 PTO 实验规划、可信执行、指标采集与比较；供运行证据门控优化实验的用户与维护者阅读。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-pto-experiments
 
 [English](README.md) | 中文
 
+## 概述
+
 持久、限定于 Workspace 的 PTO 实验规划、查询、可信 Host 执行、指标采集与比较服务。它拥有 `ctx.ptoExperiments`、`pto_experiments` storage domain、四个模型工具和一个非工具的 `execute()` 准入 API。
 
+## 目录
+
+- [服务契约](#service-contract)
+- [失败与边界](#failures-and-limits)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="service-contract"></a>
 ## 服务契约
 
 `plan(scope, input)` 通过 `ctx.fs` 解析 Session Workspace、source、baseline 与 candidate。source 和 baseline 必须是 Workspace 内已有目录；candidate 必须不存在、位于 source 内、与 baseline 不相交，并且未被该 Workspace 的其他 experiment 占用。baseline 准入复用 `@deepseek-ai/dsh-tool-pto-run` 的 `recognizePtoRun()`。
@@ -22,12 +40,14 @@ zod 持久 schema 验证 `planned → authorized → running → completed|faile
 
 `compare(scope, { experimentId, expectedRevision })` 同时以 `pto_experiment_compare` 形式提供。它只接受 expected revision 上的已完成记录，而且只会与同一 Workspace 内由应用拥有的另一已完成实验 output 作为 baseline 比较。metric、task、hardware、environment、command、source-root 和精确的已提交 Git diff identity 必须全部匹配，才会计算 delta。在存在用户拥有的 threshold 与 repetition/significance rule 之前，放行的单次观测 delta 仍是 `inconclusive`；任何缺失或不匹配证据都返回没有 delta 的 `incomparable`。
 
+<a id="failures-and-limits"></a>
 ## 失败与边界
 
 必填文本字段最多接受 4,096 个字符。一条 proposal 最多接受 64 个 evidence reference，每个最多 1,024 个字符。execution timeout 默认一小时，不能超过部署的 `maxExecutionTimeoutMs`（默认 24 小时）。chip-swimlane input 默认受 64 MiB 的 `maxMetricArtifactBytes` 上限约束；`compiled_meta.json` 固定上限为 1 MiB。路径无效、baseline marker 不受支持、违反 containment 或 disjointness、candidate 已存在、candidate 所有权重复、limit/revision 无效、记录不存在、跨 Workspace 访问、source 脏或非 Git，以及 PyPTO 不可用都会 fail closed。
 
 source 必须是干净、已提交的 Git worktree，包括没有 untracked file。candidate 的 parent directory 必须已存在，因为 reservation 刻意不递归。如果 reservation 成功但后续持久 put 失败，可能留下空的 orphan candidate directory；没有 workload 会开始，而且不可复用的 path 会让该失败保持可见并 fail closed。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 ### 工具 schema
@@ -60,7 +80,19 @@ PTO profile 启用本包时，模型会看到生成的 [`pto_experiment_plan`、
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - domain 没有删除、归档或 retry 操作。list 有界，但 storage 会随 experiment 增长；terminal record 不能返回 `planned`。
 - crash recovery 把中断的前台 run 记录为 failed；它无法重新附着或终止前一个 Host lifetime 的进程。
 - environment adapter 识别已配置 Python 和可导入 PyPTO package，但尚未绑定 driver、device、compiler binary 或 workload-specific dependency。
 - 指标采集仅支持当前 L2 `chip_swimlane_records.json` 加 `compiled_meta.json` 形状。legacy `l2_swimlane_records.json`、L3 dispatch tree、自动 rerun、多次观测、threshold/significance policy 和 experiment UI 仍延后。
+
+<a id="dev-note"></a>
+### 开发备注
+
+<details>
+<summary>维护者的工作上下文——点击展开</summary>
+
+无。
+
+</details>

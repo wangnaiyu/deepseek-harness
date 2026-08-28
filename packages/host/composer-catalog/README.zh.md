@@ -1,6 +1,13 @@
+---
+description: "面向草稿与正式 Session Command 和 Skill 的只读 Host 目录；供配置可信来源或排查局部发现失败的部署方与维护者阅读。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-host-composer-catalog
 
 [English](README.md) | 中文
+
+## 概述
 
 面向草稿与正式 Session 输入框的只读 Host 投影。`ComposerCatalogGateway` 发布 `composerCatalog/listDraft` 与 `composerCatalog/listSession`。草稿请求只携带可选 `workspaceId` 和 Agent preset id，绝不接受客户端路径；Session 请求只携带 `sessionId`。Host 解析规范 cwd、Workspace 标签、最终 Agent／standing scope 和隔离 Skill registry，再分别返回最终有效的 Commands 与用户可调用 Skills。Session 读取不会启动 turn，读取冷的已挂载 Session 也不会恢复 Agent。
 
@@ -12,10 +19,21 @@
 
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过 [`api-remotes`](../../api/remotes/README.zh.md) 消费生成的 `./remote` contribution（贡献）与 `./types` payload vocabulary（载荷词汇），不直接导入 Host 实现。
 
+## 目录
+
+- [配置](#configuration)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="configuration"></a>
 ## 配置
 
 `providerOrigins` 是可信声明的有序列表。每项必须提供 `provider` 与 `kind`（`dsh`、`pto`、`plugin` 或 `user`），可以增加 Skill `source` 区分项，也可以为 `plugin` 增加友好 `label`。重复的 provider/source 组合会在激活时失败。source 级声明优先于 provider 级声明。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 无，因为这个仅限 Host 的草稿目录投影不注册提示词、工具、消息或提供方请求。
@@ -26,6 +44,18 @@
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - **Skill 不完整诊断只到区域级** —— Skill registry 会暴露完成状态，但不暴露被拒绝的 provider identity（提供方身份），因此 `skill-catalog-incomplete` 暂时无法指出具体产品来源。
 - **没有推送失效通知** —— `revision` 可用于比较两次查询结果，但本包尚未发布合并后的目录变化 Remote event（远程事件）。
 - **没有图标 registry** —— wire item（协议条目）预留了可选 `iconId`，但在可信本地图标 registry 出现前本包不会输出它。
+
+<a id="dev-note"></a>
+### 开发备注
+
+<details>
+<summary>维护者的工作上下文——点击展开</summary>
+
+无。
+
+</details>

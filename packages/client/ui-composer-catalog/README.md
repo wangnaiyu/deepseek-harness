@@ -1,6 +1,13 @@
+---
+description: "New Session composer discovery for Commands and user-invocable Skills; for users and maintainers debugging draft capability selection and formal-session admission."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-composer-catalog
 
 English | [中文](README.zh.md)
+
+## Summary
 
 Unified capability source for the browser-only New Session composer. It calls the Host-owned `composerCatalog.listDraft({ workspaceId?, agentPreset? })` seam and projects Commands and user-invocable Skills into the generic [`ui-input-trigger`](../ui-input-trigger/README.md) menu. The source serves draft targets only: existing Session command execution and Skill discovery remain owned by `ui-commands` and `ui-skill`.
 
@@ -9,6 +16,16 @@ The leading `+` launcher and typed `/` both use the same draft controller and so
 One Host request is single-flighted per draft target revision. Workspace and staged Agent-preset changes both update that target without clearing the editor; the conversation wiring dismisses the old menu, so its aborted request cannot publish into the new target. Transport failure leaves a retryable source row, while Host-contained area errors render beside successful rows and can invalidate only this source before retry without hiding successful sibling sources. Picks only splice text into the draft: `/<command> ` for Commands and canonical `/skill <name> ` for Skills. The settled catalog publishes both canonical and legacy-compatible lexemes for derived input decoration. Host parsing and deterministic Skill injection remain owned by `dsh-tool-skill` at `agent/pre-step`.
 
 On first send, the conversation layer materializes one Session and asks this source to compare the cached draft catalog with a fresh formal `listSession` result before transferring the text. A selected capability that disappeared, changed trusted origin or invocation policy, or crossed a Command/Skill conflict boundary rejects the submit and leaves the browser draft intact. The Host `session.prompt` independently revalidates canonical Skill availability immediately before persistence, covering hand-typed text and non-Web clients.
+
+## Table of Contents
+
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="model-experience"></a>
 
 ## Model Experience
 
@@ -20,4 +37,16 @@ None until the user submits the draft through a later execution stage.
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - Plain hand-typed text has no historical menu selection identity. It is validated against the current formal Session catalog; origin-change comparison applies when the draft catalog snapshot contained the addressed capability.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>

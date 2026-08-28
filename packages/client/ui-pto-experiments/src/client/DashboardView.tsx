@@ -38,13 +38,13 @@ function metric(entry: PtoExperimentDashboardEntry, t: PropsLocale<'ptoExperimen
   return t(`dashboard.metric.${entry.metric.status}`)
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
   try {
     const encoded: unknown = JSON.stringify(error)
-    return typeof encoded === 'string' ? encoded : 'Unknown error'
-  } catch { return 'Unknown error' }
+    return typeof encoded === 'string' ? encoded : fallback
+  } catch { return fallback }
 }
 
 /** Durable experiment list with explicit refresh and contained loading/error states. */
@@ -63,10 +63,10 @@ export function ExperimentDashboardView({
       (value) => { if (request.current === generation) setState({ kind: 'ready', value }) },
       (error: unknown) => {
         if (request.current !== generation) return
-        setState({ kind: 'error', message: errorMessage(error) })
+        setState({ kind: 'error', message: errorMessage(error, t('dashboard.unknownError')) })
       },
     )
-  }, [loadExperiments])
+  }, [loadExperiments, t])
 
   useEffect(() => {
     mounted.current = true
@@ -85,11 +85,11 @@ export function ExperimentDashboardView({
     setActions((current) => {
       const next = new Map(current)
       if (error === undefined) next.delete(experimentId)
-      else next.set(experimentId, { kind: 'error', message: errorMessage(error) })
+      else next.set(experimentId, { kind: 'error', message: errorMessage(error, t('dashboard.unknownError')) })
       return next
     })
     load()
-  }, [load])
+  }, [load, t])
 
   const execute = useCallback((experiment: PtoExperimentDashboardEntry) => {
     const generation = nextAction(experiment.id)

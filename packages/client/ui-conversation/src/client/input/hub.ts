@@ -20,7 +20,7 @@ import type {
   SubmitImageAttachment, SubmitOutcome,
 } from '../contract/input.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
-import type { PopupDismissFace } from './facade.ts'
+import type { PopupDismissFace, SessionInputDeps } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
 
 /** Structural command face for per-session popup resolution. */
@@ -49,10 +49,31 @@ interface ConversationAttachmentFace {
   releaseDraftImage(id: DraftAttachmentId): void
 }
 
+/** Draft materialization face resolved structurally to avoid a UI package cycle. */
+interface WorkspaceMaterializationFace {
+  materializeSessionDraft(): Promise<SessionId>
+}
+
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
   private browserDraft: SessionInputShell | undefined
+
+  /** Shared command-image plumbing for draft and Session shells. */
+  private commandImages(): SessionInputDeps['commandImages'] {
+    return {
+      serialize: ids => this.conversation().serializeDraftImages(ids),
+      // Release may settle after Session teardown; missing Conversation then
+      // leaves preview URLs to the document lifetime.
+      release: (ids) => {
+        const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
+        for (const imageId of ids) conversation?.releaseDraftImage(imageId)
+      },
+      unsupportedNotice: token => this.t('command.imagesUnsupported', {
+        command: token.trim().replace(/^\//u, ''),
+      }),
+    }
+  }
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -83,18 +104,9 @@ export class InputHub implements SessionInputResolver {
     if (this.browserDraft !== undefined) return this.browserDraft
     this.browserDraft = new SessionInputShell({
       actx: this.rootCtx,
-      inputTriggers: () => this.rootCtx.get('inputTriggers')?.draft(),
+      inputTriggers: () => (this.rootCtx.get('inputTriggers') as InputTriggerServiceFace | undefined)?.draft(),
       defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
-      commandImages: {
-        serialize: ids => this.conversation().serializeDraftImages(ids),
-        release: (ids) => {
-          const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
-          for (const imageId of ids) conversation?.releaseDraftImage(imageId)
-        },
-        unsupportedNotice: token => this.t('command.imagesUnsupported', {
-          command: token.trim().replace(/^\//u, ''),
-        }),
-      },
+      commandImages: this.commandImages(),
     })
     return this.browserDraft
   }
@@ -126,20 +138,7 @@ export class InputHub implements SessionInputResolver {
       queue: queueReadFaceOf(session),
       defaultSink: (text, imageIds, mode, signal) => this.sink(session, text, imageIds, mode, signal),
       steerQueue: () => { void this.steerQueue(session, shell) },
-      commandImages: {
-        serialize: ids => this.conversation().serializeDraftImages(ids),
-        // Asymmetric with serialize on purpose: release settles AFTER the
-        // submit RPC, where session teardown may already have unloaded the
-        // conversation service (the same tolerance as the scope disposer
-        // above); leaked preview URLs then die with the document.
-        release: (ids) => {
-          const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
-          for (const imageId of ids) conversation?.releaseDraftImage(imageId)
-        },
-        unsupportedNotice: token => this.t('command.imagesUnsupported', {
-          command: token.trim().replace(/^\//u, ''),
-        }),
-      },
+      commandImages: this.commandImages(),
     })
     this.shells.set(id, shell)
     // The one teardown axis: listeners, shell, and map entries all ride the
@@ -207,7 +206,7 @@ export class InputHub implements SessionInputResolver {
    * @returns the resident draft controller, or undefined before the optional trigger plugin binds it.
    */
   draftInputTriggers(): InputTriggerController | undefined {
-    return this.rootCtx.get('inputTriggers')?.draft()
+    return (this.rootCtx.get('inputTriggers') as InputTriggerServiceFace | undefined)?.draft()
   }
 
   /**
@@ -309,8 +308,8 @@ export class InputHub implements SessionInputResolver {
     return sessions
   }
 
-  private uiWorkspace() {
-    const uiWorkspace = this.rootCtx.get('uiWorkspace')
+  private uiWorkspace(): WorkspaceMaterializationFace {
+    const uiWorkspace = this.rootCtx.get('uiWorkspace') as WorkspaceMaterializationFace | undefined
     if (uiWorkspace === undefined) throw new Error('conversation.input: uiWorkspace service unavailable')
     return uiWorkspace
   }

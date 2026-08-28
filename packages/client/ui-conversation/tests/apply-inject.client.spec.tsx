@@ -110,10 +110,13 @@ async function bench(options: {
     conversationApi(id).injected.hooks.conversationViews
   const draftInputApi = () => {
     const shell = (runtime.ctx.conversation.input as unknown as {
-      draftShell: () => { state: { getSnapshot: () => { draft: string } }; actions: {
-        setDraft: (text: string) => void
-        submit: () => void
-      } }
+      draftShell: () => {
+        state: { getSnapshot: () => { draft: string } }
+        actions: {
+          setDraft: (text: string) => void
+          submit: () => void
+        }
+      }
     }).draftShell()
     return { state: shell.state, actions: shell.actions }
   }

@@ -128,24 +128,26 @@ function WidthHandle(props: {
   )
 }
 
-/** Stable display name for the Host-cwd, registry-unassigned Session bucket. */
-export const UNGROUPED_SESSION_LOCATION_LABEL = 'default'
-
 /** Resolve the no-Session draft's chip label without replacing its real cwd tooltip. */
 export function draftLocationLabel(
   draft: { readonly workspaceId?: string; readonly cwd?: string } | undefined,
   workspaceTitle?: string,
+  ungroupedLabel?: string,
 ): string | undefined {
   if (workspaceTitle !== undefined) return workspaceTitle
   if (draft === undefined) return undefined
-  if (draft.workspaceId === undefined) return UNGROUPED_SESSION_LOCATION_LABEL
+  if (draft.workspaceId === undefined) return ungroupedLabel
   return draft.cwd === undefined || draft.cwd === '' ? undefined : workspaceLabel(draft.cwd)
 }
 
 /** Resolve a real Session's chip label from registry membership, keeping cwd display-only. */
-export function sessionLocationLabel(cwd: string | undefined, workspaceTitle?: string): string | undefined {
+export function sessionLocationLabel(
+  cwd: string | undefined,
+  workspaceTitle?: string,
+  ungroupedLabel?: string,
+): string | undefined {
   if (workspaceTitle !== undefined) return workspaceTitle
-  return cwd === undefined || cwd === '' ? undefined : UNGROUPED_SESSION_LOCATION_LABEL
+  return cwd === undefined || cwd === '' ? undefined : ungroupedLabel
 }
 
 export function ConversationRoot({
@@ -306,8 +308,8 @@ export function ConversationRoot({
   //      bucket label. The exact working directory remains in chipPath/title.
   const chipTitle = pendingWorkspace?.title
     ?? (sessionId === undefined
-      ? draftLocationLabel(workspaces.sessionDraft, draftWorkspace?.title)
-      : sessionLocationLabel(cwd, sessionWorkspace?.title))
+      ? draftLocationLabel(workspaces.sessionDraft, draftWorkspace?.title, t('hero.defaultWorkspace'))
+      : sessionLocationLabel(cwd, sessionWorkspace?.title, t('hero.defaultWorkspace')))
   const chipPath = pendingWorkspace?.path
     ?? (sessionId === undefined ? draftWorkspace?.path ?? workspaces.sessionDraft?.cwd : sessionWorkspace?.path ?? cwd)
 

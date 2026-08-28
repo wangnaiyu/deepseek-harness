@@ -121,6 +121,7 @@ export interface InputTriggerDraftTarget {
   readonly agentPreset?: string
 }
 
+/** Session or browser-draft identity available to an input-trigger source. */
 export type InputTriggerTarget = InputTriggerSessionTarget | InputTriggerDraftTarget
 
 /** Structural per-Session trigger provider consumed by the input shell. */

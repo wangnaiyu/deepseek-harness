@@ -52,13 +52,19 @@ export class TestWorkspaces implements IWorkspaces {
     this.stubs.set(method, impl)
   }
 
-  /** Stage a Workspace target without creating a Session (recorded). */
+  /**
+   * Stage a Workspace target without creating a Session (recorded).
+   * @param workspaceId - target Workspace.
+   */
   selectDraftWorkspace(workspaceId: WorkspaceId): void {
     this.calls.push({ method: 'selectDraftWorkspace', args: [workspaceId] })
     this.stubs.get('selectDraftWorkspace')?.(workspaceId)
   }
 
-  /** Stage an Agent preset target without creating a Session (recorded). */
+  /**
+   * Stage an Agent preset target without creating a Session (recorded).
+   * @param agentPreset - target Agent preset id.
+   */
   selectDraftAgentPreset(agentPreset: string): void {
     this.calls.push({ method: 'selectDraftAgentPreset', args: [agentPreset] })
     this.stubs.get('selectDraftAgentPreset')?.(agentPreset)
@@ -79,7 +85,10 @@ export class TestWorkspaces implements IWorkspaces {
     this.stubs.get('startUnassignedSession')?.()
   }
 
-  /** Materialize the staged test draft (recorded). */
+  /**
+   * Materialize the staged test draft (recorded).
+   * @returns the created Session id.
+   */
   async materializeSessionDraft(): Promise<SessionId> {
     this.calls.push({ method: 'materializeSessionDraft', args: [] })
     const stub = this.stubs.get('materializeSessionDraft')
@@ -87,7 +96,11 @@ export class TestWorkspaces implements IWorkspaces {
     return 'session-of-draft' as SessionId
   }
 
-  /** Register first-send preparation (recorded; default registration is inert). */
+  /**
+   * Register first-send preparation (recorded; default registration is inert).
+   * @param prepare - callback invoked for a newly materialized Session.
+   * @returns a disposer for the registration.
+   */
   prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>): () => void {
     this.calls.push({ method: 'prepareSessionDraft', args: [prepare] })
     const stub = this.stubs.get('prepareSessionDraft')

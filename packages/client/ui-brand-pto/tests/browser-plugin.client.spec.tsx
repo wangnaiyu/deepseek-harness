@@ -3,6 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '../src/client/index.ts'
 import { PtoBrandMark, PtoBrandName } from '../src/client/Brand.tsx'
 
@@ -20,6 +21,7 @@ const HOLES = [
 async function bench(declare = true) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
+  ctx.provide('locale', new LocaleRuntime(ctx))
   const slots = ctx.get('slots') as SlotRegistry
   const declareHoles = () => slots.register({
     name: 'root',
@@ -31,7 +33,7 @@ async function bench(declare = true) {
 
 describe('pto browser-brand plugin', () => {
   it('declares only the slot service it uses', () => {
-    expect(inject).toEqual(['slots'])
+    expect(inject).toEqual(['slots', 'locale'])
   })
 
   it('fills declarations before or after apply and removes every occupant on teardown', async () => {
@@ -58,7 +60,11 @@ describe('pto browser-brand plugin', () => {
   })
 
   it('renders the PTO name independently from both requested mark sizes', () => {
-    const name = render(<PtoBrandName />)
+    const name = render(<PtoBrandName t={(key) => {
+      if (key === 'wordmark') return 'PTO Agent 工作台'
+      if (key === 'badge') return 'DSH'
+      return key
+    }} />)
     const root = name.getByText('PTO Agent 工作台').parentElement
     expect(root?.tagName).toBe('SPAN')
     expect(root?.children).toHaveLength(2)
