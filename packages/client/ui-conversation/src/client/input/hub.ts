@@ -21,7 +21,7 @@ import type {
 } from '../contract/input.ts'
 import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
-import type { PopupDismissFace } from './facade.ts'
+import type { PopupDismissFace, SessionInputDeps } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
 
 /** Structural command face for per-session popup resolution. */
@@ -51,10 +51,31 @@ interface ConversationAttachmentFace {
   releaseDraftAttachment(id: DraftAttachmentId): void
 }
 
+/** Draft materialization face resolved structurally to avoid a UI package cycle. */
+interface WorkspaceMaterializationFace {
+  materializeSessionDraft(): Promise<SessionId>
+}
+
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
   private browserDraft: SessionInputShell | undefined
+
+  /** Shared command-image plumbing for draft and Session shells. */
+  private commandAttachments(): SessionInputDeps['commandAttachments'] {
+    return {
+      serialize: async ids => (await this.conversation().serializeDraftAttachments(ids)).attachments,
+      // Release may settle after Session teardown; missing Conversation then
+      // leaves preview URLs to the document lifetime.
+      release: (ids) => {
+        const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
+        for (const imageId of ids) conversation?.releaseDraftAttachment(imageId)
+      },
+      unsupportedNotice: token => this.t('command.attachmentsUnsupported', {
+        command: token.trim().replace(/^\//u, ''),
+      }),
+    }
+  }
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -85,18 +106,9 @@ export class InputHub implements SessionInputResolver {
     if (this.browserDraft !== undefined) return this.browserDraft
     this.browserDraft = new SessionInputShell({
       actx: this.rootCtx,
-      inputTriggers: () => this.rootCtx.get('inputTriggers')?.draft(),
+      inputTriggers: () => (this.rootCtx.get('inputTriggers') as InputTriggerServiceFace | undefined)?.draft(),
       defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
-      commandAttachments: {
-        serialize: async ids => (await this.conversation().serializeDraftAttachments(ids)).attachments,
-        release: (ids) => {
-          const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
-          for (const imageId of ids) conversation?.releaseDraftAttachment(imageId)
-        },
-        unsupportedNotice: token => this.t('command.attachmentsUnsupported', {
-          command: token.trim().replace(/^\//u, ''),
-        }),
-      },
+      commandAttachments: this.commandAttachments(),
     })
     return this.browserDraft
   }
@@ -128,23 +140,7 @@ export class InputHub implements SessionInputResolver {
       queue: queueReadFaceOf(session),
       defaultSink: (text, attachmentIds, mode, signal) => this.sink(session, text, attachmentIds, mode, signal),
       steerQueue: () => { void this.steerQueue(session, shell) },
-      commandAttachments: {
-        serialize: async (ids) => {
-          const result = await this.conversation().serializeDraftAttachments(ids)
-          return result.attachments
-        },
-        // Asymmetric with serialize on purpose: release settles AFTER the
-        // submit RPC, where session teardown may already have unloaded the
-        // conversation service (the same tolerance as the scope disposer
-        // above); leaked preview URLs then die with the document.
-        release: (ids) => {
-          const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
-          for (const attachmentId of ids) conversation?.releaseDraftAttachment(attachmentId)
-        },
-        unsupportedNotice: token => this.t('command.attachmentsUnsupported', {
-          command: token.trim().replace(/^\//u, ''),
-        }),
-      },
+      commandAttachments: this.commandAttachments(),
     })
     this.shells.set(id, shell)
     // The one teardown axis: listeners, shell, and map entries all ride the
@@ -229,7 +225,7 @@ export class InputHub implements SessionInputResolver {
    * @returns the resident draft controller, or undefined before the optional trigger plugin binds it.
    */
   draftInputTriggers(): InputTriggerController | undefined {
-    return this.rootCtx.get('inputTriggers')?.draft()
+    return (this.rootCtx.get('inputTriggers') as InputTriggerServiceFace | undefined)?.draft()
   }
 
   /**
@@ -332,8 +328,8 @@ export class InputHub implements SessionInputResolver {
     return sessions
   }
 
-  private uiWorkspace() {
-    const uiWorkspace = this.rootCtx.get('uiWorkspace')
+  private uiWorkspace(): WorkspaceMaterializationFace {
+    const uiWorkspace = this.rootCtx.get('uiWorkspace') as WorkspaceMaterializationFace | undefined
     if (uiWorkspace === undefined) throw new Error('conversation.input: uiWorkspace service unavailable')
     return uiWorkspace
   }

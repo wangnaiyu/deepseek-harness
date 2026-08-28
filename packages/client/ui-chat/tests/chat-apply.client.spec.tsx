@@ -50,6 +50,10 @@ async function bench() {
       runtime.sessions.open(SID)
     }),
     openSession: (id: SessionId) => { runtime.sessions.open(id) },
+    list: runtime.workspaces.list,
+    connectWorkspace: vi.fn(async () => SID),
+    selectDraftWorkspace: (workspaceId: never) => { runtime.workspaces.selectDraftWorkspace(workspaceId) },
+    materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
   } as never)
   new TestRemote(runtime.ctx, {
     session: { openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })) },

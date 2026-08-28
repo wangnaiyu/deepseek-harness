@@ -13,7 +13,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { UiConversation } from './conversation/assembly.ts'
 import type { ViewTab } from './contract/views.ts'
-import type { PickOutcome, TokenSpan } from './contract/input.ts'
+import type {
+  EditSelection, InputTriggerController, InputTriggerHit, PickOutcome, TokenSpan,
+} from './contract/input.ts'
 import type {
   ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
   ConversationSessionInjected,
@@ -24,6 +26,7 @@ import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
 import { InputHub } from './input/hub.ts'
+import type { SessionInputShell } from './input/facade.ts'
 import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
@@ -134,6 +137,39 @@ function removeLauncherSlash(
   if (span === undefined || span.draftRev !== draftRev || span.end !== span.start + 1) return undefined
   if (selection.start !== span.end || selection.end !== span.end || draft.slice(span.start, span.end) !== '/') return undefined
   return { draft: draft.slice(0, span.start) + draft.slice(span.end), caret: span.start }
+}
+
+/** Toggle one programmatic slash launcher while keeping its draft edit atomic. */
+function toggleSlashLauncher(
+  shell: SessionInputShell,
+  inputTriggers: InputTriggerController | undefined,
+  source: string,
+  selection: EditSelection,
+  open?: (hit: InputTriggerHit) => void,
+): number | undefined {
+  const snapshot = shell.snapshot
+  if (inputTriggers?.launcher.getSnapshot() === source && inputTriggers.menu.getSnapshot().open) {
+    const launcherSpan = inputTriggers.launcherSpan(source)
+    inputTriggers.dismiss()
+    const removal = removeLauncherSlash(snapshot.draft, snapshot.draftRev, selection, launcherSpan)
+    if (removal === undefined) return undefined
+    shell.setDraft(removal.draft)
+    return removal.caret
+  }
+  shell.setDraft(
+    snapshot.draft.slice(0, selection.start)
+      + '/'
+      + snapshot.draft.slice(selection.end),
+  )
+  const inserted = shell.snapshot
+  open?.({
+    trigger: '/',
+    query: '',
+    quoted: false,
+    position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
+    span: { start: selection.start, end: selection.start + 1, draftRev: inserted.draftRev },
+  })
+  return selection.start + 1
 }
 
 /**
@@ -397,6 +433,30 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     }),
   }, ConversationSessionHeader)
 
+  const composerBase = (
+    conversation: ConversationController,
+    shell: SessionInputShell,
+    sessionId: SessionId | undefined,
+  ): Pick<ComposerBarInjected, 'keyboard' | 'addFiles' | 'removeAttachment' | 'resolveDraftAttachments' | 'retryFileUpload'> => ({
+    keyboard: shell,
+    addFiles: (files) => {
+      try {
+        const images = conversation.createDrafts(sessionId, files)
+        if (!shell.addAttachments(images.map(image => image.id))) conversation.releaseDraftAttachments(images)
+        return null
+      } catch (error: unknown) {
+        if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
+        return error instanceof Error ? error.message : String(error)
+      }
+    },
+    removeAttachment: (id) => {
+      conversation.releaseDraftAttachment(id)
+      shell.removeAttachment(id)
+    },
+    resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
+    retryFileUpload: sessionId === undefined ? undefined : id => conversation.retryFileUpload(sessionId, id),
+  })
+
   const registerComposerBar = () => slots.register({
     name: 'conversation.composer.bar',
     locale: NS,
@@ -414,61 +474,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       if (sessionId === undefined) {
         const conversation = concreteConversation(ctx)
         const shell = inputHub.draftShell()
+        const inputTriggers = inputHub.draftInputTriggers()
         return {
-          keyboard: shell,
-          addFiles: (files) => {
-            try {
-              const images = conversation.createDrafts(undefined, files)
-              if (!shell.addAttachments(images.map(image => image.id))) {
-                conversation.releaseDraftAttachments(images)
-              }
-              return null
-            } catch (error: unknown) {
-              if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
-              return error instanceof Error ? error.message : String(error)
-            }
-          },
-          removeAttachment: (id) => {
-            conversation.releaseDraftAttachment(id)
-            shell.removeAttachment(id)
-          },
-          resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
-          retryFileUpload: undefined,
-          toggleCommandMenu: inputHub.draftInputTriggers() === undefined
-            ? (selection) => {
-              const snapshot = shell.snapshot
-              shell.setDraft(
-                snapshot.draft.slice(0, selection.start)
-                  + '/'
-                  + snapshot.draft.slice(selection.end),
-              )
-              return selection.start + 1
-            }
-            : (selection) => {
-              const inputTriggers = inputHub.draftInputTriggers()
-              if (inputTriggers === undefined) return undefined
-              const snapshot = shell.snapshot
-              if (inputTriggers.launcher.getSnapshot() === '/' && inputTriggers.menu.getSnapshot().open) {
-                const launcherSpan = inputTriggers.launcherSpan('/')
-                inputTriggers.dismiss()
-                const removal = removeLauncherSlash(snapshot.draft, snapshot.draftRev, selection, launcherSpan)
-                if (removal === undefined) return undefined
-                shell.setDraft(removal.draft)
-                return removal.caret
-              }
-              shell.setDraft(
-                snapshot.draft.slice(0, selection.start)
-                  + '/'
-                  + snapshot.draft.slice(selection.end),
-              )
-              const inserted = shell.snapshot
-              inputTriggers.toggleTrigger({
-                trigger: '/', query: '', quoted: false,
-                position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
-                span: { start: selection.start, end: selection.start + 1, draftRev: inserted.draftRev },
-              })
-              return selection.start + 1
+          ...composerBase(conversation, shell, sessionId),
+          toggleCommandMenu: selection => toggleSlashLauncher(
+            shell, inputTriggers, '/', selection,
+            inputTriggers === undefined ? undefined : (hit) => {
+              inputTriggers.toggleTrigger(hit)
             },
+          ),
           stop: undefined,
           command: line => conversation.commandDraftPermission(line),
           hooks: {
@@ -476,7 +490,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             fileUploads: conversation.fileUploads,
             notices: shell.notices,
             lexicon: shell.lexicon,
-            menuLauncher: inputHub.draftInputTriggers()?.launcher ?? ABSENT_MENU_LAUNCHER,
+            menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
             draftPermissions: conversation.draftPermissions,
           },
         }
@@ -485,54 +499,17 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       const shell = inputHub.shell(sessionId)
       const inputTriggers = inputHub.inputTriggers(sessionId)
       return {
-        keyboard: shell,
-        addFiles: (files) => {
-          if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')
-          try {
-            const drafts = conversation.createDrafts(sessionId, files)
-            if (!shell.addAttachments(drafts.map(draft => draft.id))) {
-              conversation.releaseDraftAttachments(drafts)
-            }
-            return null
-          } catch (error: unknown) {
-            if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
-            return error instanceof Error ? error.message : String(error)
-          }
-        },
-        removeAttachment: (id) => {
-          if (shell.removeAttachment(id)) conversation.releaseDraftAttachment(id)
-        },
-        resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
-        retryFileUpload: (id) => {
-          if (sessions.binding(sessionId) !== undefined) conversation.retryFileUpload(sessionId, id)
-        },
+        ...composerBase(conversation, shell, sessionId),
         toggleCommandMenu: inputTriggers === undefined
           ? undefined
           : (selection) => {
             shell.dismissPopup()
-            const snapshot = shell.snapshot
-            if (inputTriggers.launcher.getSnapshot() === 'command' && inputTriggers.menu.getSnapshot().open) {
-              const launcherSpan = inputTriggers.launcherSpan('command')
-              inputTriggers.dismiss()
-              const removal = removeLauncherSlash(snapshot.draft, snapshot.draftRev, selection, launcherSpan)
-              if (removal === undefined) return undefined
-              shell.setDraft(removal.draft)
-              return removal.caret
-            }
-            shell.setDraft(
-              snapshot.draft.slice(0, selection.start)
-                + '/'
-                + snapshot.draft.slice(selection.end),
+            return toggleSlashLauncher(
+              shell, inputTriggers, 'command', selection,
+              (hit) => {
+                inputTriggers.toggleSource('command', hit)
+              },
             )
-            const inserted = shell.snapshot
-            inputTriggers.toggleSource('command', {
-              trigger: '/',
-              query: '',
-              quoted: false,
-              position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
-              span: { start: selection.start, end: selection.start + 1, draftRev: inserted.draftRev },
-            })
-            return selection.start + 1
           },
         stop: () => {
           scopedConversation(sessions, sessionId).cancel().catch(() => {
