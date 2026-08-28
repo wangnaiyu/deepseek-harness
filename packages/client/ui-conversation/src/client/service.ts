@@ -33,10 +33,28 @@ import type {
 } from './contract/input.ts'
 import type { InputSubmitMode } from './contract/composer-submission.ts'
 
+/** Structurally projected permission option for the optional draft plugin. */
+export interface DraftPermissionOption {
+  /** Stable preset value. */
+  value: string
+  /** User-facing preset name. */
+  name: string
+  /** Optional user-facing explanation. */
+  description?: string
+}
+
+/** Structurally projected permission selector for the optional draft plugin. */
+export interface DraftPermissionSelect {
+  /** Switchable presets in display order. */
+  options: DraftPermissionOption[]
+  /** Currently staged preset value. */
+  currentValue: string
+}
+
 /** Permission plugin source staged for a Session-id-free browser draft. */
 export interface DraftPermissionSource {
   /** Host-described options plus the browser-staged current preset. */
-  store: ObservableSnapshot<PermissionSelect | undefined>
+  store: ObservableSnapshot<DraftPermissionSelect | undefined>
   /** Ensure the Host settings descriptor has been loaded. */
   load: () => void
   /** Stage one `/permission <preset>` line without touching the Host. */
@@ -175,7 +193,7 @@ export class ConversationController extends Service implements IConversation {
   /** Live upload state per file-kind draft; images never appear here. */
   readonly fileUploads: SnapshotStore<Record<string, DraftFileUpload>> = createSnapshotStore<Record<string, DraftFileUpload>>({})
   /** Stable renderer source; undefined while the optional permission plugin is absent. */
-  readonly draftPermissions: SnapshotStore<PermissionSelect | undefined> = createSnapshotStore(undefined)
+  readonly draftPermissions: SnapshotStore<DraftPermissionSelect | undefined> = createSnapshotStore(undefined)
   private draftPermissionSource: DraftPermissionSource | undefined
   private stopDraftPermissionSource: (() => void) | undefined
   private readonly draftAttachments = new Map<DraftAttachmentId, ComposerAttachment>()
