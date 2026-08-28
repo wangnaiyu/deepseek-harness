@@ -44,7 +44,10 @@ async function bench() {
   runtime.ctx.provide('layout', { openRightbar: vi.fn(), closeRightbar: vi.fn() } as never)
   runtime.ctx.provide('sidebarRight', { openResource: vi.fn() } as never)
   runtime.ctx.provide('uiWorkspace', {
+    list: runtime.workspaces.list,
     connectWorkspace: vi.fn(async () => SID),
+    selectDraftWorkspace: (workspaceId: never) => { runtime.workspaces.selectDraftWorkspace(workspaceId) },
+    materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
   } as never)
   new TestRemote(runtime.ctx, {
     session: { openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })) },

@@ -35,7 +35,7 @@ interface PtoExperimentScope {
 /** Trusted Host caller context for the complete execution-admission loop. */
 interface PtoExperimentExecutionScope extends PtoExperimentScope {
   agent: Agent
-  callId?: CallId
+  callId?: ToolCallId
 }
 ```
 
