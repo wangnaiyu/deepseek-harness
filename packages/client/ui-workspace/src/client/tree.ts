@@ -31,9 +31,6 @@ export function owningGroupKey(
   return (workspaces.find(workspace => workspace.sessionIds.includes(sessionId))
     ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
 }
-/** Stable presentation label for the persistent ungrouped bucket. */
-export const UNGROUPED_LABEL = 'Ungrouped'
-
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 type SessionStatuses = SessionStatusSnapshot
@@ -372,7 +369,7 @@ function groupByWorkspace(
       undefined,
       undefined,
       undefined,
-      UNGROUPED_LABEL,
+      '',
       orderedUngrouped(stray, ungroupedOrder, list.byId),
     ))
   return groups

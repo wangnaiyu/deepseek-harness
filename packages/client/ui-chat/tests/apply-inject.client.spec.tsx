@@ -84,6 +84,10 @@ async function bench(initialSettings?: ChatSettings, withBrowserRegistry = true,
       openSession(ROOT)
     }),
     openSession,
+    list: runtime.workspaces.list,
+    connectWorkspace: vi.fn(async () => ROOT),
+    selectDraftWorkspace: (workspaceId: never) => { runtime.workspaces.selectDraftWorkspace(workspaceId) },
+    materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
   } as never)
   const session = sessionFakeFor()
   await runtime.sessions.add({
