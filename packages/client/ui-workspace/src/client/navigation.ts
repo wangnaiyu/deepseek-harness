@@ -39,13 +39,27 @@ export interface UiWorkspace {
   startSession(workspaceId?: WorkspaceId): void
   /** Begin a fresh draft explicitly targeting the Host process cwd. */
   startUnassignedSession(): void
-  /** Retarget the active draft to a registered Workspace without resetting its editor. */
+  /**
+   * Retarget the active draft to a registered Workspace without resetting its editor.
+   * @param workspaceId - registered Workspace selected for the draft.
+   */
   selectDraftWorkspace(workspaceId: WorkspaceId): void
-  /** Stage the Agent preset used by draft-only capability discovery. */
+  /**
+   * Stage the Agent preset used by draft-only capability discovery.
+   * @param agentPreset - preset id selected for the draft.
+   */
   selectDraftAgentPreset(agentPreset: string): void
-  /** Create/open the staged Session and await ordered first-send preparation. */
+  /**
+   * Create/open the staged Session and await ordered first-send preparation.
+   * @returns the materialized Session id after preparation completes.
+   */
   materializeSessionDraft(): Promise<SessionId>
-  /** Register ordered preparation for a newly materialized draft Session. */
+  /**
+   * Register ordered preparation for a newly materialized draft Session.
+   * @param prepare - asynchronous preparation invoked with the new Session id.
+   * @param order - ascending preparation order; defaults to registration order among peers.
+   * @returns disposer removing this preparation callback.
+   */
   prepareSessionDraft(prepare: (sessionId: SessionId) => Promise<void>, order?: number): () => void
   /**
    * Archive a Session and clear it when it is the current selection.

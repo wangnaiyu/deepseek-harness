@@ -10,7 +10,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ArbitrateKey, ArbitrateOutcome, PickOutcome,
+  ArbitrateKey, ArbitrateOutcome, PickOutcome, TokenSpan,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { detectTrigger } from '../core/detect.ts'
@@ -19,7 +19,7 @@ import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
   ClientDraftContext, ClientSessionContext, InputTriggerCandidate, InputTriggerCrumb,
   InputTriggerSource, InputTriggerTarget, PickAction,
-  SubmitEnvelope, TokenSpan, TriggerChar, TriggerGuard,
+  SubmitEnvelope, TriggerChar, TriggerGuard,
 } from '../types.ts'
 
 /** Roster access the controller borrows from the root service (registration order preserved). */
@@ -39,7 +39,7 @@ export interface InputTriggerControllerDeps {
   /** Root-service roster view. */
   roster: SourceRoster
   /** Apply a pick to the owning input. Session controllers use scoped events; drafts inject a direct CAS sink. */
-  apply?: (outcome: PickOutcome, span: import('../types.ts').TokenSpan) => boolean
+  apply?: (outcome: PickOutcome, span: TokenSpan) => boolean
 }
 
 /**
@@ -190,7 +190,11 @@ export class InputTriggerController {
     this.fetchCandidates(hit, roster)
   }
 
-  /** Exact draft span inserted for the currently open programmatic launcher. */
+  /**
+   * Return the exact draft span inserted for an open programmatic launcher.
+   * @param source - registered source name or shared trigger name.
+   * @returns the inserted span while that launcher remains open, otherwise undefined.
+   */
   launcherSpan(source: string): TokenSpan | undefined {
     if (this.launcher.getSnapshot() !== source || !this.menu.getSnapshot().open) return undefined
     return this.hit?.span
@@ -454,13 +458,13 @@ export class InputTriggerController {
   /** The explicit Session-or-draft projection handed to sources. */
   private project(): InputTriggerTarget {
     if (this.deps.target !== undefined) return this.deps.target()
-    // oxlint-disable-next-line typescript/no-deprecated -- construction compatibility for session-only controller callers
-    if (this.deps.sessionId !== undefined) return { sessionId: this.deps.sessionId }
+    const legacySessionId = (this.deps as { readonly sessionId?: SessionId }).sessionId
+    if (legacySessionId !== undefined) return { sessionId: legacySessionId }
     throw new Error('ui-input-trigger: controller has no target')
   }
 
   /** Execute a claim/insert/text outcome via the scoped input events (actx as dispatch subject); true = the input applied it. */
-  private execute(outcome: PickOutcome, span: import('../types.ts').TokenSpan): boolean {
+  private execute(outcome: PickOutcome, span: TokenSpan): boolean {
     if (this.deps.apply !== undefined) return this.deps.apply(outcome, span)
     const { actx } = this.deps
     if (outcome === undefined || outcome === 'handled') return false

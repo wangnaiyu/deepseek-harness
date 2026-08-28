@@ -1,9 +1,27 @@
+---
+description: "只读 PyPTO run 发现、marker 识别与有界产物能力检查；供无需读取产物内容即可定位证据的用户与维护者阅读。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-tool-pto-run
 
 [English](README.md) | 中文
 
+## 概述
+
 面向当前 Session workspace 的只读 PTO run 发现与产物能力检查。
 
+## 目录
+
+- [工具](#tools)
+- [Host API](#host-api)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="tools"></a>
 ## 工具
 
 - `pto_run_discover` 执行有界、按需扫描。它通过顶层 `kernel_config.py` 识别 PyPTO 3.0 L2 run，通过 `orchestration/host_orch.py` 识别 L3 run；名称和时间戳从不作为识别证据。
@@ -11,10 +29,12 @@
 
 发现时会剪枝 `.git`、`node_modules`、`__pycache__` 和 `3rdparty`，识别出 run 后停止下探，并且不会把 `next_levels` 子构建暴露为独立 run。检查时会把这些子构建放在 L3 父 run 下报告。
 
+<a id="host-api"></a>
 ## Host API
 
 `recognizePtoRun(fs, target, signal?)` 暴露与发现工具相同的 marker 检查，但不建立产物清单。Host 侧 PTO 消费方用它准入一个已知目录，无需维护第二套 recognizer。目录没有受支持的 marker 时返回 `undefined`；文件系统或取消失败会原样传播。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 ### 工具 schema
@@ -47,9 +67,21 @@
 
 ## 已知限制与暂缓事项
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - recognizer 和归一化能力名面向 PyPTO 3.0 产物契约，不分类 PyPTO 2.x 或 Pro run。
 - 扫描是有限的；当目录数、深度或结果数达到配置边界，且无法给出完整答案时会报告 `truncated=true`。
 - 产物存在只证明观察到证据，不能证明 freshness、完整性、源码身份、因果诊断或 raw 数据可安全分享。
 - 可选 DFX 缺失与 compile 侧不完整分别报告。DFX 产物缺失也可能来自执行中断，因此补采 literal 是恢复辅助，不是原因证明。
 - L3 父 run 的 compile 健康状态保持 `unknown`；作出 compile 侧健康判断前应检查相关 `next_levels` 子构建。
 - `fullRecompile` 保持 `unknown`，因为它依赖兼容的源码 workspace、依赖和工具链，而非 run 目录单体。
+
+<a id="dev-note"></a>
+### 开发备注
+
+<details>
+<summary>维护者的工作上下文——点击展开</summary>
+
+无。
+
+</details>

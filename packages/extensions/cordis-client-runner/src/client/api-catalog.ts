@@ -503,7 +503,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionHostInfo',
-    declaration: 'export interface ConnectionHostInfo {\n    readonly home: string;\n}',
+    declaration: 'export interface ConnectionHostInfo {\n    readonly home: string;\n    readonly cwd?: string;\n}',
   },
   {
     name: 'ConnectionLoop',

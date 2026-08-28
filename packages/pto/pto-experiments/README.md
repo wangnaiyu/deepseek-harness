@@ -1,9 +1,27 @@
+---
+description: "Durable, Workspace-confined PTO experiment planning, trusted execution, metric collection, and comparison; for users and maintainers operating evidence-gated optimization runs."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-pto-experiments
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Durable, Workspace-confined PTO experiment planning, query, trusted Host execution, metric-collection, and comparison service. It owns `ctx.ptoExperiments`, the `pto_experiments` storage domain, four model tools, and one non-tool `execute()` admission API.
 
+## Table of Contents
+
+- [Service contract](#service-contract)
+- [Failures and limits](#failures-and-limits)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="service-contract"></a>
 ## Service contract
 
 `plan(scope, input)` resolves the Session Workspace, source, baseline, and candidate through `ctx.fs`. Source and baseline must be existing directories inside the Workspace; the candidate must be absent, inside source, disjoint from the baseline, and not already owned by another experiment in that Workspace. Baseline admission uses `recognizePtoRun()` from `@deepseek-ai/dsh-tool-pto-run`.
@@ -22,12 +40,14 @@ After a recognized L2 run completes, the app-owned `pypto-chip-swimlane-makespan
 
 `compare(scope, { experimentId, expectedRevision })` is also available as `pto_experiment_compare`. It accepts only a completed record at the expected revision and only compares against a baseline that is itself an app-owned completed experiment output in the same Workspace. Metric, task, hardware, environment, command, source-root, and exact committed Git-diff identities must all match before a delta is calculated. Admitted single-observation deltas remain `inconclusive` until a user-owned threshold and repetition/significance rule exists; all missing or mismatched evidence returns `incomparable` without a delta.
 
+<a id="failures-and-limits"></a>
 ## Failures and limits
 
 Required text fields accept at most 4,096 characters. A proposal accepts at most 64 evidence references of at most 1,024 characters each. Execution timeouts default to one hour and cannot exceed deployment `maxExecutionTimeoutMs` (24 hours by default). Chip-swimlane input defaults to a 64 MiB `maxMetricArtifactBytes` bound; `compiled_meta.json` is fixed at 1 MiB. Invalid paths, unsupported baseline markers, containment or disjointness violations, existing candidate paths, duplicate candidate ownership, invalid limits/revisions, missing records, cross-Workspace access, dirty or non-Git source, and unavailable PyPTO reject closed.
 
 The source must be a clean committed Git worktree, including no untracked files. The candidate's parent directory must already exist because reservation is deliberately non-recursive. If reservation succeeds but the following durable put fails, an empty orphan candidate directory can remain; no workload starts, and the non-reusable path makes the failure visible and fail-closed.
 
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Tool schemas
@@ -60,7 +80,19 @@ Durable tool results remain ordinary append-only history and do not invalidate t
 
 ## Known Limitations and Deferred Work
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - The domain has no deletion, archival, or retry operation. List is bounded, but storage grows with experiments; a terminal record cannot be returned to `planned`.
 - Crash recovery records an interrupted foreground run as failed; it cannot reattach to or kill a process from the previous Host lifetime.
 - The environment adapter identifies the configured Python and importable PyPTO package, but does not yet bind drivers, devices, compiler binaries, or workload-specific dependencies.
 - Metric collection supports only the current L2 `chip_swimlane_records.json` plus `compiled_meta.json` shape. Legacy `l2_swimlane_records.json`, L3 dispatch trees, automatic reruns, multiple observations, thresholds/significance policy, and experiment UI remain deferred.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>

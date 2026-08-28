@@ -76,7 +76,7 @@ export function ComparisonDetails({ block, t }: ComparisonDetailsProps) {
         <section className={css.section}>
           <h4>{t('details.delta')}</h4>
           <div className={css.deltaGrid}>
-            <div><span>{t('details.absolute')}</span><strong>{number(evidence.delta.absolute)} us</strong></div>
+            <div><span>{t('details.absolute')}</span><strong>{number(evidence.delta.absolute)} {t('details.unit.microseconds')}</strong></div>
             <div><span>{t('details.relative')}</span><strong>{evidence.delta.relativePct === null ? '—' : `${number(evidence.delta.relativePct)}%`}</strong></div>
             <div><span>{t(`direction.${evidence.delta.direction}`)}</span><strong>{t('details.significance')}</strong></div>
           </div>

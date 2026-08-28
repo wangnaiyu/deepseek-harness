@@ -20,9 +20,6 @@ import {
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
 
-/** Stable presentation label for the persistent ungrouped bucket. */
-export const UNGROUPED_LABEL = 'Ungrouped'
-
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteractionBase>
@@ -220,7 +217,7 @@ function groupByWorkspace(
     undefined,
     undefined,
     undefined,
-    UNGROUPED_LABEL,
+    '',
     ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
     ungroupedOrder === undefined ? 'recency' : 'account',
   ))

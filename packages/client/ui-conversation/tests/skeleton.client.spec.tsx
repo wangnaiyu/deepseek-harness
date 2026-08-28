@@ -345,12 +345,12 @@ describe('ConversationRoot resident composer', () => {
 
   it('labels Host-cwd drafts and ungrouped Sessions as default while preserving Workspace titles', () => {
     expect(draftLocationLabel(undefined)).toBeUndefined()
-    expect(draftLocationLabel({})).toBe('default')
-    expect(draftLocationLabel({ cwd: '/projects/pto-agent-workbench' })).toBe('default')
+    expect(draftLocationLabel({}, undefined, 'default')).toBe('default')
+    expect(draftLocationLabel({ cwd: '/projects/pto-agent-workbench' }, undefined, 'default')).toBe('default')
     expect(draftLocationLabel({ workspaceId: 'w1', cwd: '/projects/workspace' })).toBe('workspace')
     expect(draftLocationLabel({ workspaceId: 'w1', cwd: '/projects/workspace' }, 'Registered')).toBe('Registered')
     expect(sessionLocationLabel(undefined)).toBeUndefined()
-    expect(sessionLocationLabel('/projects/pto-agent-workbench')).toBe('default')
+    expect(sessionLocationLabel('/projects/pto-agent-workbench', undefined, 'default')).toBe('default')
     expect(sessionLocationLabel('/projects/workspace', 'Registered')).toBe('Registered')
   })
 
@@ -399,7 +399,7 @@ describe('ConversationRoot resident composer', () => {
       { summaryBlank: true, summaryCwd: '/projects/loose-run' },
     )
     const chip = b.view.getByRole('button', { name: '选择工作区' })
-    expect(chip.textContent).toContain('default')
+    expect(chip.textContent).toContain('默认目录')
     expect(chip.textContent).not.toContain('loose-run')
     expect(chip.getAttribute('title')).toBe('/projects/loose-run')
   })

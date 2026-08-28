@@ -55,7 +55,10 @@ async function bench() {
   )
   new TestRemote(runtime.ctx, { session: { openWorkspacePath } })
   runtime.ctx.provide('uiWorkspace', {
+    list: runtime.workspaces.list,
     connectWorkspace: vi.fn(async () => ROOT),
+    selectDraftWorkspace: (workspaceId: never) => { runtime.workspaces.selectDraftWorkspace(workspaceId) },
+    materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
   } as never)
   const session = sessionFakeFor()
   await runtime.sessions.add({

@@ -46,14 +46,18 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
               style="display: contents;"
             >
               <span
-                class="fallbackBrandName"
+                class="localBuildBrand"
               >
-                PTO Agent 工作台
-              </span>
-              <span
-                class="buildRevision"
-              >
-                abc1234
+                <span
+                  class="localBuildTitle"
+                >
+                  DSH Local Build
+                </span>
+                <span
+                  class="buildVersion"
+                >
+                  1.2.3-rc.4-abc1234-dirty
+                </span>
               </span>
             </div>
           </span>
