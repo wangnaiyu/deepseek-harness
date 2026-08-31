@@ -629,7 +629,7 @@ jobs:
         # Coverage flakes must not prevent the cache from building; the
         # measured durations remain useful even when a partition failed. The
         # per-run key keeps every save a fresh immutable cache entry.
-        if: github.repository == 'deepseek-ai/deepseek-harness' && (always())
+        if: always() && github.repository == 'deepseek-ai/deepseek-harness'
         uses: actions/cache/save@v4
         with:
           path: .coverage-times.json
