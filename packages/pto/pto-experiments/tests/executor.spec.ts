@@ -7,6 +7,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import ShellExecutor from '@deepseek-ai/dsh-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import Storage from '@deepseek-ai/dsh-storage'
@@ -182,6 +183,7 @@ async function mount(): Promise<Mounted> {
   await ctx.plugin(StorageJson, { root: join(root, 'storage') })
   await ctx.plugin(StorageDomain, { backend: 'json' })
   await ctx.plugin(LocalFileSystem, { cwd: workspace })
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: workspace })
   await ctx.plugin(ApprovalService)
   await ctx.plugin(ProbeSubprocess)

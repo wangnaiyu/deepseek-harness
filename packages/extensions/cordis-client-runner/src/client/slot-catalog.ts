@@ -585,7 +585,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
-      'client-ui-brand-official OfficialBrandMark',
       'client-ui-brand-pto PtoBrandMark',
     ],
     replaceRisk: 'shadows-shipped-ui',
@@ -2244,7 +2243,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'tool.result.detailview\', () => ctx.slots.register(\n      { name: \'tool.result.detailview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-tool/src/client/contract/slots.ts:35',
+    source: 'packages/client/ui-tool/src/client/contract/slots.ts:37',
   },
   {
     key: 'tool.view.cordis',

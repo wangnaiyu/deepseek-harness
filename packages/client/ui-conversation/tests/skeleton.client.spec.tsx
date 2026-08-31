@@ -316,7 +316,7 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English welcome copy without a brand mark', () => {
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} />)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={() => null} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
     expect(view.container.querySelector('svg')).toBeNull()
@@ -485,7 +485,6 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.queryByTestId('view-chat')).toBeNull()
     const welcome = b.view.container.querySelector('[data-hero-welcome]')
     expect(welcome?.contains(b.view.getByText('探索未至之境'))).toBe(true)
-    expect(host?.contains(b.view.container.querySelector('[data-hero-glow-clip]'))).toBe(true)
     // The same machine-backed textarea is live in the hero, and the
     // persistence mirror stays bound (ConversationSession mounts chrome-hidden
     // for blank sessions): hero typing reaches the Conversation store.

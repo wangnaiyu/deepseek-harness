@@ -6853,6 +6853,9 @@ importers:
 
   packages/pto/pto-experiments:
     dependencies:
+      '@deepseek-ai/dsh-util-values':
+        specifier: workspace:^
+        version: link:../../util/values
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -6884,6 +6887,9 @@ importers:
       '@deepseek-ai/dsh-sandbox-policy':
         specifier: workspace:^
         version: link:../../sandbox/sandbox-policy
+      '@deepseek-ai/dsh-session-projection':
+        specifier: workspace:^
+        version: link:../../session/session-projection
       '@deepseek-ai/dsh-shell':
         specifier: workspace:^
         version: link:../../shell/shell
@@ -6914,6 +6920,9 @@ importers:
 
   packages/pto/tool-pto-run:
     dependencies:
+      '@deepseek-ai/dsh-util-values':
+        specifier: workspace:^
+        version: link:../../util/values
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery

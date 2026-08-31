@@ -559,6 +559,7 @@ jobs:
       # entries are immutable, so the save key is unique per run and the
       # restore matches the newest entry through the stable prefix.
       - name: Restore coverage duration history
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         uses: actions/cache/restore@v4
         with:
           path: .coverage-times.json
@@ -606,7 +607,7 @@ jobs:
         # Coverage flakes must not prevent the cache from building; the
         # measured durations remain useful even when a partition failed. The
         # per-run key keeps every save a fresh immutable cache entry.
-        if: always()
+        if: always() && github.repository == 'deepseek-ai/deepseek-harness'
         uses: actions/cache/save@v4
         with:
           path: .coverage-times.json
