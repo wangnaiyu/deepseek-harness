@@ -28,7 +28,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
+import { newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/reference-composer', import.meta.url))
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
@@ -150,28 +150,23 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    // Fixture files land before the workspace connects so the Host's file
-    // index never races their creation (the connect helper mkdirs the same
-    // directory and tolerates it existing).
-    await mkdir(join(scaffold.workspaceCwd, 'workspace'), { recursive: true })
-    await writeFile(join(scaffold.workspaceCwd, 'workspace', 'reference.txt'), 'reference fixture\n')
-    await mkdir(join(scaffold.workspaceCwd, 'workspace', 'folderx'), { recursive: true })
-    await writeFile(join(scaffold.workspaceCwd, 'workspace', 'folderx', 'child.txt'), 'child fixture\n')
+    // Fixture files land before browser boot so the Host's file index never
+    // races their first discovery from the seeded target Session.
+    await writeFile(join(scaffold.workspaceCwd, 'reference.txt'), 'reference fixture\n')
+    await mkdir(join(scaffold.workspaceCwd, 'folderx'), { recursive: true })
+    await writeFile(join(scaffold.workspaceCwd, 'folderx', 'child.txt'), 'child fixture\n')
     // Two levels down: the breadcrumb needs a step above the current one to
     // return to, and a bare '@' lists only the top level, so the deeper tree
     // stays out of the menu golden.
-    await mkdir(join(scaffold.workspaceCwd, 'workspace', 'folderx', 'nested'), { recursive: true })
-    await writeFile(join(scaffold.workspaceCwd, 'workspace', 'folderx', 'nested', 'leaf.txt'), 'leaf fixture\n')
+    await mkdir(join(scaffold.workspaceCwd, 'folderx', 'nested'), { recursive: true })
+    await writeFile(join(scaffold.workspaceCwd, 'folderx', 'nested', 'leaf.txt'), 'leaf fixture\n')
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    // Reference catalogs are Session-scoped. Materialize with a Host-only
-    // command so the spec still issues zero model calls.
-    const input = page.locator('[data-composer-input]').first()
-    await input.fill('/permission workspace-write')
-    await input.press('Enter')
-    await page.locator('[aria-label="Access mode, current: Workspace Write"]')
-      .waitFor({ timeout: 15_000 })
+    // Reference catalogs are Session-scoped. Open the seeded target directly
+    // so the spec still issues zero model calls under the alpha.3 draft model.
+    await page.getByRole('treeitem', { name: /^Ungrouped/ }).click()
+    await page.getByRole('treeitem', { name: /Reference order target/ }).click()
+    await page.getByText('Reference order target', { exact: true }).first().waitFor({ timeout: 15_000 })
   }, 120_000)
 
   afterAll(async () => {
@@ -181,7 +176,7 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
 
   it('groups both sources and projects files and sessions as structured inline icon labels', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-reference-composer'))
-    const input = page.locator('[data-composer-input]').first()
+    const input = page.locator('[data-composer-input][contenteditable="true"]').first()
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
 
     await writeComposerDraft(page, input, '@')
@@ -392,6 +387,7 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await expect.poll(() => crumbs.count()).toBe(0)
     await menu.getByRole('option', { name: /^folderx\// }).waitFor()
     await page.keyboard.press('Escape')
+    await writeComposerDraft(page, input, '')
 
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

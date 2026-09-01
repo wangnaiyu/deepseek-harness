@@ -18,7 +18,7 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
-import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
+import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot, writeComposerDraft } from './support.ts'
 
 /** Points the shipped shared Agent default at this scenario's own route. */
 const OVERLAY = fileURLToPath(new URL('./default-model.overlay.yml', import.meta.url))
@@ -103,8 +103,9 @@ describe('web e2e: the composer model switch is the default for later sessions',
     })
 
     const existingSessionCount = scaffold.ctx.sessions.list().length
-    const composer = page.locator('textarea:enabled').last()
-    await composer.fill('/permission workspace-write')
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
+    await writeComposerDraft(page, composer, '/permission workspace-write')
+    await composer.press('Escape')
     await composer.press('Enter')
     await expect.poll(() => scaffold.ctx.sessions.list().length, { timeout: 15_000 })
       .toBeGreaterThan(existingSessionCount)

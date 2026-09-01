@@ -1,4 +1,5 @@
 - listbox "Trigger suggestions":
+  - option "permission, Switch the permission preset (sandbox mode + approval policy), DSH" [selected]: permission Switch the permission preset (sandbox mode + approval policy) DSH
   - text: Skills
-  - option "policy-shared Available to both model and user invocation" [selected]
-  - option "policy-user-only user-only · Available only to user invocation"
+  - option "policy-shared, Available to both model and user invocation, workspace": policy-shared Available to both model and user invocation workspace
+  - option "policy-user-only, Available only to user invocation, workspace": policy-user-only Available only to user invocation workspace
