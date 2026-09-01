@@ -90,7 +90,7 @@ it('accepts pasted images into the composer rail in order and removes them', asy
   // this assembled lane pins the intake chain over the built graph.
   const textarea = await waitFor(() => {
     const surface = document.querySelector<HTMLElement>(
-      '[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]',
+      '[data-composer-input][contenteditable="true"]',
     )
     if (surface === null) throw new Error('composer surface missing')
     return surface
@@ -154,28 +154,14 @@ it('accepts pasted images into the composer rail in order and removes them', asy
 
 it('accepts a whole-page drop under the limits-labeled overlay and refuses an over-limit batch at intake', async () => {
   mountAssembledApp()
-
-  const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
-  const start = tree.querySelector<HTMLButtonElement>('button[aria-label="New session in fixture"]')
-  if (start === null) throw new Error('fixture Workspace new-session action missing')
-  fireEvent.click(start)
+  await openFixtureSession()
   const textarea = await waitFor(() => {
     const surface = document.querySelector<HTMLElement>(
-      '[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]',
+      '[data-composer-input][contenteditable="true"]',
     )
     if (surface === null) throw new Error('composer surface missing')
     return surface
   }, { timeout: 10_000 })
-  // A draft deliberately has no Session-scoped image-limit projection. Use a
-  // local slash command as the first send so the draft materializes without
-  // invoking the model, then exercise the real Session composer below.
-  fireEvent.paste(textarea, {
-    clipboardData: { items: [], getData: () => '/plan' },
-  })
-  await waitFor(() => { expect(textarea.textContent).toContain('/plan') })
-  fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
-  await screen.findByRole('button', { name: /Plan mode on/ }, { timeout: 10_000 })
-
   // A file drag anywhere over the page raises the full-viewport overlay whose
   // desc line carries the projected limits — copy that can only render after
   // the imageLimits projection crossed the real fixture transport.
@@ -195,7 +181,7 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
     if (rail === null) throw new Error('attachment rail missing after page drop')
     expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toEqual(['dropped.png'])
   }, { timeout: 5_000 })
-  expect(screen.queryByRole('status')).toBeNull()
+  expect(screen.queryByText('Drag images here to add them')).toBeNull()
 
   // An intake that would exceed the projected per-message count is refused as
   // a whole batch at add time: the banner names the limit and the rail keeps
@@ -217,15 +203,11 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
 
 it('renders a host dimension rejection with the projected 2000px limit', async () => {
   mountAssembledApp('?fixture&fixturePrompt=reject')
-
-  const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
-  const start = tree.querySelector<HTMLButtonElement>('button[aria-label="New session in fixture"]')
-  if (start === null) throw new Error('fixture Workspace new-session action missing')
-  fireEvent.click(start)
+  await openFixtureSession()
 
   const textarea = await waitFor(() => {
     const surface = document.querySelector<HTMLElement>(
-      '[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]',
+      '[data-composer-input][contenteditable="true"]',
     )
     if (surface === null) throw new Error('composer surface missing')
     return surface

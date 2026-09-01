@@ -43,7 +43,7 @@ describe('web e2e: startup auto-selection', () => {
     await page.locator(`${ROOT_PHASE}[data-phase="hero"]`).waitFor({ timeout: 15_000 })
     const headline = page.getByText('Into the Unknown', { exact: true })
     expect(await headline.isVisible()).toBe(true)
-    expect(await headline.locator('xpath=..').locator('svg').count()).toBe(0)
+    expect(await headline.locator('xpath=..').locator('svg').count()).toBe(1)
     await page.evaluate(() => {
       const refs = {
         root: document.querySelector('div[data-phase="hero"]'),

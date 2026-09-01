@@ -143,6 +143,13 @@ export class AgentPresetSeatController {
    * @returns once the switch settled, or immediately when there is nothing to do.
    */
   async apply(): Promise<void> {
+    // Session creation publishes one list update before the new Session is
+    // opened. Do not let that targetless pass occupy the coalescing slot:
+    // first-send preparation runs immediately after open and must perform the
+    // staged selection against the real Session rather than reuse a no-op.
+    if (this.staged === undefined || this.currentSession() === undefined) {
+      return this.applyOnce()
+    }
     if (this.applying !== undefined) return this.applying
     const pending = this.applyOnce().finally(() => {
       if (this.applying === pending) this.applying = undefined

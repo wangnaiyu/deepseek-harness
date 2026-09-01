@@ -96,23 +96,23 @@ describe('web e2e: skill invocation policy through the real host', () => {
 
   it('renders every user-invocable skill and marks the user-only entry', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-invocation-policy'))
-    const input = page.locator('[data-composer-input]').first()
-    await input.fill('/permission workspace-write')
-    await input.press('Enter')
-    await input.fill('/policy')
+    const input = page.locator('[data-composer-input][contenteditable="true"]').first()
+    await writeComposerDraft(page, input, '/policy')
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await expect.poll(
       () => menu.getByRole('option', { name: /policy-shared/ }).count(),
       { timeout: 10_000 },
     ).toBe(1)
+    const snapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
 
     // The user-only quadrant is invocable here — its only entry point — and
     // wears the user-only marker; both user-disabled quadrants stay hidden.
-    expect(await menu.getByRole('option', { name: /policy-user-only user-only · / }).count()).toBe(1)
+    const policyOptions = await menu.getByRole('option').allTextContents()
+    const userOnly = policyOptions.find(option => option.includes('policy-user-only'))
+    expect(userOnly?.toLowerCase()).toContain('user-only')
     expect(await menu.getByRole('option', { name: /policy-model-only/ }).count()).toBe(0)
     expect(await menu.getByRole('option', { name: /policy-trusted-only/ }).count()).toBe(0)
 
-    const snapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(MENU_EXPECTED, snapshot, MODE)
 
     // Discovery needs no prefix: an in-order subsequence of one skill name

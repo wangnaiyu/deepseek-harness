@@ -22,7 +22,10 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
+import {
+  connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot,
+  writeComposerDraft,
+} from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/skill-user-invoke', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
@@ -105,16 +108,18 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
 
     // The first send materializes exactly one blank Session, then formal
     // Session admission rejects a vanished Skill and leaves the text intact.
-    await composer.fill('/skill vanished-skill analyze this')
+    await writeComposerDraft(page, composer, '/skill vanished-skill analyze this')
+    await composer.press('Escape')
     await composer.press('Enter')
-    await expect.poll(() => composer.inputValue()).toBe('/skill vanished-skill analyze this')
+    await expect.poll(() => composer.textContent()).toBe('/skill vanished-skill analyze this')
     await page.getByRole('alert').filter({ hasText: 'vanished-skill' })
       .waitFor({ timeout: 15_000 })
 
     // The same retained composer can be corrected and sent; no silent model
     // prompt was created by the failed attempt.
     const settled = scaffold.whenTurnSettled()
-    await composer.fill(`/skill ${SKILL_NAME} ${ARGS_TEXT}`)
+    await writeComposerDraft(page, composer, `/skill ${SKILL_NAME} ${ARGS_TEXT}`)
+    await composer.press('Escape')
     await composer.press('Enter')
 
     // The gesture stays an ordinary user bubble (decorated canonical

@@ -598,6 +598,30 @@ describe('ui-agent-preset apply', () => {
 })
 
 describe('AgentPresetSeatController reconciliation', () => {
+  it('does not coalesce first-send preparation with the pre-open list notification', async () => {
+    const state: { current?: { id: SessionId; blank: boolean } } = {}
+    const selected: string[] = []
+    const controller = new AgentPresetSeatController({
+      remote: {
+        agentPresets: {
+          select: (_sessionId: SessionId, agentPreset: string) => {
+            selected.push(agentPreset)
+            return Promise.resolve({ ok: true as const, value: agentPreset })
+          },
+        },
+      },
+    } as never, () => state.current)
+
+    controller.stage('minimal')
+    const beforeOpen = controller.apply()
+    state.current = { id: SessionId('first-send'), blank: true }
+    const afterOpen = controller.apply()
+    await Promise.all([beforeOpen, afterOpen])
+
+    expect(selected).toEqual(['minimal'])
+    expect(controller.store.getSnapshot().current).toBe('minimal')
+  })
+
   it('uses the deployment default without a Session and clears it for an uncomposed Session', async () => {
     const state: { current?: { id: SessionId; blank: boolean } } = {}
     const controller = new AgentPresetSeatController({
