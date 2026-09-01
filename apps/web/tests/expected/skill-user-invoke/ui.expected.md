@@ -1,13 +1,21 @@
 - banner:
-  - navigation "Session hierarchy": /user-invoke-demo @"meeting notes-this-i
+  - navigation "Session hierarchy":
+    - button "/skill user-invoke-demo @\"meeting notes.md\" an" [disabled]
+  - img
   - text: Standard mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
-- button "/user-invoke-demo"
-- button "meeting notes-this-is-a-very-long-filename-for-testing-user-message-file-references-and-preview-layout.md"
+- button "System prompt":
+  - img
+  - img
+  - text: System prompt
+- button "/skill user-invoke-demo"
+- button "meeting notes.md":
+  - img
+  - text: meeting notes.md
 - text: and confirm the fixture wiring {{clock}}
 - button "Copy"
 - status: Worked

@@ -1,9 +1,8 @@
 - listbox "Trigger suggestions":
   - text: Files & folders
-  - option "folderx/ Browse folder" [selected]:
+  - option "folderx/" [selected]:
     - text: folderx/
     - button "Browse folder"
   - option "reference.txt"
   - text: Sessions
-  - option "reference-order-target-session {{cwd}} · {{age}}"
-  - option "reference-source-session {{cwd}} · {{age}}"
+  - option "reference-source-session, {{age}}": reference-source-session 1min

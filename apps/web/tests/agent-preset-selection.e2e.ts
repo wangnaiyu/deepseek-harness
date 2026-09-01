@@ -295,6 +295,7 @@ describe('web e2e: agent-preset selection', () => {
     expect((await scaffold.ctx.sessionPersistence.list()).map(session => session.id)).toEqual(persistedBefore)
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('/permission workspace-write')
+    await composer.press('Escape')
     await composer.press('Enter')
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
     const roster = await scaffold.ctx.agentPresets.remoteExportList()

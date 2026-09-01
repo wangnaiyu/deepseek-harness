@@ -4,8 +4,12 @@ import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
-import { openSettings, ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
+import type { Locator } from 'playwright'
+import {
+  captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole,
+  webSnapshotMode, type WebScaffold,
+} from './scaffold.ts'
+import { openSettings, ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const EXPECTED = fileURLToPath(new URL('./expected/agent-preset-authoring', import.meta.url))
 const mode = webSnapshotMode()
@@ -87,8 +91,9 @@ describe('web e2e: preset roster guidance', () => {
     await settings.getByRole('button', { name: 'Agent 预设' }).click()
     await settings.getByRole('button', { name: '让 Agent 帮我创建预设模式', exact: true }).click()
     await settings.waitFor({ state: 'detached', timeout: 10_000 })
-    const input = page.locator('textarea').first()
-    await input.fill('/permission workspace-write')
+    const input = page.locator('[data-composer-input][contenteditable="true"]').first()
+    await writeComposerDraft(page, input, '/permission workspace-write')
+    await input.press('Escape')
     await input.press('Enter')
     await expect.poll(async () => {
       const response = await scaffold.hostFetch('/api/session/list', {
