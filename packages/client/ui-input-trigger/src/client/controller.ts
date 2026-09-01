@@ -108,6 +108,23 @@ export class InputTriggerController {
    */
   track(draft: string, caret: number, guard: TriggerGuard, draftRev: number): void {
     if (this.disposed) return
+    // Opening a slash launcher writes the token first, then the composer
+    // restores the caret through selection-only Lexical updates. Keep the
+    // launcher identity while its inserted token and content revision are
+    // unchanged so a second press toggles it closed instead of inserting
+    // another slash. The close path separately checks the live selection
+    // before deleting, while any content edit returns ownership to ordinary
+    // typed-trigger tracking.
+    const launcherSpan = this.hit?.span
+    if (
+      guard.tier === 'plain'
+      && this.launcher.getSnapshot() !== null
+      && this.menu.getSnapshot().open
+      && launcherSpan !== undefined
+      && launcherSpan.draftRev === draftRev
+      && launcherSpan.end === launcherSpan.start + 1
+      && draft.slice(launcherSpan.start, launcherSpan.end) === '/'
+    ) return
     const launched = this.launcher.getSnapshot() !== null
     this.clearLauncher()
     const raw = detectTrigger(draft, caret, guard)
