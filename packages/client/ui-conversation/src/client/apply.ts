@@ -18,7 +18,6 @@ import type {
   ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
   ConversationSessionInjected,
 } from './contract/slots.ts'
-import type { InputNotice } from './contract/input.ts'
 import { createConversationStore, readConversationViewPreference } from './stores.ts'
 import { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
 import type { IConversation } from './service.ts'
