@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-composer-catalog",
   "description": "Unified command and Skill catalog source for the new-session composer",
-  "version": "0.1.2-alpha.1",
+  "version": "0.1.2-alpha.4",
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
@@ -30,10 +30,7 @@
   "scripts": { "bundle": "tsdown", "watch": "tsdown --watch" },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-api-remotes": "workspace:^",
-    "@deepseek-ai/dsh-client-ui-input-trigger": "workspace:^",
-    "@deepseek-ai/dsh-invariants": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",

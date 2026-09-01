@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-host-pto-experiment-dashboard",
   "description": "Session-addressed PTO experiment dashboard and user execution edge",
-  "version": "0.1.2-alpha.1",
+  "version": "0.1.2-alpha.4",
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
