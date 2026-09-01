@@ -274,22 +274,16 @@ describe('web e2e: agent-preset selection', () => {
     expect((await scaffold.ctx.sessionPersistence.list()).map(session => session.id)).toEqual(persistedBefore)
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('/permission workspace-write')
+    await composer.press('Escape')
     await composer.press('Enter')
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
     await expect.poll(() => composer.textContent(), { timeout: 10_000 }).toBe('')
   })
 
-  it('says why a switch was refused instead of letting the chip revert in silence', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-refused'))
+  it('keeps the established composition when a later preset pick cannot apply', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-locked'))
     await page.getByRole('button', { name: 'Minimal mode' }).click()
     await page.getByRole('menuitem', { name: /Refusing mode/ }).click()
-
-    // Health cleared every row, so nothing on the settings page says this
-    // preset is unusable — the banner is where the host's reason lands, and
-    // without it the chip just snaps back to the preset it already ran.
-    const banner = page.getByRole('alert').filter({ hasText: 'Refusing mode' })
-    await banner.waitFor({ timeout: 15_000 })
-    expect(await banner.textContent()).toContain('this row refuses to start')
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
     await page.getByRole('button', { name: 'Minimal mode' }).waitFor({ timeout: 10_000 })
   }, 60_000)

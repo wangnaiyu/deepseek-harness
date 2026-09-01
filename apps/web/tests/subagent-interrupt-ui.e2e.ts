@@ -25,7 +25,7 @@ import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, readPersistedEvents, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const BASE_FIXTURE = fileURLToPath(new URL('../../../snapshots/web/live-interactions/session.jsonl', import.meta.url))
 
@@ -139,8 +139,9 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
 
-    const parentInput = page.locator('textarea:enabled').first()
-    await parentInput.fill('/permission workspace-write')
+    const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
+    await writeComposerDraft(page, parentInput, '/permission workspace-write')
+    await parentInput.press('Escape')
     await parentInput.press('Enter')
     for (let attempt = 0; attempt < 150 && scaffold.ctx.agents.roots().length === 0; attempt += 1) {
       await new Promise<void>(resolve => setTimeout(resolve, 100))
@@ -161,7 +162,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     // One prompted parent turn makes the parent non-blank so the session
     // header (and its subagent catalog action) renders.
     const parentSettled = scaffold.whenTurnSettled()
-    await parentInput.fill('Ask a research subagent to explain event sourcing.')
+    await writeComposerDraft(page, parentInput, 'Ask a research subagent to explain event sourcing.')
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)
 
@@ -275,7 +276,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     // Queue a follow-up through Send while independent Stop remains available.
     const promptResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/subagents/prompt')
-    await input.fill(FOLLOWUP)
+    await writeComposerDraft(page, input, FOLLOWUP)
     await page.getByRole('button', { name: 'Send message' }).click()
     expect(((await (await promptResponse).json()) as { result: { ok: boolean } }).result)
       .toMatchObject({ ok: true })
@@ -303,7 +304,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     await page.getByRole('button', { name: 'Send message' }).waitFor({ timeout: 15_000 })
 
     // Only the waking send resumes the parked queue, FIFO, to settlement.
-    await input.fill(WAKING)
+    await writeComposerDraft(page, input, WAKING)
     await input.press('Enter')
     await expect.poll(() => page.getByText(REARMED_ANSWER, { exact: true }).count(), { timeout: 30_000 }).toBe(1)
     await expect.poll(() => page.getByText(PARKED_ANSWER, { exact: true }).count(), { timeout: 30_000 }).toBe(1)

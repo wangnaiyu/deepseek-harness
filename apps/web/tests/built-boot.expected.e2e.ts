@@ -22,7 +22,7 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
 
   // The sidebar renders from the boot graph: every inject layer activated.
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
-  const brandName = screen.getByText('PTO Agent 工作台')
+  const brandName = screen.getByText('PTO Agent Workbench')
   const wordmark = brandName.parentElement
   if (wordmark === null) throw new Error('PTO wordmark container missing')
   expect(wordmark.tagName).toBe('SPAN')
@@ -37,7 +37,10 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   if (fixtureGroup === undefined || fixtureGroup === null) throw new Error('fixture Workspace group missing')
   // Startup now stages a browser draft instead of creating/selecting a blank
   // Session, so no real row drives automatic group expansion.
-  if (fixtureGroup.getAttribute('aria-expanded') !== 'true') fireEvent.click(fixtureGroup)
+  if (fixtureGroup.getAttribute('aria-expanded') !== 'true') {
+    act(() => { fireEvent.click(fixtureGroup) })
+    await waitFor(() => { expect(fixtureGroup.getAttribute('aria-expanded')).toBe('true') })
+  }
 
   // The resident fixture has both a question and an approval; composer routing
   // exposes the question first, and the assembled workspace plugin mirrors that
@@ -124,6 +127,12 @@ it('boots without ui-chat and does not select another conversation view implicit
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
   const boot = Reflect.get(window, '__DSH_BOOT__') as { entries: Array<{ id: string }> } | undefined
   expect(boot?.entries.some(entry => entry.id === '@deepseek-ai/dsh-client-ui-chat')).toBe(false)
+  const fixtureGroup = within(tree).getByText('fixture').closest<HTMLElement>('[role="treeitem"]')
+  if (fixtureGroup === null) throw new Error('fixture Workspace group missing')
+  if (fixtureGroup.getAttribute('aria-expanded') !== 'true') {
+    act(() => { fireEvent.click(fixtureGroup) })
+    await waitFor(() => { expect(fixtureGroup.getAttribute('aria-expanded')).toBe('true') })
+  }
   const sessionTitle = await within(tree).findByText('Fixture 历史会话')
   fireEvent.click(sessionTitle)
   await waitFor(() => {

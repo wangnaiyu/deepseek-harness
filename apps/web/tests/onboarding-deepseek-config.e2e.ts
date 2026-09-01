@@ -15,7 +15,7 @@ import {
   WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_COPY, WELCOME_NOTICE_SETTINGS_NAMESPACE,
   WELCOME_NOTICE_VERSION,
 } from './scaffold.ts'
-import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
+import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-deepseek-config', import.meta.url))
 const WELCOME_EXPECTED = join(SNAPSHOT_DIR, 'welcome.expected.md')
@@ -232,11 +232,12 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     // A connected Workspace is what puts a live composer — and its model
     // trigger — on the page; the scaffold boots without one.
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd, 'model-fallback-e2e')
-    const input = page.locator('textarea').first()
-    await input.fill('/permission workspace-write')
+    const input = page.locator('[data-composer-input][contenteditable="true"]').first()
+    await writeComposerDraft(page, input, '/permission workspace-write')
+    await input.press('Escape')
     await input.press('Enter')
     await expect.poll(() => scaffold.ctx.sessions.list().length, { timeout: 15_000 }).toBeGreaterThan(0)
-    await page.locator('[aria-label="访问模式，当前：Workspace Write"]')
+    await page.locator('[aria-label="访问模式，当前：工作区内修改"]')
       .waitFor({ timeout: 15_000 })
 
     const modelTrigger = page.getByRole('button', { name: /^选择模型/ })

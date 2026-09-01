@@ -16,7 +16,7 @@ import {
   launchWebScaffold, readPersistedEvents, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const BASE_FIXTURE = fileURLToPath(new URL('../../../snapshots/web/live-interactions/session.jsonl', import.meta.url))
 const AVAILABLE_CHILD_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/subagent-conversation/ui.expected.md', import.meta.url))
@@ -110,8 +110,9 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
 
     // Workspace connection stages only a browser draft. Materialize it with a
     // local command before addressing its Agent from the Host test harness.
-    const parentInput = page.locator('textarea:enabled').first()
-    await parentInput.fill('/permission workspace-write')
+    const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
+    await writeComposerDraft(page, parentInput, '/permission workspace-write')
+    await parentInput.press('Escape')
     await parentInput.press('Enter')
     for (let attempt = 0; attempt < 150 && scaffold.ctx.agents.roots().length === 0; attempt += 1) {
       await new Promise<void>(resolve => setTimeout(resolve, 100))
@@ -119,7 +120,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     const parent = scaffold.ctx.agents.roots()[0]
     if (parent === undefined) throw new Error('fresh workspace did not publish its parent Agent')
     const parentSettled = scaffold.whenTurnSettled()
-    await parentInput.fill(PARENT_PROMPT)
+    await writeComposerDraft(page, parentInput, PARENT_PROMPT)
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)
 
@@ -437,7 +438,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
       })
     })
     const input = page.getByRole('textbox', { name: 'Message or run a task... / commands, @ files or sessions' })
-    await input.fill(FOLLOWUP)
+    await writeComposerDraft(page, input, FOLLOWUP)
     await input.press('Enter')
     await expect.poll(
       () => scaffold.ctx.agents.get(childId)?.status,
@@ -577,7 +578,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await input.waitFor()
     const promptResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/subagents/prompt')
-    await input.fill(POST_FORK_FOLLOWUP)
+    await writeComposerDraft(page, input, POST_FORK_FOLLOWUP)
     await input.press('Enter')
     const promptReceipt = await (await promptResponse).json() as {
       result: { ok: true } | { ok: false; error: { code: string; message: string } }

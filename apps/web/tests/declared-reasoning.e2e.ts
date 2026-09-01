@@ -13,7 +13,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
+import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot, writeComposerDraft } from './support.ts'
 
 /** Starts the shipped default on this scenario's declared reasoning model. */
 const OVERLAY = fileURLToPath(new URL('./declared-reasoning.overlay.yml', import.meta.url))
@@ -62,8 +62,9 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
 
   it('offers exactly the declared levels and records the picked one', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-declared-reasoning'))
-    const composer = page.locator('textarea:enabled').last()
-    await composer.fill('/permission workspace-write')
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
+    await writeComposerDraft(page, composer, '/permission workspace-write')
+    await composer.press('Escape')
     await composer.press('Enter')
     await expect.poll(() => scaffold.ctx.sessions.list().length, { timeout: 15_000 }).toBeGreaterThan(0)
     const trigger = page.getByRole('button', { name: /^选择模型/ })
