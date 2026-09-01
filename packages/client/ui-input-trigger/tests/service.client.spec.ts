@@ -431,6 +431,41 @@ describe('programmatic source launcher', () => {
     expect(controller.launcher.getSnapshot()).toBeNull()
     expect(controller.menu.getSnapshot().groups.map(group => group.source)).toEqual(['command', 'skill'])
   })
+
+  it('keeps the launcher across selection-only updates for its inserted slash', () => {
+    const command = readySource('/', 'command', [{ name: 'goal' }])
+    const { controller } = controllerBench([command.source])
+    const hit = {
+      trigger: '/' as const,
+      query: '',
+      quoted: false,
+      position: 'leading' as const,
+      span: { start: 0, end: 1, draftRev: 1 },
+    }
+
+    controller.toggleSource('command', hit)
+    controller.track('/', 0, { tier: 'plain' }, 1)
+
+    expect(controller.launcher.getSnapshot()).toBe('command')
+    expect(controller.launcherSpan('command')).toEqual(hit.span)
+    controller.toggleSource('command', hit)
+    expect(controller.menu.getSnapshot().open).toBe(false)
+    expect(controller.launcher.getSnapshot()).toBeNull()
+  })
+
+  it('does not preserve a launcher when the input guard freezes', () => {
+    const command = readySource('/', 'command', [{ name: 'goal' }])
+    const { controller } = controllerBench([command.source])
+    controller.toggleSource('command', {
+      trigger: '/', query: '', quoted: false, position: 'leading',
+      span: { start: 0, end: 1, draftRev: 1 },
+    })
+
+    controller.track('/', 0, { tier: 'frozen' }, 1)
+
+    expect(controller.launcher.getSnapshot()).toBeNull()
+    expect(controller.menu.getSnapshot().open).toBe(false)
+  })
 })
 
 describe('scope-birth warm', () => {
