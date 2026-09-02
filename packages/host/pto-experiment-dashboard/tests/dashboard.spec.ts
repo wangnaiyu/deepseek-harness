@@ -180,7 +180,7 @@ describe('PtoExperimentDashboardGateway', () => {
     await vi.waitFor(() => { expect(execute).toHaveBeenCalledTimes(1) })
     expect(execute.mock.calls[0]?.[0]).toMatchObject({ cwd: '/work/pto', agent })
     expect(execute.mock.calls[0]?.[1]).toEqual({ experimentId: 'pto-exp-1', expectedRevision: 0 })
-    expect(session.events.at(-1)?.type).toBe('turn/start')
+    expect(session.snapshotEvents().at(-1)?.type).toBe('turn/start')
 
     const ownerView = await dashboard.listSession({ sessionId: 'session-1' })
     const observerView = await dashboard.listSession({ sessionId: 'session-2' })
@@ -200,7 +200,7 @@ describe('PtoExperimentDashboardGateway', () => {
       executionActivity: { active: false, cancellable: false },
     })
     await vi.waitFor(() => {
-      expect(session.events.map(event => event.type)).toEqual(['turn/start', 'turn/end'])
+      expect(session.snapshotEvents().map(event => event.type)).toEqual(['turn/start', 'turn/end'])
     })
   })
 
@@ -233,6 +233,6 @@ describe('PtoExperimentDashboardGateway', () => {
     })
     expect(get).toHaveBeenCalledWith({ cwd: '/work/pto' }, 'pto-exp-1')
     expect(execute).not.toHaveBeenCalled()
-    expect(session.events).toEqual([])
+    expect(session.snapshotEvents()).toEqual([])
   })
 })
