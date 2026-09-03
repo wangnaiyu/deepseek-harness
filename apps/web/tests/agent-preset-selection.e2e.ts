@@ -264,14 +264,14 @@ describe('web e2e: agent-preset selection', () => {
 
   it('keeps the staged pick local until the first command send, then the host honors it', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-stage'))
-    const persistedBefore = (await scaffold.ctx.sessionPersistence.list()).map(session => session.id)
+    const persistedBefore = (await scaffold.ctx.sessionPersistence.list()).map(session => session.header.id)
     await page.getByRole('button', { name: 'Standard mode' }).click()
     await page.getByRole('menuitem', { name: /Minimal mode/ }).click()
 
     // The chip stages without allocating a Session. A typed slash command is
     // itself a first send: it materializes under the staged preset, then the
     // real Session command pipeline executes it without a model call.
-    expect((await scaffold.ctx.sessionPersistence.list()).map(session => session.id)).toEqual(persistedBefore)
+    expect((await scaffold.ctx.sessionPersistence.list()).map(session => session.header.id)).toEqual(persistedBefore)
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('/permission workspace-write')
     await composer.press('Escape')
