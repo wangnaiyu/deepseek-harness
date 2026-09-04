@@ -11,6 +11,8 @@ kind: "package-reference"
 
 面向当前 Session workspace 的只读 PTO run 发现与产物能力检查。
 
+本包不发布运行时 invariant companion，因为这些只读工具不保留可供校验的独立生命周期事件流。
+
 ## 目录
 
 - [工具](#tools)

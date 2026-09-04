@@ -17,6 +17,8 @@ kind: "package-reference"
 
 首次发送时，会话层先实体化一个 Session，再由本 source 在转交文本前比较缓存的草稿目录与新鲜的正式 `listSession` 结果。已选择能力若消失、可信来源或调用策略改变，或跨越 Command／Skill 冲突边界，提交会被拒绝且浏览器草稿保持不变。Host `session.prompt` 还会在持久化前独立复核规范 Skill 的可用性，覆盖手输文本和非 Web Client。
 
+本包不发布运行时 invariant companion，因为它不拥有独立的生命周期事件流或可变运行时状态。
+
 ## 目录
 
 - [模型体验](#model-experience)

@@ -19,6 +19,8 @@ kind: "package-reference"
 
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过 [`api-remotes`](../../api/remotes/README.zh.md) 消费生成的 `./remote` contribution（贡献）与 `./types` payload vocabulary（载荷词汇），不直接导入 Host 实现。
 
+本包不发布运行时 invariant companion，因为每个响应都直接从权威 registry 投影，且不保留可变状态。
+
 ## 目录
 
 - [配置](#configuration)

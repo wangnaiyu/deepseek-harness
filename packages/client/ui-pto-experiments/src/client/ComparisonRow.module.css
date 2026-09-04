@@ -47,6 +47,7 @@
   height: 2px;
   margin: 0 8px;
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-state-business-primary);
 }
 
@@ -68,6 +69,7 @@
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 11px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
