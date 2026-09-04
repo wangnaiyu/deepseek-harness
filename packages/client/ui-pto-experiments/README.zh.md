@@ -15,6 +15,8 @@ dashboard 通过已有 Session id 读取权威、Workspace 受限的 registry；
 
 UI 受证据门控：它只接受闭合的对比 schema，并校验 `inconclusive` 差值确实来自两个 app-owned 度量以及七个一致的身份维度；UI 不重新计算或升级业务结论。失败、运行中或格式异常的输出只显示失败、等待或“依据不可用”，不会展示差值。
 
+本包不发布运行时 invariant companion，因为 Host 准入拥有变更操作，且组件 generation 已拒绝陈旧的完成结果。
+
 ## 目录
 
 - [模型体验](#model-experience)

@@ -19,7 +19,6 @@
     { "path": "../../preset/agent-presets" },
     { "path": "../../skill/skill" },
     { "path": "../../typert/protocol" },
-    { "path": "../../workspace/workspace" },
-    { "path": "../../runtime-diagnostics/invariants" }
+    { "path": "../../workspace/workspace" }
   ]
 }

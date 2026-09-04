@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Durable, Workspace-confined PTO experiment planning, query, trusted Host execution, metric-collection, and comparison service. It owns `ctx.ptoExperiments`, the `pto_experiments` storage domain, four model tools, and one non-tool `execute()` admission API.
 
+No runtime invariant companion is published because the private service owns every write, storage-domain serializes durability, and the schema validates the complete ledger when reopened.
+
 ## Table of Contents
 
 - [Service contract](#service-contract)

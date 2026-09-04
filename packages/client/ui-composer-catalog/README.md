@@ -17,6 +17,8 @@ One Host request is single-flighted per draft target revision. Workspace and sta
 
 On first send, the conversation layer materializes one Session and asks this source to compare the cached draft catalog with a fresh formal `listSession` result before transferring the text. A selected capability that disappeared, changed trusted origin or invocation policy, or crossed a Command/Skill conflict boundary rejects the submit and leaves the browser draft intact. The Host `session.prompt` independently revalidates canonical Skill availability immediately before persistence, covering hand-typed text and non-Web clients.
 
+No runtime invariant companion is published because the package owns no independent lifecycle stream or mutable runtime state.
+
 ## Table of Contents
 
 - [Model Experience](#model-experience)

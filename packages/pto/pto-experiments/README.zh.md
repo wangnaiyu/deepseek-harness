@@ -11,6 +11,8 @@ kind: "package-reference"
 
 持久、限定于 Workspace 的 PTO 实验规划、查询、可信 Host 执行、指标采集与比较服务。它拥有 `ctx.ptoExperiments`、`pto_experiments` storage domain、四个模型工具和一个非工具的 `execute()` 准入 API。
 
+本包不发布运行时 invariant companion，因为 private service 拥有每次写入，storage domain 串行化持久操作，schema 会在重新打开时校验完整 ledger。
+
 ## 目录
 
 - [服务契约](#service-contract)

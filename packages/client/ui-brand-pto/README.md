@@ -37,6 +37,8 @@ Compose this plugin in the browser roster when the deployment should always pres
 
 The three occupants install as one declaration-aware registration set through nested `slots.inject()` calls. The name occupant receives its wordmark and badge through the typed `ptoBrand` locale namespace. The package therefore works whether its row activates before or after the sidebar and conversation declarers, withdraws all occupants when either declaration collapses, and leaves no partial brand mix during HMR. It retains no runtime state. The node half is an empty Loader seat, and the browser title remains a build-environment concern outside this package.
 
+No runtime invariant companion is published because the package retains no mutable state and its slot occupants share one transactional effect lifecycle.
+
 </details>
 
 -----

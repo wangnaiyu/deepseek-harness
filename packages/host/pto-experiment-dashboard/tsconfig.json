@@ -8,7 +8,6 @@
     { "path": "../../llm/llm" },
     { "path": "../../core/session" },
     { "path": "../../pto/pto-experiments" },
-    { "path": "../../typert/protocol" },
-    { "path": "../../runtime-diagnostics/invariants" }
+    { "path": "../../typert/protocol" }
   ]
 }

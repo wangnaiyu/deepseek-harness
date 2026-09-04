@@ -2162,10 +2162,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'MessageImageLoader',
     ],
     standardProps: [
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'useSessions: UseSessions',
       'useSessionPendingInteraction: UseSessionPendingInteraction',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'useChat: UseChat',
       'useConversation: UseConversation',
       'useInput: SnapshotSelectorHook<InputState>',
@@ -2243,7 +2243,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'tool.result.detailview\', () => ctx.slots.register(\n      { name: \'tool.result.detailview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-tool/src/client/contract/slots.ts:37',
+    source: 'packages/client/ui-tool/src/client/contract/slots.ts:51',
   },
   {
     key: 'tool.view.cordis',

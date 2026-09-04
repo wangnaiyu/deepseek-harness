@@ -15,6 +15,8 @@ The dashboard reads the authoritative Workspace-confined registry through an exi
 
 The UI is evidence-gated. It parses a closed comparison schema, verifies that an inconclusive delta is consistent with two collected app-owned metrics and seven matched identity dimensions, and never calculates or upgrades a business conclusion. Failed, running, or malformed outputs render as error/pending/evidence-unavailable states with no delta.
 
+No runtime invariant companion is published because Host admission owns mutations and component generations already reject stale completions.
+
 ## Table of Contents
 
 - [Model Experience](#model-experience)

@@ -22,7 +22,6 @@
     { "path": "../../storage/storage" },
     { "path": "../../storage/storage-domain" },
     { "path": "../../subprocess/subprocess" },
-    { "path": "../tool-pto-run" },
-    { "path": "../../runtime-diagnostics/invariants" }
+    { "path": "../tool-pto-run" }
   ]
 }

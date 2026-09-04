@@ -191,15 +191,18 @@ async function mount(): Promise<Mounted> {
   await ctx.plugin(PtoExperimentStore)
 
   const approvalEvents: Array<{ type: string; data: Record<string, unknown> }> = []
-  const events: Array<{ type: string }> = [{ type: 'turn/start' }]
+  const events: Array<{ type: string; data: Record<string, unknown> }> = [
+    { type: 'turn/start', data: { turn: 1 } },
+  ]
   const agent = {
     session: {
       id: 'pto-executor-session',
       header: { cwd: workspace },
-      events,
+      get seq() { return events.length },
+      eventAt(seq: number) { return events[seq] },
       append(type: string, data: Record<string, unknown>) {
         approvalEvents.push({ type, data })
-        events.push({ type })
+        events.push({ type, data })
       },
     },
   } as unknown as Agent

@@ -5,7 +5,6 @@
   "references": [
     { "path": "../../../vendor/cordis" },
     { "path": "../../api/remotes/tsconfig.client.json" },
-    { "path": "../../runtime-diagnostics/invariants" },
     { "path": "../locale" },
     { "path": "../ui-chat" },
     { "path": "../ui-primitives" },

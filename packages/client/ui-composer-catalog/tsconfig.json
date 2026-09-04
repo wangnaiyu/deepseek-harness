@@ -7,7 +7,6 @@
     { "path": "../../../vendor/include" },
     { "path": "../../../vendor/loader" },
     { "path": "../../api/remotes/tsconfig.client.json" },
-    { "path": "../ui-input-trigger" },
-    { "path": "../../runtime-diagnostics/invariants" }
+    { "path": "../ui-input-trigger" }
   ]
 }
