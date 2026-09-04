@@ -37,6 +37,8 @@ kind: "package-reference"
 
 三个占位者通过嵌套的 `slots.inject()` 作为一组声明感知注册安装。名称占位者通过有类型的 `ptoBrand` locale namespace 获取 wordmark 与徽章文案。因此无论该包的条目先于还是后于侧边栏和会话声明方激活，它都能工作；任一声明折叠时会撤回全部占位者，HMR 期间不会留下混合品牌。它不保留运行时状态。node 半边是空的 Loader seat；浏览器标题仍属于本包之外的构建环境事项。
 
+本包不发布运行时 invariant companion，因为它不保留可变状态，且其 slot 占位者共享同一个事务性 effect 生命周期。
+
 </details>
 
 -----
