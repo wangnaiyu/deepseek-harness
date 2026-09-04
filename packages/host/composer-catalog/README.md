@@ -19,6 +19,8 @@ Both methods strip handlers, scope keys, provider ids, paths, resource bases, an
 
 The service is Remote-only and deliberately declares no same-process Cordis `Context` merge. Client packages consume its generated `./remote` contribution and `./types` payload vocabulary through [`api-remotes`](../../api/remotes/README.md).
 
+No runtime invariant companion is published because every response is projected directly from authoritative registries without retained mutable state.
+
 ## Table of Contents
 
 - [Configuration](#configuration)

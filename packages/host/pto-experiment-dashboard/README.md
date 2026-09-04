@@ -13,6 +13,8 @@ Host Remote edge for the PTO experiment dashboard. A request supplies an existin
 
 Reads do not create or resume an Agent, Session, or turn. Unknown Sessions and Sessions without a Workspace fail closed. `executeSession` requires that same Session's live Agent and posts one private plugin follow-up. The Agent loop opens a normal turn; the gateway consumes that message at `agent/pre-step`, forwards the exact cwd, Agent, and optimistic revision to the registry's indivisible trusted execution loop, and rejects the model step. This turn encloses the existing approval UI's durable audit pair without appending a model-visible user message or calling an LLM. The gateway owns only ephemeral cancellation controllers: view unmount does not abort work, the initiating Session can cancel after remount, and cancellation waits for the executor's durable terminal settlement before returning. A second execution for the same experiment fails closed.
 
+No runtime invariant companion is published because registry admission and the gateway-owned controller map already close every mutation path.
+
 ## Table of Contents
 
 - [Model Experience](#model-experience)

@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Read-only PTO run discovery and artifact capability inspection for the current Session workspace.
 
+No runtime invariant companion is published because the read-only tools retain no independent lifecycle stream to validate.
+
 ## Table of Contents
 
 - [Tools](#tools)
