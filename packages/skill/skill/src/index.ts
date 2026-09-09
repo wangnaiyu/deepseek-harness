@@ -137,6 +137,26 @@ export interface SkillViewOptions extends SkillLookupOptions {
   readonly scope?: ScopeKey | undefined
 }
 
+/** Exact provider-qualified Skill identity used by trusted product actions. */
+export interface QualifiedSkillIdentity {
+  /** Kebab-case Skill name. */
+  readonly name: string
+  /** Exact provider id expected to own the effective definition. */
+  readonly provider: string
+}
+
+/** The effective scoped Skill exists, but a qualified request named another provider. */
+export class SkillProviderMismatchError extends Error {
+  constructor(
+    readonly skillName: string,
+    readonly expectedProvider: string,
+    readonly actualProvider: string,
+  ) {
+    super(`skill "${skillName}" resolved to provider "${actualProvider}", expected "${expectedProvider}"`)
+    this.name = 'SkillProviderMismatchError'
+  }
+}
+
 /**
  * Return whether a skill may be advertised to and loaded by a model.
  * @param skill - skill metadata carrying resolved invocation controls.
@@ -166,6 +186,8 @@ export interface SkillInvocationSource {
   readonly kind: 'skill-invocation'
   /** Invoked skill name, validated user-invocable at the injecting boundary. */
   readonly name: string
+  /** Provider that supplied the exact injected definition. */
+  readonly provider: string
   /** Injected skill bodies are instructions for the model to follow. */
   readonly form: 'instructions'
 }
@@ -522,6 +544,44 @@ export class SkillRegistry extends Service {
     throwIfAborted(options.signal)
     const match = collected.entries.get(name)
     if (match === undefined) return undefined
+    return await this.loadMatch(match, options)
+  }
+
+  /**
+   * Load the effective scoped Skill only when its provider is exactly the one
+   * requested by a trusted product action. A same-name workspace, user, or
+   * preset shadow is an explicit mismatch error, never a silent fallback.
+   * @param identity - exact Skill name/provider pair required by the caller.
+   * @param options - the same scoped, cwd-sensitive view used by ordinary loading.
+   * @returns the qualified definition, or undefined when the name is absent.
+   */
+  async getQualified(
+    identity: QualifiedSkillIdentity,
+    options: SkillViewOptions = {},
+  ): Promise<SkillDefinition | undefined> {
+    if (!isSkillName(identity.name)) return undefined
+    if (typeof identity.provider !== 'string' || identity.provider.length === 0) {
+      throw new TypeError('qualified skill provider must be a non-empty string')
+    }
+    const collected = await this.collect(options)
+    throwIfAborted(options.signal)
+    const match = collected.entries.get(identity.name)
+    if (match === undefined) return undefined
+    if (match.candidate.provider !== identity.provider) {
+      throw new SkillProviderMismatchError(
+        identity.name,
+        identity.provider,
+        match.candidate.provider,
+      )
+    }
+    return await this.loadMatch(match, options)
+  }
+
+  /** Load and validate one already selected registry entry. */
+  private async loadMatch(
+    match: IndexedCandidate,
+    options: SkillViewOptions,
+  ): Promise<SkillDefinition | undefined> {
     const definition = await waitWithAbort(
       match.provider.get(match.candidate, options),
       options.signal,

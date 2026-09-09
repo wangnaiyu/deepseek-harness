@@ -233,6 +233,51 @@ The package registers its details body under `ui-tool`'s keyed `tool.result.deta
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxptoartifactinspection--ptoartifactinspectiongateway"></a>
+
+### `ctx.ptoArtifactInspection` — `PtoArtifactInspectionGateway`
+
+User-gesture registration, profile refresh, and exact viewer route owner.
+
+```ts cordis-catalog
+/**
+ * Register one explicit directory and return a fresh fact-only profile.
+ * @param request - user-selected Host path.
+ * @returns registered record and current action readiness.
+ */
+@Remote('inspect') async inspect(request: PtoArtifactInspectRequest): Promise<PtoArtifactRecordView>
+
+/**
+ * Refresh a previously registered record without accepting a new path.
+ * @param recordId - Host-issued record identity.
+ * @returns refreshed profile and action readiness.
+ */
+@Remote('refresh') async refresh(recordId: string): Promise<PtoArtifactRecordView>
+
+/**
+ * Open one currently available self-contained HTML action.
+ * @param request - fixed record revision and viewer action.
+ * @returns revocable exact-route viewer handle.
+ */
+@Remote('open') async open(request: PtoArtifactOpenRequest): Promise<PtoArtifactViewerHandle>
+
+/**
+ * Revoke one viewer URL; closing never changes the original artifact.
+ * @param request - Host-issued viewer handle identity.
+ * @returns whether a live route was closed.
+ */
+@Remote('close') close(request: PtoArtifactCloseRequest): PtoArtifactCloseResult
+
+/**
+ * Fail-closed first-send admission for one structured dependency analysis draft.
+ * @param request - idempotent Session/record/action/Skill tuple.
+ * @returns immutable invocation receipt used by the first model step.
+ */
+@Remote('admitAnalysis') async admitAnalysis(request: PtoArtifactAnalysisAdmitRequest): Promise<PtoArtifactAnalysisReceipt>
+```
+
+Source: [`packages/host/pto-artifact-inspection/src/index.ts`](../../packages/host/pto-artifact-inspection/src/index.ts)
+
 <a id="ctxptoexperimentdashboard--ptoexperimentdashboardgateway"></a>
 
 ### `ctx.ptoExperimentDashboard` — `PtoExperimentDashboardGateway`

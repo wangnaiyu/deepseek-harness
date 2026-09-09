@@ -906,6 +906,38 @@ export interface Config {
 
 Source: [`packages/host/frontend-static/src/index.ts:30`](../packages/host/frontend-static/src/index.ts)
 
+<a id="deepseek-aidsh-host-pto-artifact-inspection"></a>
+
+## `@deepseek-ai/dsh-host-pto-artifact-inspection`
+
+Requires: `fs` · `webServer` · `tools`
+
+```ts config-catalog
+/** Deployment limits and pinned official analysis dependencies. */
+export interface Config {
+  /** Maximum number of artifact entries inspected per record. */
+  maxArtifactEntries?: number
+  /** Maximum bytes read from one metadata probe. */
+  maxProbeBytes?: number
+  /** Absolute URL prefix for revocable exact-file viewer routes. */
+  routePrefix?: string
+  /** Provider identity required for official dependency analysis. */
+  officialDependencySkillProvider?: string
+  /** Exact official Skill revision accepted at admission. */
+  officialDependencySkillRevision?: string
+  /** Pinned tool revision recorded in analysis receipts. */
+  dependencyAnalysisToolRevision?: string
+  /** Absolute path to the pinned upstream dependency tool. */
+  dependencyAnalysisToolPath?: string
+  /** Application-owned directory for dependency tool outputs. */
+  dependencyAnalysisOutputRoot?: string
+  /** Python executable used to launch the pinned tool. */
+  pythonExecutable?: string
+}
+```
+
+Source: [`packages/host/pto-artifact-inspection/src/index.ts:76`](../packages/host/pto-artifact-inspection/src/index.ts)
+
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`
@@ -2155,7 +2187,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/skill/src/index.ts:297`](../packages/skill/skill/src/index.ts)
+Source: [`packages/skill/skill/src/index.ts:319`](../packages/skill/skill/src/index.ts)
 
 <a id="deepseek-aidsh-skill-filesystem"></a>
 
@@ -2859,10 +2891,12 @@ export interface Config {
   maxRuns?: number
   /** Maximum file entries inventoried by one inspection call. Defaults to 2000. */
   maxArtifactEntries?: number
+  /** Maximum bytes read while validating one small structured artifact. Defaults to 8 MiB. */
+  maxProbeBytes?: number
 }
 ```
 
-Source: [`packages/pto/tool-pto-run/src/index.ts:32`](../packages/pto/tool-pto-run/src/index.ts)
+Source: [`packages/pto/tool-pto-run/src/index.ts:34`](../packages/pto/tool-pto-run/src/index.ts)
 
 <a id="deepseek-aidsh-tool-pwsh"></a>
 

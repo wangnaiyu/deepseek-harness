@@ -325,6 +325,16 @@ async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>
  * @returns the full skill, including body content, or `undefined`.
  */
 async get(name: string, options: SkillViewOptions = {}): Promise<SkillDefinition | undefined>
+
+/**
+ * Load the effective scoped Skill only when its provider is exactly the one
+ * requested by a trusted product action. A same-name workspace, user, or
+ * preset shadow is an explicit mismatch error, never a silent fallback.
+ * @param identity - exact Skill name/provider pair required by the caller.
+ * @param options - the same scoped, cwd-sensitive view used by ordinary loading.
+ * @returns the qualified definition, or undefined when the name is absent.
+ */
+async getQualified( identity: QualifiedSkillIdentity, options: SkillViewOptions = {}, ): Promise<SkillDefinition | undefined>
 ```
 
 Source: [`packages/skill/skill/src/index.ts`](../../packages/skill/skill/src/index.ts)

@@ -63,6 +63,7 @@ function mountFrame() {
     if (key === 'sidebar') return <div data-testid="sidebar-content" />
     if (key === 'conversation') return <div data-testid="center-content" />
     if (key === 'details') return <div data-testid="details-content" />
+    if (key === 'shell.overlay') return <div data-testid="overlay-content" />
     if (key === 'conversation.empty') return <div data-testid="empty-content" />
     return <div data-testid="other-content" />
   }) as AppFrameProps['renderSlot']
@@ -199,6 +200,13 @@ describe('AppFrame', () => {
     expect(slotCalls.map(c => c.key)).toContain('conversation')
     expect(queryByTestId('details-content')).toBeNull()
     expect(slotCalls.map(c => c.key)).toContain('details')
+  })
+
+  it('renders the root overlay while no session is current', () => {
+    selectedSession.current = undefined
+    const { getByTestId, slotCalls } = mountFrame()
+    expect(getByTestId('overlay-content')).toBeTruthy()
+    expect(slotCalls.find(c => c.key === 'shell.overlay')?.props).toEqual({})
   })
 
   it('renders both column occupants before baselines settle (no loading gate)', () => {

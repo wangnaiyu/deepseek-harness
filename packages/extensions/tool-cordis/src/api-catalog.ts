@@ -1325,6 +1325,43 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'ptoArtifactInspection',
+    summary: 'User-gesture registration, profile refresh, and exact viewer route owner.',
+    description: 'User-gesture registration, profile refresh, and exact viewer route owner.',
+    methods: [
+      {
+        signature: '@Remote(\'inspect\') async inspect(request: PtoArtifactInspectRequest): Promise<PtoArtifactRecordView>',
+        description: 'Register one explicit directory and return a fresh fact-only profile.',
+        parameters: [{ name: 'request', description: 'user-selected Host path.' }],
+        returns: 'registered record and current action readiness.',
+      },
+      {
+        signature: '@Remote(\'refresh\') async refresh(recordId: string): Promise<PtoArtifactRecordView>',
+        description: 'Refresh a previously registered record without accepting a new path.',
+        parameters: [{ name: 'recordId', description: 'Host-issued record identity.' }],
+        returns: 'refreshed profile and action readiness.',
+      },
+      {
+        signature: '@Remote(\'open\') async open(request: PtoArtifactOpenRequest): Promise<PtoArtifactViewerHandle>',
+        description: 'Open one currently available self-contained HTML action.',
+        parameters: [{ name: 'request', description: 'fixed record revision and viewer action.' }],
+        returns: 'revocable exact-route viewer handle.',
+      },
+      {
+        signature: '@Remote(\'close\') close(request: PtoArtifactCloseRequest): PtoArtifactCloseResult',
+        description: 'Revoke one viewer URL; closing never changes the original artifact.',
+        parameters: [{ name: 'request', description: 'Host-issued viewer handle identity.' }],
+        returns: 'whether a live route was closed.',
+      },
+      {
+        signature: '@Remote(\'admitAnalysis\') async admitAnalysis(request: PtoArtifactAnalysisAdmitRequest): Promise<PtoArtifactAnalysisReceipt>',
+        description: 'Fail-closed first-send admission for one structured dependency analysis draft.',
+        parameters: [{ name: 'request', description: 'idempotent Session/record/action/Skill tuple.' }],
+        returns: 'immutable invocation receipt used by the first model step.',
+      },
+    ],
+  },
+  {
     key: 'ptoExperimentDashboard',
     summary: 'Session-authorized Remote edge over the durable PTO experiment registry.',
     description: 'Session-authorized Remote edge over the durable PTO experiment registry.',
@@ -2161,6 +2198,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Load and validate the winning candidate, passing its opaque discovery locator back to the provider. Cancellation is rechecked after selection, including cache hits, and raced against loading so an uncooperative provider cannot hang the caller.',
         parameters: [{ name: 'name', description: 'kebab-case skill name.' }, { name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects workspace-sensitive skills, and `signal` cancels work.' }],
         returns: 'the full skill, including body content, or `undefined`.',
+      },
+      {
+        signature: 'async getQualified( identity: QualifiedSkillIdentity, options: SkillViewOptions = {}, ): Promise<SkillDefinition | undefined>',
+        description: 'Load the effective scoped Skill only when its provider is exactly the one requested by a trusted product action. A same-name workspace, user, or preset shadow is an explicit mismatch error, never a silent fallback.',
+        parameters: [{ name: 'identity', description: 'exact Skill name/provider pair required by the caller.' }, { name: 'options', description: 'the same scoped, cwd-sensitive view used by ordinary loading.' }],
+        returns: 'the qualified definition, or undefined when the name is absent.',
       },
     ],
   },
@@ -4684,6 +4727,54 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PtcDispatchLog {\n    readonly exec: ToolExecution;\n    readonly agent?: Agent;\n    readonly subCallId: ToolCallId;\n    readonly name: string;\n    readonly isError: boolean;\n    readonly content: ContentBlock[];\n}',
   },
   {
+    name: 'PtoActionReadinessView',
+    declaration: 'export interface PtoActionReadinessView {\n    readonly actionId: string;\n    readonly kind: \'viewer\' | \'analysis\';\n    readonly status: \'available\' | \'needs-preparation\' | \'unavailable\' | \'unknown\';\n    readonly artifactRefs: readonly string[];\n    readonly adapter?: {\n        readonly id: string;\n        readonly version: string;\n    };\n    readonly skill?: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n    readonly reasons: readonly PtoEvidenceIssueView[];\n}',
+  },
+  {
+    name: 'PtoArtifactAnalysisAdmitRequest',
+    declaration: 'export interface PtoArtifactAnalysisAdmitRequest {\n    readonly requestId: string;\n    readonly sessionId: string;\n    readonly recordId: string;\n    readonly revision: string;\n    readonly actionId: string;\n    readonly requestedSkill: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n}',
+  },
+  {
+    name: 'PtoArtifactAnalysisReceipt',
+    declaration: 'export interface PtoArtifactAnalysisReceipt {\n    readonly requestId: string;\n    readonly sessionId: string;\n    readonly recordId: string;\n    readonly recordRevision: string;\n    readonly actionId: string;\n    readonly artifactRefs: readonly string[];\n    readonly skill: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n    readonly tool: {\n        readonly name: string;\n        readonly revision: string;\n    };\n}',
+  },
+  {
+    name: 'PtoArtifactCloseRequest',
+    declaration: 'export interface PtoArtifactCloseRequest {\n    readonly handleId: string;\n}',
+  },
+  {
+    name: 'PtoArtifactCloseResult',
+    declaration: 'export interface PtoArtifactCloseResult {\n    readonly closed: boolean;\n}',
+  },
+  {
+    name: 'PtoArtifactInspectRequest',
+    declaration: 'export interface PtoArtifactInspectRequest {\n    readonly path: string;\n}',
+  },
+  {
+    name: 'PtoArtifactOpenRequest',
+    declaration: 'export interface PtoArtifactOpenRequest {\n    readonly recordId: string;\n    readonly revision: string;\n    readonly actionId: string;\n}',
+  },
+  {
+    name: 'PtoArtifactRecordView',
+    declaration: 'export interface PtoArtifactRecordView {\n    readonly recordId: string;\n    readonly profile: PtoRecordProfileView;\n    readonly actions: readonly PtoActionReadinessView[];\n}',
+  },
+  {
+    name: 'PtoArtifactView',
+    declaration: 'export interface PtoArtifactView {\n    readonly relativePath: string;\n    readonly type: string;\n    readonly version?: string;\n    readonly size?: number;\n}',
+  },
+  {
+    name: 'PtoArtifactViewerHandle',
+    declaration: 'export interface PtoArtifactViewerHandle {\n    readonly handleId: string;\n    readonly actionId: string;\n    readonly title: string;\n    readonly artifactRef: string;\n    readonly kind: \'static-html\';\n    readonly urlPath: string;\n    readonly features: {\n        readonly selection: false;\n        readonly deeplink: false;\n    };\n}',
+  },
+  {
+    name: 'PtoEvidenceIssueView',
+    declaration: 'export interface PtoEvidenceIssueView {\n    readonly code: string;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'PtoEvidenceView',
+    declaration: 'export interface PtoEvidenceView {\n    readonly type: string;\n    readonly status: \'observed\' | \'unchecked\' | \'available\' | \'missing\' | \'invalid\' | \'unreadable\' | \'incompatible\';\n    readonly artifactRefs: readonly string[];\n    readonly issues: readonly PtoEvidenceIssueView[];\n}',
+  },
+  {
     name: 'PtoExperimentCompareInput',
     declaration: 'export interface PtoExperimentCompareInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
   },
@@ -4758,6 +4849,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PtoExperimentView',
     declaration: 'export type PtoExperimentView = Omit<PtoExperimentRecord, \'workspaceKey\' | \'baseline\' | \'source\' | \'candidateOutput\' | \'actualRun\'> & {\n    baseline: Omit<PtoExperimentRecord[\'baseline\'], \'targetKey\'>;\n    source: Omit<PtoExperimentRecord[\'source\'], \'targetKey\'>;\n    candidateOutput: Omit<PtoExperimentRecord[\'candidateOutput\'], \'targetKey\'>;\n    actualRun: null | Omit<NonNullable<PtoExperimentRecord[\'actualRun\']>, \'targetKey\'>;\n};',
+  },
+  {
+    name: 'PtoRecordProfileView',
+    declaration: 'export interface PtoRecordProfileView {\n    readonly id: string;\n    readonly kind: \'run\' | \'evidence-pack\';\n    readonly relativePath: string;\n    readonly displayPath: string;\n    readonly revision: string;\n    readonly generation: \'3.0\' | \'2.0-pro\' | \'unknown\';\n    readonly runtimeLevel: \'L2\' | \'L3\' | \'unknown\';\n    readonly identityEvidence: readonly string[];\n    readonly artifacts: readonly PtoArtifactView[];\n    readonly evidence: readonly PtoEvidenceView[];\n    readonly scan: {\n        readonly complete: boolean;\n        readonly limits: readonly string[];\n    };\n}',
+  },
+  {
+    name: 'QualifiedSkillIdentity',
+    declaration: 'export interface QualifiedSkillIdentity {\n    readonly name: string;\n    readonly provider: string;\n}',
   },
   {
     name: 'ReadFileLine',
