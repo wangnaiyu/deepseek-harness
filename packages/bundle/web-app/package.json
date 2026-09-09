@@ -103,6 +103,7 @@
     "@deepseek-ai/dsh-file-reference": "workspace:^",
     "@deepseek-ai/dsh-file-reference-local": "workspace:^",
     "@deepseek-ai/dsh-host-composer-catalog": "workspace:^",
+    "@deepseek-ai/dsh-host-pto-artifact-inspection": "workspace:^",
     "@deepseek-ai/dsh-host-pto-experiment-dashboard": "workspace:^",
     "@deepseek-ai/dsh-host-directory-picker-auto": "workspace:^",
     "@deepseek-ai/dsh-host-directory-picker-browse": "workspace:^",

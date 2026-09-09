@@ -119,6 +119,12 @@
       name: '@deepseek-ai/dsh-host-pto-experiment-dashboard'
       disabled: true
 
+    # Explicit data-record registration, fact-only profiling, and revocable
+    # exact-file static viewer routes. Product profiles opt in.
+    - id: pto-artifact-inspection
+      name: '@deepseek-ai/dsh-host-pto-artifact-inspection'
+      disabled: true
+
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'

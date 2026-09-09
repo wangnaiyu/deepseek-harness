@@ -521,8 +521,9 @@ export function SessionNodeItem({
  * A project section carries no trailing action at all: the runs under it are
  * scanned, so there is nothing to add by hand, and the Workspace's own
  * rename/delete verbs belong to the Sessions Tab that owns the registration.
- * Only the import bucket carries a trailing `＋`, hover-revealed like every
- * other row action — it is the one way a run record enters the list.
+ * Only the import bucket carries a trailing `＋`, revealed on hover or keyboard
+ * focus like every reachable row action — it is the one way a run record enters
+ * the list.
  * @param props.group - derived run-record group node.
  * @param props.onToggle - expand/collapse the section.
  * @param props.onOpen - raise the open-run-record flow (import bucket only).
@@ -545,7 +546,18 @@ export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
   // The import bucket has no Workspace title: its label is dictionary copy.
   const label = project === undefined ? t('group.ungrouped') : group.label
   const ownRow = (
-    <div className={css.projectRow} role="treeitem" aria-expanded={group.expanded} onClick={onToggle}>
+    <div
+      className={css.projectRow}
+      role="treeitem"
+      aria-expanded={group.expanded}
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onToggle()
+      }}
+    >
       <span className={clsx(css.slot, css.folder, group.expanded && css.folderActive)}>
         {group.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
       </span>
@@ -603,8 +615,9 @@ export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
  * @param props.t - the browser root's locale seat.
  * @returns the row element.
  */
-export function RunRecordRowItem({ record, onRemove, home, t }: {
+export function RunRecordRowItem({ record, onOpen, onRemove, home, t }: {
   record: RunRecordNode
+  onOpen: () => void
   onRemove: () => void
   home?: string | undefined
   t: RowTranslate
@@ -615,6 +628,14 @@ export function RunRecordRowItem({ record, onRemove, home, t }: {
       className={clsx(css.sessionRow, css.runRecordRow, menuOpen && css.menuOpen)}
       role="treeitem"
       aria-selected={false}
+      tabIndex={0}
+      title={t('runRecords.view')}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onOpen()
+      }}
     >
       <span className={css.slot}><IconDataOutline16 /></span>
       <span className={css.title}>{record.label}</span>
