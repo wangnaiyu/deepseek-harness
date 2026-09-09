@@ -779,6 +779,8 @@ type RunRecordTreeProps = Pick<WorkspaceBrowserProps, 't'> & {
   openRef: RefObject<HTMLButtonElement>
   /** Open the browser-owned remove confirmation for one record. */
   onRemoveRequest: (path: string, label: string) => void
+  /** Open the best available read-only visualization for one record. */
+  onViewRecord: (path: string) => void
 }
 
 /**
@@ -790,7 +792,7 @@ type RunRecordTreeProps = Pick<WorkspaceBrowserProps, 't'> & {
  */
 function RunRecordTree({
   workspaces, records, query, expansion, setExpanded,
-  onOpenRecord, openRef, onRemoveRequest, home, t,
+  onOpenRecord, openRef, onRemoveRequest, onViewRecord, home, t,
 }: RunRecordTreeProps) {
   const expandedGroups = useMemo(
     () => Object.entries(expansion).filter(([, expanded]) => expanded).map(([key]) => key),
@@ -819,6 +821,7 @@ function RunRecordTree({
                 record={record}
                 home={home}
                 t={t}
+                onOpen={() => { onViewRecord(record.path) }}
                 onRemove={() => { onRemoveRequest(record.path, record.label) }}
               />
             ))}
@@ -859,6 +862,7 @@ export function WorkspaceBrowser({
   insertWorkspaceBefore,
   archiveSession,
   createWorkspace,
+  openRunRecordViewer,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
@@ -1507,6 +1511,7 @@ export function WorkspaceBrowser({
             onOpenRecord={() => { setRunPickerOpen(v => !v) }}
             openRef={runPlusRef}
             onRemoveRequest={(path, label) => { setRunRemoveTarget({ path, label }) }}
+            onViewRecord={openRunRecordViewer}
             home={home}
             t={t}
           />

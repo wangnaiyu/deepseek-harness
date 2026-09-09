@@ -1942,6 +1942,27 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 ## `@deepseek-ai/dsh-tool-pto-run`
 
+### `pto_record_inspect`
+
+将 Workspace 内的一个目录识别为 PyPTO run 或无 marker 的 evidence pack，并确定只读查看/分析动作的就绪状态。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "record_path": {
+      "type": "string",
+      "description": "Data-record directory relative to or inside the current Session workspace."
+    }
+  },
+  "required": [
+    "record_path"
+  ]
+}
+```
+
+来源： [`packages/pto/tool-pto-run/src/index.ts`](../packages/pto/tool-pto-run/src/index.ts)
+
 ### `pto_run_discover`
 
 在当前 Session workspace 内使用产物 marker 而非路径名，发现 PyPTO 3.0 L2/L3 run 目录。

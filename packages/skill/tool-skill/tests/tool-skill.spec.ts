@@ -1016,7 +1016,12 @@ describe('user-explicit invocation injection', () => {
     expect(kinds.at(-1)).toBe('skill-invocation')
     expect(kinds.indexOf('skill-catalog')).toBeLessThan(kinds.indexOf('skill-invocation'))
     const injection = decision.messages.at(-1)!
-    expect(injection.source).toMatchObject({ kind: 'skill-invocation', name: 'hidden-demo', form: 'instructions' })
+    expect(injection.source).toMatchObject({
+      kind: 'skill-invocation',
+      name: 'hidden-demo',
+      provider: 'filesystem',
+      form: 'instructions',
+    })
     const block = injection.content[0]
     if (block?.type !== 'text') throw new Error('expected text injection')
     expect(block.text).toContain('<skill_content name="hidden-demo">')

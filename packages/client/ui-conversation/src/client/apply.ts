@@ -284,7 +284,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         const draft = workspaceNavigation.list.getSnapshot().sessionDraft
         return {
           kind: 'draft',
-          draftRevision: `${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`,
+          draftRevision: `${draft?.revision ?? 0}:${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`,
           ...draft?.workspaceId === undefined ? {} : { workspaceId: String(draft.workspaceId) },
           ...draft?.agentPreset === undefined ? {} : { agentPreset: draft.agentPreset },
         }
@@ -553,6 +553,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     input: inputHub,
     blocks: composerBlocks,
     maxConcurrentFileUploads,
+    stageBrowserDraft: (text) => { inputHub.draftShell().setDraft(text) },
   })
   ctx.plugin(todoDockEntry)
   ctx.plugin(queueDockEntry)

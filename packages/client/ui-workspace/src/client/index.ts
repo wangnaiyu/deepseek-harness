@@ -24,6 +24,7 @@ import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the root shell.overlay declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: pulls the Session root standard-hook merge.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
@@ -32,6 +33,8 @@ import { UiWorkspaceService } from './navigation.ts'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './rows/WorkspaceBrowser.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
+import { PtoViewerOverlay, type PtoViewerOverlayInjected } from './PtoViewerOverlay.tsx'
+import { PtoViewerController } from './pto-viewer.ts'
 import { en, zh, type WorkspaceKey } from './locales.ts'
 
 export type { SessionDraft, UiWorkspace, WorkspaceUiSnapshot } from './navigation.ts'
@@ -40,6 +43,18 @@ export type {
   WorkspaceBrowserInjected, WorkspaceBrowserProps, WorkspacePickerInjected, WorkspacePickerProps,
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
+
+interface PtoAnalysisInputTriggerSource {
+  readonly trigger: '/'
+  readonly name: string
+  readonly targets: readonly ('session' | 'draft')[]
+  candidates(): Promise<readonly never[]>
+  onPick(): undefined
+  admitMaterialized(
+    draft: { readonly draftRevision: string },
+    session: { readonly sessionId: string },
+  ): Promise<void>
+}
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface GlobalStandardProps {
@@ -72,6 +87,7 @@ const NS = 'workspace'
  */
 export const inject = [
   'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout',
+  'remote.ptoArtifactInspection',
 ]
 
 /**
@@ -85,6 +101,25 @@ export function apply(ctx: Context): void {
   const workspaces = ctx.get('workspaces') as IWorkspaces
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions)
+  const ptoViewer = new PtoViewerController(ctx.remote.ptoArtifactInspection)
+  ctx.inject(['inputTriggers'], (scope: Context) => {
+    const inputTriggers = scope.get('inputTriggers') as {
+      registerSource(source: PtoAnalysisInputTriggerSource): () => void
+    } | undefined
+    if (inputTriggers === undefined) return
+    const source: PtoAnalysisInputTriggerSource = {
+      trigger: '/',
+      name: 'pto-artifact-analysis-admission',
+      targets: ['draft', 'session'],
+      candidates: () => Promise.resolve([]),
+      onPick: () => undefined,
+      admitMaterialized: async (draft, session) => {
+        await ptoViewer.admitAnalysis(draft.draftRevision, session.sessionId)
+      },
+    }
+    scope.effect(() => inputTriggers.registerSource(source), 'ui-workspace: PTO analysis first-send admission')
+  })
+  ctx.effect(() => async () => { await ptoViewer.dispose() }, 'ui-workspace: close PTO viewer')
   ctx.slots.provideRoot({ hooks: { workspaces: uiWorkspace.list } })
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
 
@@ -140,6 +175,7 @@ export function apply(ctx: Context): void {
     },
     archiveSession: async (sessionId) => { await uiWorkspace.archiveSession(sessionId) },
     createWorkspace: input => workspaces.create(input),
+    openRunRecordViewer: (path) => { void ptoViewer.open(path) },
     hooks: { directoryFlow: browserFlowSource, hostInfo },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
@@ -166,5 +202,36 @@ export function apply(ctx: Context): void {
       locale: NS,
     },
     WorkspacePicker,
+  ))
+  const viewerSource: HostObservable<ReturnType<typeof ptoViewer.getSnapshot>> = {
+    getSnapshot: ptoViewer.getSnapshot,
+    subscribe: ptoViewer.subscribe,
+  }
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+    {
+      name: 'shell.overlay',
+      id: 'pto-artifact-viewer',
+      order: 20,
+      inject: (): PtoViewerOverlayInjected => ({
+        hooks: { viewer: viewerSource },
+        closeViewer: () => { void ptoViewer.close() },
+        switchViewer: (actionId) => { void ptoViewer.switchViewer(actionId) },
+        analyzeRecord: () => {
+          ptoViewer.stageAnalysis((text) => {
+            uiWorkspace.startUnassignedSession()
+            const draft = uiWorkspace.list.getSnapshot().sessionDraft
+            if (draft === undefined) throw new Error('PTO analysis could not create a browser draft')
+            const conversation = ctx.get('conversation') as {
+              stageBrowserDraft(value: string): void
+            } | undefined
+            if (conversation === undefined) throw new Error('PTO analysis composer is unavailable')
+            conversation.stageBrowserDraft(text)
+            return `${draft.revision}:${draft.catalogRevision}:${String(draft.workspaceId ?? '')}:${draft.agentPreset ?? ''}`
+          })
+        },
+      }),
+      locale: NS,
+    },
+    PtoViewerOverlay,
   ))
 }
