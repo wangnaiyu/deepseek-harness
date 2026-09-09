@@ -16,7 +16,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import { queueReadFaceOf } from './queue-store.ts'
 import type {
-  ComposerKeyboard, DraftAttachmentId, InputTriggerController, SessionInputResolver, SessionInput,
+  ComposerKeyboard, DraftAttachmentId, InputTriggerController, InputTriggerDraftTarget,
+  SessionInputResolver, SessionInput,
   SubmitImageAttachment, SubmitOutcome,
 } from '../contract/input.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
@@ -57,6 +58,11 @@ interface WorkspaceMaterializationFace {
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
+  /** Failed browser-draft admission retained on the materialized Session until a retry passes. */
+  private readonly pendingDraftAdmissions = new Map<SessionId, {
+    readonly controller: InputTriggerController
+    readonly target: InputTriggerDraftTarget
+  }>()
   private browserDraft: SessionInputShell | undefined
 
   /** Shared command-image plumbing for draft and Session shells. */
@@ -158,6 +164,7 @@ export class InputHub implements SessionInputResolver {
         for (const off of offs) off()
         const drafts = shell.dispose()
         this.shells.delete(id)
+        this.pendingDraftAdmissions.delete(id)
         const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
         for (const imageId of drafts) conversation?.releaseDraftImage(imageId)
       }
@@ -212,8 +219,9 @@ export class InputHub implements SessionInputResolver {
   /**
    * Default sink: optimistic clear + prompt. The session is always a real
    * host entity (materialized when its workspace was picked), so there is
-   * exactly one path; a failed first prompt is an ordinary prompt failure
-   * (banner via promptError, draft restored only while untouched).
+   * exactly one path. The sole exception is a browser draft whose formal
+   * admission failed after materialization: its captured admission identity
+   * remains attached to this Session and must pass before a retry can send.
    */
   private sink(
     session: SessionFace,
@@ -223,6 +231,24 @@ export class InputHub implements SessionInputResolver {
     signal: AbortSignal,
   ): Promise<SubmitOutcome> {
     if (text === '' && imageIds.length === 0) return Promise.resolve({ kind: 'success' })
+    return this.sendAdmitted(session, text, imageIds, mode, signal)
+  }
+
+  /** Re-run a retained first-send admission before allowing the materialized Session to send. */
+  private async sendAdmitted(
+    session: SessionFace,
+    text: string,
+    imageIds: readonly DraftAttachmentId[],
+    mode: InputSubmitMode,
+    signal: AbortSignal,
+  ): Promise<SubmitOutcome> {
+    const pending = this.pendingDraftAdmissions.get(session.sessionId)
+    if (pending !== undefined) {
+      await pending.controller.admitMaterialized(
+        pending.target, { sessionId: session.sessionId }, text, signal,
+      )
+      this.pendingDraftAdmissions.delete(session.sessionId)
+    }
     return this.conversation().sendSession(session, text, imageIds, mode, signal)
   }
 
@@ -250,8 +276,13 @@ export class InputHub implements SessionInputResolver {
     if (text !== '') shell.setDraft(text)
     if (imageIds.length > 0) shell.addImages(imageIds)
     if (draftTarget?.kind === 'draft') {
+      if (draftTriggers === undefined) {
+        throw new Error('conversation.input: captured draft target resolved no trigger controller')
+      }
+      this.pendingDraftAdmissions.set(sessionId, { controller: draftTriggers, target: draftTarget })
       try {
-        await draftTriggers?.admitMaterialized(draftTarget, { sessionId }, text, signal)
+        await draftTriggers.admitMaterialized(draftTarget, { sessionId }, text, signal)
+        this.pendingDraftAdmissions.delete(sessionId)
       } catch (error) {
         // Materialization has already navigated to the real Session. Keep the
         // captured payload in that visible shell and surface the rejection

@@ -94,6 +94,7 @@
     "@deepseek-ai/dsh-web-frontend": "workspace:^",
     "@deepseek-ai/dsh-host-frontend-static": "workspace:^",
     "@deepseek-ai/dsh-host-composer-catalog": "workspace:^",
+    "@deepseek-ai/dsh-host-pto-artifact-inspection": "workspace:^",
     "@deepseek-ai/dsh-host-pto-experiment-dashboard": "workspace:^",
     "@deepseek-ai/dsh-host-directory-picker-auto": "workspace:^",
     "@deepseek-ai/dsh-host-directory-picker-browse": "workspace:^",

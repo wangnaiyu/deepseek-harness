@@ -11,6 +11,7 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import {
   discoverPtoRuns,
+  inspectPtoRecord,
   inspectPtoRun,
   type ScanLimits,
 } from './run-artifacts.ts'
@@ -26,6 +27,7 @@ const DEFAULT_LIMITS: ScanLimits = {
   maxDirectories: 5_000,
   maxRuns: 200,
   maxArtifactEntries: 2_000,
+  maxProbeBytes: 8 * 1024 * 1024,
 }
 
 /** Deployment-owned discovery and inspection bounds. */
@@ -38,6 +40,8 @@ export interface Config {
   maxRuns?: number
   /** Maximum file entries inventoried by one inspection call. Defaults to 2000. */
   maxArtifactEntries?: number
+  /** Maximum bytes read while validating one small structured artifact. Defaults to 8 MiB. */
+  maxProbeBytes?: number
 }
 
 /** Schemastery config for Loader defaults and generated configuration docs. */
@@ -46,6 +50,7 @@ export const Config: z<Config> = z.object({
   maxDirectories: z.number().step(1).min(1).default(DEFAULT_LIMITS.maxDirectories),
   maxRuns: z.number().step(1).min(1).default(DEFAULT_LIMITS.maxRuns),
   maxArtifactEntries: z.number().step(1).min(1).default(DEFAULT_LIMITS.maxArtifactEntries),
+  maxProbeBytes: z.number().step(1).min(1).default(DEFAULT_LIMITS.maxProbeBytes),
 })
 
 const JSON_OUTPUT = {
@@ -59,6 +64,7 @@ function resolveLimits(config: Config): ScanLimits {
     maxDirectories: config.maxDirectories ?? DEFAULT_LIMITS.maxDirectories,
     maxRuns: config.maxRuns ?? DEFAULT_LIMITS.maxRuns,
     maxArtifactEntries: config.maxArtifactEntries ?? DEFAULT_LIMITS.maxArtifactEntries,
+    maxProbeBytes: config.maxProbeBytes ?? DEFAULT_LIMITS.maxProbeBytes,
   }
   for (const [key, value] of Object.entries(limits)) {
     if (!Number.isSafeInteger(value) || value < (key === 'maxDepth' ? 0 : 1)) {
@@ -96,7 +102,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   ctx.systemPrompt.section({
     name: 'tool:pto-run',
     order: 114,
-    text: 'Use pto_run_discover to find PyPTO 3.0 run directories in the current Session workspace and pto_run_inspect to probe one run before choosing a PTO analysis workflow. Recognition and capability results are artifact observations, not causal conclusions.',
+    text: 'Use pto_run_discover to find marker-backed PyPTO 3.0 runs, pto_run_inspect for the legacy run-only projection, and pto_record_inspect for a fact-only run or markerless evidence-pack Profile plus action readiness. Observations are not causal conclusions.',
   })
 
   ctx.tools.register(defineTool({
@@ -134,13 +140,51 @@ export function apply(ctx: Context, config: Config = {}): void {
       return result as unknown as JsonValue
     },
   }))
+
+  ctx.tools.register(defineTool({
+    name: 'pto_record_inspect',
+    description: 'Inspect one workspace-contained directory as a PyPTO run or markerless evidence pack and resolve read-only viewer/analysis readiness.',
+    parameters: {
+      record_path: { type: 'string', required: true, description: 'Data-record directory relative to or inside the current Session workspace.' },
+    },
+    output: JSON_OUTPUT,
+    isConcurrencySafe: () => true,
+    async execute(args, exec) {
+      const recordPath = typeof args.record_path === 'string' ? args.record_path.trim() : ''
+      if (recordPath === '') throw new Error('record_path must be a non-empty string')
+      const { workspace, run: record } = await resolveRunTarget(ctx, exec, recordPath)
+      const result = await inspectPtoRecord(
+        ctx.fs,
+        record,
+        recordPath,
+        limits.maxArtifactEntries,
+        { dependencyRenderer: false },
+        exec.signal,
+        limits.maxProbeBytes,
+      )
+      if (!ctx.fs.contains(workspace, record)) throw new Error('record_path escaped the Session workspace')
+      return result as unknown as JsonValue
+    },
+  }))
 }
 
 export {
   discoverPtoRuns,
+  inspectPtoRecord,
   inspectPtoRun,
   recognizePtoRun,
+  resolvePtoActions,
+  type PtoActionEnvironment,
+  type PtoActionReadiness,
+  type PtoArtifactGeneration,
+  type PtoArtifactRef,
   type PtoEvidenceCollection,
+  type PtoEvidenceIssue,
+  type PtoEvidenceItem,
+  type PtoEvidenceStatus,
+  type PtoRecordInspection,
+  type PtoRecordKind,
+  type PtoRecordProfile,
   type PtoRunCapability,
   type PtoRunDiscovery,
   type PtoRunHealth,

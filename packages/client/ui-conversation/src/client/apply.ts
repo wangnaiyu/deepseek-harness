@@ -250,7 +250,7 @@ export function apply(ctx: Context): void {
         const draft = workspaceNavigation.list.getSnapshot().sessionDraft
         return {
           kind: 'draft',
-          draftRevision: `${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`,
+          draftRevision: `${draft?.revision ?? 0}:${draft?.catalogRevision ?? 0}:${String(draft?.workspaceId ?? '')}:${draft?.agentPreset ?? ''}`,
           ...draft?.workspaceId === undefined ? {} : { workspaceId: String(draft.workspaceId) },
           ...draft?.agentPreset === undefined ? {} : { agentPreset: draft.agentPreset },
         }
@@ -485,7 +485,11 @@ export function apply(ctx: Context): void {
     yield registerComposerBar()
   })
 
-  ctx.plugin(ConversationController, { input: inputHub, blocks: composerBlocks })
+  ctx.plugin(ConversationController, {
+    input: inputHub,
+    blocks: composerBlocks,
+    stageBrowserDraft: (text) => { inputHub.draftShell().setDraft(text) },
+  })
   ctx.plugin(todoDockEntry)
   ctx.plugin(queueDockEntry)
 }
