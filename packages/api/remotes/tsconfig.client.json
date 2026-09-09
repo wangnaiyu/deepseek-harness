@@ -45,6 +45,9 @@
       "path": "../../host/composer-catalog"
     },
     {
+      "path": "../../host/pto-artifact-inspection"
+    },
+    {
       "path": "../../host/pto-experiment-dashboard"
     },
     {

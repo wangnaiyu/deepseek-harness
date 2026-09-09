@@ -199,6 +199,36 @@ describe('SkillRegistry registry', () => {
     expect((await ctx.skills.get('both'))?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
   })
 
+  it('loads a provider-qualified winner and fails closed on a same-name provider mismatch', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SkillRegistry)
+    registerProvider(ctx, new MemoryProvider([
+      memorySkill('qualified-skill', 'Qualified', 10, 'Official body.'),
+    ]))
+
+    await expect(ctx.skills.getQualified({
+      name: 'qualified-skill',
+      provider: 'memory',
+    })).resolves.toMatchObject({ provider: 'memory', content: 'Official body.' })
+    await expect(ctx.skills.getQualified({
+      name: 'qualified-skill',
+      provider: 'other-provider',
+    })).rejects.toMatchObject({
+      name: 'SkillProviderMismatchError',
+      skillName: 'qualified-skill',
+      expectedProvider: 'other-provider',
+      actualProvider: 'memory',
+    })
+    await expect(ctx.skills.getQualified({
+      name: 'missing-skill',
+      provider: 'memory',
+    })).resolves.toBeUndefined()
+    await expect(ctx.skills.getQualified({
+      name: 'qualified-skill',
+      provider: '',
+    })).rejects.toThrow('qualified skill provider must be a non-empty string')
+  })
+
   it('validates parsed candidate fields', async () => {
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)

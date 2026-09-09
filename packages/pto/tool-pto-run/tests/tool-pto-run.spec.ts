@@ -101,7 +101,7 @@ describe('PTO run inspection', () => {
       artifactInventoryTruncated: false,
       subBuilds: [{ name: 'program0', relativePath: 'next_levels/program0', rerunFromDir: true }],
       runHealth: {
-        compileStatus: 'unknown',
+        compileStatus: 'artifacts-observed',
         compileEvidence: ['passes_dump/00_before.py'],
         diagnosticArtifacts: ['report/compile.stderr', 'report/perf_hints.log'],
       },
@@ -144,7 +144,7 @@ describe('PTO run inspection', () => {
     ])
   })
 
-  it('separates incomplete compile evidence from optional DFX collection', async () => {
+  it('does not infer compile failure from absent compile artifacts', async () => {
     const mounted = await mount()
     await fixtureFile(mounted.root, 'partial/kernel_config.py')
 
@@ -153,7 +153,7 @@ describe('PTO run inspection', () => {
     expect(result.isError).toBe(false)
     const inspection = result.value as unknown as ToolPtoRun.PtoRunInspection
     expect(inspection.runHealth).toEqual({
-      compileStatus: 'incomplete-or-failed',
+      compileStatus: 'unknown',
       compileEvidence: [],
       diagnosticArtifacts: [],
     })
@@ -195,12 +195,96 @@ describe('PTO run inspection', () => {
   })
 })
 
+describe('PTO data-record profile', () => {
+  it('recognizes a markerless deps pack and keeps viewer and analysis readiness independent', async () => {
+    const mounted = await mount()
+    await fixtureFile(mounted.root, 'pack/rank0/deps.json', JSON.stringify({ tasks: [], tensors: [], edges: [] }))
+    await fixtureFile(mounted.root, 'pack/rank0/deps_viewer.html', '<!doctype html><title>deps</title>')
+
+    const result = await mounted.call('pto_record_inspect', { record_path: 'pack' })
+
+    expect(result.isError).toBe(false)
+    const inspection = result.value as unknown as ToolPtoRun.PtoRecordInspection
+    expect(inspection.profile).toMatchObject({
+      kind: 'evidence-pack',
+      generation: 'unknown',
+      runtimeLevel: 'unknown',
+      identityEvidence: [],
+      scan: { complete: true, limits: [] },
+    })
+    expect(inspection.profile.evidence.find(item => item.type === 'dependency-graph')).toMatchObject({
+      status: 'available',
+      artifactRefs: ['rank0/deps.json'],
+    })
+    expect(inspection.actions.find(item => item.actionId === 'open.dependency-graph')).toMatchObject({
+      status: 'available',
+      artifactRefs: ['rank0/deps_viewer.html'],
+      adapter: { id: 'pto-static-html', version: '1' },
+    })
+    expect(inspection.actions.find(item => item.actionId === 'analyze.dependency-redundancy')).toMatchObject({
+      status: 'unavailable',
+      reasons: [{ code: 'official-skill-unavailable' }],
+    })
+  })
+
+  it('distinguishes invalid evidence, bounded unchecked evidence, and a marker-backed run', async () => {
+    const mounted = await mount({ maxProbeBytes: 24 })
+    await fixtureFile(mounted.root, 'invalid/deps.json', '{broken')
+    await fixtureFile(mounted.root, 'large/deps.json', JSON.stringify({ tasks: [{ id: 1 }], edges: [] }))
+    await fixtureFile(mounted.root, 'run/kernel_config.py')
+    await fixtureFile(mounted.root, 'run/dfx_outputs/deps.json', JSON.stringify({ tasks: [], tensors: [], edges: [] }))
+
+    const invalid = await mounted.call('pto_record_inspect', { record_path: 'invalid' })
+    const large = await mounted.call('pto_record_inspect', { record_path: 'large' })
+    const run = await mounted.call('pto_record_inspect', { record_path: 'run' })
+
+    expect((invalid.value as unknown as ToolPtoRun.PtoRecordInspection).profile.evidence[0]).toMatchObject({
+      status: 'invalid', issues: [{ code: 'invalid-json' }],
+    })
+    expect((large.value as unknown as ToolPtoRun.PtoRecordInspection).profile.evidence[0]).toMatchObject({
+      status: 'unchecked', issues: [{ code: 'probe-size-limit' }],
+    })
+    expect((run.value as unknown as ToolPtoRun.PtoRecordInspection).profile).toMatchObject({
+      kind: 'run', generation: '3.0', runtimeLevel: 'L2', identityEvidence: ['kernel_config.py'],
+    })
+  })
+
+  it('enables only self-contained memory and IR HTML while keeping JSON-only viewers unavailable', async () => {
+    const mounted = await mount()
+    await fixtureFile(mounted.root, 'compile/memory_map.html', '<!doctype html><title>memory</title>')
+    await fixtureFile(mounted.root, 'compile/model_ir_trace.html', '<!doctype html><title>ir</title>')
+    await fixtureFile(mounted.root, 'compile/passes_dump/00_before.json', '{}')
+    await fixtureFile(mounted.root, 'compile/program.json', '{}')
+    await fixtureFile(mounted.root, 'compile/merged_swimlane.json', '[]')
+    await fixtureFile(mounted.root, 'compile/critical_path_report.md', '# Critical path')
+
+    const result = await mounted.call('pto_record_inspect', { record_path: 'compile' })
+    const inspection = result.value as unknown as ToolPtoRun.PtoRecordInspection
+    expect(inspection.profile).toMatchObject({ kind: 'evidence-pack', generation: '2.0-pro' })
+    expect(inspection.actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ actionId: 'open.memory-map', status: 'available', artifactRefs: ['memory_map.html'] }),
+      expect.objectContaining({ actionId: 'open.ir-lowering', status: 'available', artifactRefs: ['model_ir_trace.html'] }),
+      expect.objectContaining({ actionId: 'open.timeline', status: 'unavailable' }),
+      expect.objectContaining({ actionId: 'open.critical-path', status: 'unavailable' }),
+      expect.objectContaining({ actionId: 'open.program-graph', status: 'unavailable' }),
+    ]))
+  })
+
+  it('rejects a directory with no supported marker or artifact', async () => {
+    const mounted = await mount()
+    await fixtureFile(mounted.root, 'ordinary/readme.txt')
+    const result = await mounted.call('pto_record_inspect', { record_path: 'ordinary' })
+    expect(result.isError).toBe(true)
+  })
+})
+
 describe('registration', () => {
-  it('publishes exactly two read-only tools and model guidance', async () => {
+  it('publishes the run tools plus the fact-only record inspector and model guidance', async () => {
     const mounted = await mount()
     expect(mounted.ctx.tools.schemas().map(schema => schema.name)).toEqual([
       'pto_run_discover',
       'pto_run_inspect',
+      'pto_record_inspect',
     ])
     const prompt = await mounted.ctx.systemPrompt.assemble()
     expect(prompt.sections.map(section => section.name)).toContain('tool:pto-run')

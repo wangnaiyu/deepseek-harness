@@ -348,6 +348,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns Workspace-local proposals and queries plus one trusted Host execution-admission loop: clean Git/PyPTO identities, revision-bound user receipt, exclusive candidate reservation, command execution, and recognized terminal run. Models retain planning/query tools only.',
   },
   {
+    key: 'ptoArtifactInspection',
+    pkg: 'host-pto-artifact-inspection',
+    title: 'PTO artifact inspection and analysis admission',
+    mode: 'core',
+    consumers: ['api-remotes', 'client-ui-workspace'],
+    note: 'Owns explicit directory registrations, revision checks, revocable static viewer routes, and qualified official dependency-analysis admission.',
+  },
+  {
     key: 'ptoExperimentDashboard',
     pkg: 'host-pto-experiment-dashboard',
     title: 'Session-addressed PTO dashboard projection',

@@ -138,6 +138,8 @@ export type WorkspaceBrowserInjected = {
   archiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /** Profile and open one registered data record in the Session-free root viewer. */
+  openRunRecordViewer: (path: string) => void
 }
 
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
