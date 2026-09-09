@@ -125,6 +125,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     unarchiveSession: vi.fn(async () => {}),
     insertWorkspaceBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
+    openRunRecordViewer: vi.fn(),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => {} }),
     useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
     renderSlot: renderDirectoryFlowOnly,
@@ -370,6 +371,24 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '移除运行记录' })[0] as HTMLElement)
     expect(screen.queryByRole('treeitem', { name: /mm_20260824_111500/ })).toBeNull()
     expect(screen.getByText('暂无运行记录')).toBeTruthy()
+  })
+
+  it('opens a registered row in the Session-free artifact viewer', () => {
+    let picked: ((path: string) => void) | undefined
+    const openRunRecordViewer = vi.fn()
+    mount({
+      openRunRecordViewer,
+      renderSlot: ((_name: string, owner: { open: boolean; onPicked: (path: string) => void }) => {
+        picked = owner.onPicked
+        return owner.open ? <div data-testid="directory-flow" /> : null
+      }) as never,
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '运行记录' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开运行记录' }))
+    act(() => { picked?.('/elsewhere/markerless-pack') })
+    fireEvent.click(screen.getByRole('treeitem', { name: '未分组' }))
+    fireEvent.click(screen.getByRole('treeitem', { name: /markerless-pack/ }))
+    expect(openRunRecordViewer).toHaveBeenCalledWith('/elsewhere/markerless-pack')
   })
 
   it('filters run records through the region search field', () => {

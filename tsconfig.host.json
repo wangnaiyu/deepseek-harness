@@ -445,6 +445,7 @@
     { "path": "./packages/host/open-in-app" },
     { "path": "./packages/host/composer-catalog" },
     { "path": "./packages/host/pto-experiment-dashboard" },
+    { "path": "./packages/host/pto-artifact-inspection" },
     { "path": "./packages/host/plugin-inventory" },
     { "path": "./packages/boot/plugin-manager" },
     { "path": "./packages/llm/plugin-package-inventory-deepseek" },

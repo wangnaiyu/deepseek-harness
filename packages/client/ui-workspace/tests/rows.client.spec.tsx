@@ -173,13 +173,20 @@ describe('workspace browser rows', () => {
     expect(onToggle).toHaveBeenCalledOnce()
   })
 
-  it('uses the business state color for an expanded run-record group folder', () => {
+  it('makes the run-record group and its import action keyboard reachable', () => {
+    const onToggle = vi.fn()
     const group: RunRecordGroupNode = {
       key: '', project: undefined, label: '', expanded: false, recordCount: 0, records: [],
     }
-    const view = render(<RunGroupRowItem group={group} onToggle={vi.fn()} t={t} />)
-    const folder = screen.getByRole('treeitem').querySelector('span')
+    const view = render(<RunGroupRowItem group={group} onToggle={onToggle} onOpen={vi.fn()} t={t} />)
+    const row = screen.getByRole('treeitem')
+    const folder = row.querySelector('span')
     expect(folder?.className).not.toMatch(/folderActive/)
+    expect(row.tabIndex).toBe(0)
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onToggle).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: '打开运行记录' })).toBeTruthy()
 
     view.rerender(<RunGroupRowItem group={{ ...group, expanded: true }} onToggle={vi.fn()} t={t} />)
     expect(folder?.className).toMatch(/folderActive/)

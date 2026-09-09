@@ -658,7 +658,7 @@ describe('Conversation inject API', () => {
     await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
 
     expect(admitMaterialized).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'draft' }),
+      expect.objectContaining({ kind: 'draft', draftRevision: '1:0::' }),
       { sessionId: ROOT },
       '/skill pto-analyze',
       expect.any(AbortSignal),
@@ -669,8 +669,10 @@ describe('Conversation inject API', () => {
     await b.runtime.dispose()
   })
 
-  it('keeps the first prompt in the new Session when formal catalog admission rejects it', async () => {
-    const admitMaterialized = vi.fn(() => Promise.reject(new Error('Skill "pto-analyze" is no longer available')))
+  it('keeps a rejected first prompt in the new Session and re-admits it on retry', async () => {
+    const admitMaterialized = vi.fn()
+      .mockRejectedValueOnce(new Error('Skill "pto-analyze" is no longer available'))
+      .mockResolvedValue(undefined)
     const b = await bench({ admitMaterialized })
     b.runtime.sessions.clear()
     b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
@@ -685,6 +687,17 @@ describe('Conversation inject API', () => {
     expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(0)
     expect(b.inputApi(ROOT).state.getSnapshot().draft).toBe('/skill pto-analyze')
     expect(draft.state.getSnapshot().draft).toBe('/skill pto-analyze')
+
+    b.inputApi(ROOT).actions.submit()
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(admitMaterialized).toHaveBeenCalledTimes(2)
+    expect(admitMaterialized).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'draft', draftRevision: '1:0::' }),
+      { sessionId: ROOT },
+      '/skill pto-analyze',
+      expect.any(AbortSignal),
+    )
+    expect(b.runtime.workspaces.calls.filter(call => call.method === 'materializeSessionDraft')).toHaveLength(1)
     await b.runtime.dispose()
   })
 

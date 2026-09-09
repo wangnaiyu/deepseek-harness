@@ -291,6 +291,7 @@
 }
 
 .projectRow:hover .rowActions,
+.projectRow:focus .rowActions,
 .sessionRow:hover .rowActions,
 .searchResultRow:hover .rowActions,
 .projectRow.menuOpen .rowActions,

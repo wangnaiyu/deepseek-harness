@@ -2572,6 +2572,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'name', description: 'kebab-case skill name.' }, { name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects workspace-sensitive skills, and `signal` cancels work.' }],
         returns: 'the full skill, including body content, or `undefined`.',
       },
+      {
+        signature: 'async getQualified( identity: QualifiedSkillIdentity, options: SkillViewOptions = {}, ): Promise<SkillDefinition | undefined>',
+        description: 'Load the effective scoped Skill only when its provider is exactly the one requested by a trusted product action. A same-name workspace, user, or preset shadow is an explicit mismatch error, never a silent fallback.',
+        parameters: [{ name: 'identity', description: 'exact Skill name/provider pair required by the caller.' }, { name: 'options', description: 'the same scoped, cwd-sensitive view used by ordinary loading.' }],
+        returns: 'the qualified definition, or undefined when the name is absent.',
+      },
     ],
   },
   {
@@ -5893,6 +5899,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PtcRunSpec',
     declaration: 'export interface PtcRunSpec extends PtcRunRequest {\n    cwd: string;\n    timeoutMs: number | null;\n}',
+  },
+  {
+    name: 'PtoRecordProfileView',
+    declaration: 'export interface PtoRecordProfileView {\n    readonly id: string;\n    readonly kind: \'run\' | \'evidence-pack\';\n    readonly relativePath: string;\n    readonly displayPath: string;\n    readonly revision: string;\n    readonly generation: \'3.0\' | \'2.0-pro\' | \'unknown\';\n    readonly runtimeLevel: \'L2\' | \'L3\' | \'unknown\';\n    readonly identityEvidence: readonly string[];\n    readonly artifacts: readonly PtoArtifactView[];\n    readonly evidence: readonly PtoEvidenceView[];\n    readonly scan: {\n        readonly complete: boolean;\n        readonly limits: readonly string[];\n    };\n}',
+  },
+  {
+    name: 'QualifiedSkillIdentity',
+    declaration: 'export interface QualifiedSkillIdentity {\n    readonly name: string;\n    readonly provider: string;\n}',
   },
   {
     name: 'QueueAction',

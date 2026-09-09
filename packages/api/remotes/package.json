@@ -94,6 +94,7 @@
     "@deepseek-ai/dsh-office-to-pdf": "workspace:*",
     "@deepseek-ai/dsh-api-account-controller": "workspace:*",
     "@deepseek-ai/dsh-host-composer-catalog": "workspace:*",
-    "@deepseek-ai/dsh-host-pto-experiment-dashboard": "workspace:*"
+    "@deepseek-ai/dsh-host-pto-experiment-dashboard": "workspace:*",
+    "@deepseek-ai/dsh-host-pto-artifact-inspection": "workspace:*"
   }
 }

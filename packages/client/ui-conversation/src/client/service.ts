@@ -75,6 +75,11 @@ export interface IConversation {
    */
   readonly blocks: ComposerBlocks
   /**
+   * Replace the browser-only New Session draft without materializing a Session.
+   * @param text - replacement text for the browser draft.
+   */
+  stageBrowserDraft(text: string): void
+  /**
    * Register the optional permission plugin's browser-draft source.
    * @param source - dynamic catalog and browser-only staging callbacks.
    * @returns disposer that removes only this source generation.
@@ -220,10 +225,14 @@ export class ConversationController extends Service implements IConversation {
     input: SessionInputResolver
     blocks: ComposerBlocks
     maxConcurrentFileUploads: number
+    stageBrowserDraft?: (text: string) => void
   }) {
     super(ctx, 'conversation')
     this.input = config.input
     this.blocks = config.blocks
+    this.stageBrowserDraft = config.stageBrowserDraft ?? (() => {
+      throw new Error('conversation.stageBrowserDraft: browser draft input is unavailable')
+    })
     this.maxConcurrentFileUploads = config.maxConcurrentFileUploads
     ctx.effect(() => async () => {
       const operations = [...this.fileUploadOperations.values()]
@@ -242,6 +251,9 @@ export class ConversationController extends Service implements IConversation {
       this.draftPermissions.set(undefined)
     }, 'conversation draft attachments')
   }
+
+  /** Replace the browser-only New Session draft without allocating Host state. */
+  readonly stageBrowserDraft: (text: string) => void
 
   /**
    * Register the optional permission plugin's browser-draft source.
