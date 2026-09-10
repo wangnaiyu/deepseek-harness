@@ -87,9 +87,9 @@
 | `workspace/session-activity` | `waterfall` | [`packages/workspace/workspace/src/index.ts:129`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`waterfall`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
 | `workspace/session-stop` | `parallel` | [`packages/workspace/workspace/src/index.ts:147`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`parallel`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
 
-## Non-harness or undeclared event strings seen in package source
+## 包源码中出现的非 harness 或未声明事件字符串
 
-| Event string | Dispatchers | Listeners |
+| 事件字符串 | 分派者 | 监听者 |
 | --- | --- | --- |
 | `internal/config` | [`config-editor`](../packages/boot/config-editor) (`waterfall`) | [`llm-pi-ai`](../packages/llm/llm-pi-ai) |
 | `internal/dispatch` | - | `agent-team`, [`commands`](../packages/interaction/commands), [`compaction`](../packages/compaction/compaction), [`fs`](../packages/fs/fs), [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hook-protocol`](../packages/hooks/hook-protocol), [`llm-retry`](../packages/llm/llm-retry), [`permission-presets`](../packages/interaction/permission-presets), [`plan-mode`](../packages/plan/plan-mode), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`schedule`](../packages/schedule/schedule), [`scope`](../packages/core/scope), [`session`](../packages/core/session), [`session-log-deepseek`](../packages/session/session-log-deepseek), [`session-title`](../packages/session/session-title), [`subagent`](../packages/subagent/subagent), [`terminal-bash`](../packages/terminal/terminal-bash), [`time-context`](../packages/context/time-context), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), `ui-renderer`, [`user-approval`](../packages/interaction/user-approval), [`webhook`](../packages/webhook/webhook), [`workflow`](../packages/workflow/workflow) |

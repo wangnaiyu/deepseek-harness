@@ -72,7 +72,7 @@ kind: "package-reference"
 
 会话 id 在使用前被单射转义为一个安全路径段（无遍历、无冲突）。规范化 cwd 让项目目录保持可读、便于导航；规范化相同的 cwd 字符串共享项目目录，而会话 id 仍选择不同会话目录。运行时操作选择数值最高的规范 generation，格式拒绝诊断会点名该绝对路径，让操作者能找到构建拒绝解读的原始日志。
 
-`projectDirectoryAliases` 只改变选定绝对 cwd 的物理寻址：不可变 header 与恢复后的 Session 仍保留真实 cwd。传统 cwd 派生目录中的现有产物仍可读，并继续在原位追加；新产物使用配置别名。
+`projectDirectoryAliases` 只改变选定绝对 cwd 的物理寻址：不可变 header 与恢复后的 Session 仍保留真实 cwd。传统 cwd 派生目录中的现有产物仍可读。追加使用同一目录中的当前格式 generation；迁移保留已提交的前代 generation。新 Session 使用配置别名。
 
 ### 持久性与崩溃语义
 

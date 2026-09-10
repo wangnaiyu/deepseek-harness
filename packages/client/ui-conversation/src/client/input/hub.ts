@@ -297,6 +297,7 @@ export class InputHub implements SessionInputResolver {
     const shell = this.shellFor(binding)
     if (text !== '') shell.setDraft(text)
     if (imageIds.length > 0) shell.addAttachments(imageIds)
+    await this.conversation().prepareDraftFiles(sessionId, imageIds)
     if (draftTarget?.kind === 'draft') {
       if (draftTriggers === undefined) {
         throw new Error('conversation.input: captured draft target resolved no trigger controller')
@@ -314,7 +315,6 @@ export class InputHub implements SessionInputResolver {
         throw error
       }
     }
-    await this.conversation().prepareDraftFiles(sessionId, imageIds)
     shell.submit(mode)
     // The draft now belongs to the real Session. Report success to the old
     // browser machine only so it clears its duplicate state; the real shell

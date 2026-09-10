@@ -12,6 +12,8 @@ Presentation must not turn a lower single observation into a successful experime
 
 ## Decision
 
+The details-slot mechanism below is superseded by the [upstream compatibility decision](2026-09-10-pto-upstream-compatibility.md). The evidence rules remain current.
+
 `ui-tool` remains the sole occupant of `conversation.details.tool` and adds a keyed, session-scoped child slot named `tool.result.detailview`. `ToolDetails` dispatches the selected frozen call block by wire Tool name and supplies the existing structured/raw renderer as the fallback. Business packages can therefore own one Tool's details without importing the conversation panel or handling unrelated Tools.
 
 `@deepseek-ai/dsh-client-ui-pto-experiments` registers both `pto_experiment_compare` seats: a compact transcript row and a full details body. It reads only the durable Tool result. It does not call the Host, inspect artifacts, or keep another registry projection.

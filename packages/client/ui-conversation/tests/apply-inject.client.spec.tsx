@@ -701,6 +701,48 @@ describe('Conversation inject API', () => {
     await b.runtime.dispose()
   })
 
+  it('retains uploaded browser-draft files when formal admission rejects and later retries', async () => {
+    const admitMaterialized = vi.fn()
+      .mockRejectedValueOnce(new Error('Skill "pto-analyze" is no longer available'))
+      .mockResolvedValue(undefined)
+    const b = await bench({ admitMaterialized })
+    onTestFinished(() => b.runtime.dispose())
+    b.runtime.sessions.clear()
+    b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
+    const draft = b.draftInputApi()
+    draft.actions.setDraft('/skill pto-analyze')
+
+    expect(b.composerApi(undefined).addFiles?.([
+      new File([Uint8Array.of(1)], 'draft.pdf', { type: 'application/pdf' }),
+    ])).toBeNull()
+    expect(b.rootUpload).not.toHaveBeenCalled()
+
+    draft.actions.submit()
+    await vi.waitFor(() => { expect(admitMaterialized).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(b.composerApi(ROOT).hooks.notices.getSnapshot()).toMatchObject({
+        level: 'error', text: 'Skill "pto-analyze" is no longer available',
+      })
+    })
+
+    expect(b.rootUpload).toHaveBeenCalledOnce()
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(0)
+    expect(b.inputApi(ROOT).state.getSnapshot().draft).toBe('/skill pto-analyze')
+    expect(draft.state.getSnapshot().draft).toBe('/skill pto-analyze')
+
+    b.inputApi(ROOT).actions.submit()
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(admitMaterialized).toHaveBeenCalledTimes(2)
+    expect(admitMaterialized).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'draft', draftRevision: '1:0::' }),
+      { sessionId: ROOT },
+      '/skill pto-analyze',
+      expect.any(AbortSignal),
+    )
+    expect(b.runtime.workspaces.calls.filter(call => call.method === 'materializeSessionDraft')).toHaveLength(1)
+  })
+
   it('projects the dynamic View registration ledger', async () => {
     const b = await bench()
     const source = b.viewSource(ROOT)

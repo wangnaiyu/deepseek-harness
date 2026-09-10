@@ -13,6 +13,7 @@ agent 可以在会话期间发现并加载 skill。在首次请求前，如果�
 
 ## 目录
 
+- [包行为](#package-behavior)
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
@@ -21,6 +22,11 @@ agent 可以在会话期间发现并加载 skill。在首次请求前，如果�
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+agent（智能体）可以在会话期间发现并加载 skill（技能）：在首次请求前，它们会收到一份持久目录，列出每个可用 skill 的名称与有长度上限的描述，并可通过 `skill` 加载工具按名称加载任一列出 skill 的完整指令。用户也可以用规范 `/skill <name>` 手势直接调用某个 skill，把该 skill 的指令注入当轮次；旧 `/<name>` 仅在有效命令不存在同名项时继续接受。目录保持最新：成员关系、描述或可见性变化会追加完整的替换目录，被删除的 skill 会被显式停用。当 agent 需要加载 skill 时，请把它与 skill 注册表（以及至少一个提供方）一起挂载；它唯一的配置项限制目录描述长度。它需要 `ctx.agents`、`ctx.tools` 与 `ctx.skills`；存在有效 `ctx.commands` service 时，旧手势路径还会用它检查同名冲突。
 
 <a id="use-this-package"></a>
 ## 使用本包
@@ -99,8 +105,8 @@ agent 可以在会话期间发现并加载 skill。在首次请求前，如果�
 - [skill 子系统参考](../../../docs/subsystems/skills.zh.md)——目录背后的注册表与提供方词汇。
 - [skill 包](../skill/README.zh.md)——注册表与共享的 `renderSkillContent` 渲染。
 - [生成工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-skill)——模型接收的精确 `skill` schema。
-- [skill 目录热刷新 Agent Note](../../../.agents/notes/archived/feature/2026-07-27-skill-catalog-hot-refresh.zh.md)——持久初始目录与替换生命周期。
-- [用户显式 skill 调用 Agent Note](../../../.agents/notes/archived/feature/2026-08-08-user-explicit-skill-invocation.zh.md)——显式 skill 手势设计。
+- [skill 目录热刷新 Agent Note](../../../.agents/notes/archived/feature/2026-07-27-skill-catalog-hot-refresh.md)——持久初始目录与替换生命周期。
+- [用户显式 skill 调用 Agent Note](../../../.agents/notes/archived/feature/2026-08-08-user-explicit-skill-invocation.md)——显式 skill 手势设计。
 
 -----
 

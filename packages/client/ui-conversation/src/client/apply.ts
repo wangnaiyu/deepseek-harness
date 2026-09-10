@@ -512,11 +512,10 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       }
     },
     removeAttachment: (id) => {
-      conversation.releaseDraftAttachment(id)
-      shell.removeAttachment(id)
+      if (shell.removeAttachment(id)) conversation.releaseDraftAttachment(id)
     },
     resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
-    retryFileUpload: sessionId === undefined ? undefined : id => conversation.retryFileUpload(sessionId, id),
+    retryFileUpload: sessionId === undefined ? undefined : (id) => { conversation.retryFileUpload(sessionId, id) },
   })
 
   const registerComposerBar = () => slots.register({

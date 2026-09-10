@@ -11,6 +11,19 @@ English | [中文](README.zh.md)
 
 Read-only Host projection for draft and formal Session composers. `ComposerCatalogGateway` publishes `composerCatalog/listDraft` and `composerCatalog/listSession`. Draft requests carry only an optional `workspaceId` and Agent preset id, never a client path; Session requests carry only `sessionId`. The Host resolves canonical cwd, Workspace label, effective Agent/standing scope, and the isolated Skill registry, then returns effective Commands and user-invocable Skills in separate arrays. Session reads never start a turn, and cold attached Session reads do not resume an Agent.
 
+## Table of Contents
+
+- [Package behavior](#package-behavior)
+- [Configuration](#configuration)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="package-behavior"></a>
+## Package behavior
+
 An ungrouped request lists only global Commands and calls the Host Skill registry with `cwd: undefined`; project Skill sources are also filtered from the result. A Workspace request includes scoped command winners and queries the preset's isolated Skill registry when one is mounted, otherwise the Host registry. An unknown Workspace rejects. A broken preset leaves global Commands and Host-registry Skills available while returning contained `commands` and `skills` errors attributed to `Agent`.
 
 Command definitions may carry an opaque `provider` id. The command registry retains that id and the winning `global`/`scoped` layer beside the handler-free descriptor. This package maps trusted provider declarations to product origins; an unowned global registration is `DSH`, an unowned scoped registration is `Agent`, and an unknown explicit provider is `Plugin`. Skills resolve project and user source buckets first, then the most specific configured provider/source declaration, a provider-wide declaration, and safe defaults: custom roots are `User`, unmapped bundled roots are `DSH`, and other unmapped providers are `Plugin`. Configured product kinds use fixed `DSH`, `PTO`, and `User` labels; only plugin origins accept a friendly label, with `Plugin` as the fallback.
@@ -20,15 +33,6 @@ Both methods strip handlers, scope keys, provider ids, paths, resource bases, an
 The service is Remote-only and deliberately declares no same-process Cordis `Context` merge. Client packages consume its generated `./remote` contribution and `./types` payload vocabulary through [`api-remotes`](../../api/remotes/README.md).
 
 No runtime invariant companion is published because every response is projected directly from authoritative registries without retained mutable state.
-
-## Table of Contents
-
-- [Configuration](#configuration)
-- [Model Experience](#model-experience)
-- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
-- [Dev Note](#dev-note)
-
------
 
 <a id="configuration"></a>
 ## Configuration

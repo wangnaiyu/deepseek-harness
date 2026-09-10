@@ -11,12 +11,9 @@ English | [中文](README.zh.md)
 
 The Web GUI lets users switch the model and reasoning effort for an existing session through either the `/model` popup or the composer's model control. Both surfaces present the same provider-grouped choices, and the selected model determines the available effort names and default. A complete selection applies to the next request; a running step keeps the model and effort it started with. If no adapter can serve the session's route, the composer remains disabled until routing becomes available.
 
-The composer seat is `session-maybe`. A New Session browser draft loads the Host-scoped catalog through Session Controller's `session.modelCatalog`, stages its complete selection in browser memory, and makes no session-selection RPC. First-send preparation applies that selection to the newly materialized ordinary Session after earlier preparation such as Agent Preset composition and before the captured prompt is released. Starting another draft or reconnecting clears the staged selection and catalog.
-
-The Host-reported provider/model/reasoning `ModelSelection` is the single selection fact, but it is echoed only when the exact provider/model pair remains in the advertised groups; an absent catalog row leaves the routable selection intact while the trigger prompts `Select model`, no stale row is synthesized, and no Effort row is shown until the user picks an advertised model. Directory loads and selections share a generation counter so an older response never overwrites a newer one; a connection reset drops every resident projection and repulls the Host-restored selection before display. Provider-local metadata failures list inline while usable groups stay selectable, and selection failures retain the prior selection and directory.
-
 ## Table of Contents
 
+- [Package behavior](#package-behavior)
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
@@ -27,6 +24,13 @@ The Host-reported provider/model/reasoning `ModelSelection` is the single select
 Real directories are per-session, resolved lazily through `ctx.modelDirectories.directoryFor(sessionId)`, and disposed with the session scope; the draft uses one root-owned `DraftModelDirectory`. Addressed subagent sessions expose neither real-session entry, and their directory rejects loads, selections, and reconnect refreshes, because ordinary Agent-bound model RPCs would activate persisted child history outside the direct-parent continuation path.
 
 -----
+
+<a id="package-behavior"></a>
+## Package behavior
+
+The composer seat is `session-maybe`. A New Session browser draft loads the Host-scoped catalog through Session Controller's `session.modelCatalog`, stages its complete selection in browser memory, and makes no session-selection RPC. First-send preparation applies that selection to the newly materialized ordinary Session after earlier preparation such as Agent Preset composition and before the captured prompt is released. Starting another draft or reconnecting clears the staged selection and catalog.
+
+The Host-reported provider/model/reasoning `ModelSelection` is the single selection fact, but it is echoed only when the exact provider/model pair remains in the advertised groups; an absent catalog row leaves the routable selection intact while the trigger prompts `Select model`, no stale row is synthesized, and no Effort row is shown until the user picks an advertised model. Directory loads and selections share a generation counter so an older response never overwrites a newer one; a connection reset drops every resident projection and repulls the Host-restored selection before display. Provider-local metadata failures list inline while usable groups stay selectable, and selection failures retain the prior selection and directory.
 
 <a id="use-this-package"></a>
 ## Use this package

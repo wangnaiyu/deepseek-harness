@@ -9,10 +9,11 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-skill` lets users invoke skills through the canonical `/skill <name>` composer gesture. Ordinary-session candidates come from the formal `composerCatalog.listSession({sessionId})` projection, so the `Skills` section and trailing origin labels use the same final scope as first-send admission; the legacy `skills/list` Remote remains a compatibility fallback. A pick lands the same literal text that every client can send. Loading is deterministic: the host's pre-step boundary (`dsh-tool-skill`) recognizes whitespace-bounded `/skill <name>` tokens anywhere in a user message and injects the rendered `<skill_content>`; a legacy `/<name>` gesture remains accepted only when no effective same-name command exists. Settled skill calls render in the conversation as an expandable `Instructions` card, derived only from the frozen call/result slice.
+Use canonical `/skill <name>` gestures to select and load Skills in the Session composer. Formal Session catalogs supply choices and origin labels. Settled Skill calls display their frozen instructions in an expandable card.
 
 ## Table of Contents
 
+- [Package behavior](#package-behavior)
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
@@ -21,6 +22,11 @@ English | [中文](README.zh.md)
 - [Dev Note](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## Package behavior
+
+`dsh-client-ui-skill` lets users invoke skills through the canonical `/skill <name>` composer gesture. Ordinary-session candidates come from the formal `composerCatalog.listSession({sessionId})` projection, so the `Skills` section and trailing origin labels use the same final scope as first-send admission; the legacy `skills/list` Remote remains a compatibility fallback. A pick lands the same literal text that every client can send. Loading is deterministic: the host's pre-step boundary (`dsh-tool-skill`) recognizes whitespace-bounded `/skill <name>` tokens anywhere in a user message and injects the rendered `<skill_content>`; a legacy `/<name>` gesture remains accepted only when no effective same-name command exists. Settled skill calls render in the conversation as an expandable `Instructions` card, derived only from the frozen call/result slice.
 
 <a id="use-this-package"></a>
 ## Use this package

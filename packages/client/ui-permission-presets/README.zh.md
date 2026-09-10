@@ -11,11 +11,10 @@ kind: "package-reference"
 
 为当前 Web 会话或未来会话选择权限预设。通用设置行只更改之后创建会话所用的默认值；composer 与 `/permission` 选择器切换当前会话。默认 Web 提供仅可查看、工作区内修改与完全权限。显式加载实验 Auto integration 后，当前会话选择器会增加带 `EXP` 标记的 Auto review。通过可见选项选择完全权限或 Auto 时，需要分别确认对应风险；完整的 `/permission <preset>` 命令直接执行。宿主通过 Session 投影确认每次变更。
 
-对于 New Session composer，插件经 `ctx.conversation` 注册草稿数据源：以同一份 Host 描述的动态 enum 作为目录，并提供浏览器本地暂存回调。常驻权限 chip 消费该数据源，不改 Settings，也不写 Session 持久化。首次发送的前置准备会在放行捕获的 prompt 前，对刚实体化的 Session 执行 `/permission <preset>`。开始另一份草稿或重连会丢弃未发送选择。Full access 在这条草稿路径中保留同一风险确认。
-
 ## 目录
 
-`/client` 导出面为插件本体（`apply`／`inject`）与 Settings 行共享类型；浏览器草稿 controller 保持包内私有。
+- [包行为](#package-behavior)
+
 
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
@@ -25,6 +24,13 @@ kind: "package-reference"
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+`/client` 导出面为插件本体（`apply`／`inject`）与 Settings 行共享类型；浏览器草稿 controller 保持包内私有。
+
+对于 New Session composer，插件经 `ctx.conversation` 注册草稿数据源：以同一份 Host 描述的动态 enum 作为目录，并提供浏览器本地暂存回调。常驻权限 chip 消费该数据源，不改 Settings，也不写 Session 持久化。首次发送的前置准备会在放行捕获的 prompt 前，对刚实体化的 Session 执行 `/permission <preset>`。开始另一份草稿或重连会丢弃未发送选择。Full access 在这条草稿路径中保留同一风险确认。
 
 <a id="use-this-package"></a>
 ## 使用本包
