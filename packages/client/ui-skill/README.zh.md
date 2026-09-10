@@ -9,10 +9,11 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-client-ui-skill` 让用户通过规范的 `/skill <name>` 编辑器手势调用 skill。普通会话候选来自正式 `composerCatalog.listSession({sessionId})` 投影，因此 `Skills` 分区和行尾来源标签与首次发送准入使用同一最终 scope；旧 `skills/list` Remote 作为兼容回退保留。选择一项会落下每种客户端都能发送的同一段字面文本。加载是确定性的：宿主的 pre-step 边界（`dsh-tool-skill`）识别用户消息中任意位置、以空白为界的 `/skill <name>` token，并注入渲染后的 `<skill_content>`；旧 `/<name>` 手势仅在有效命令不存在同名项时继续兼容。已结算的 skill 调用在对话中渲染为可展开的 `Instructions` 卡片，只从冻结的调用/结果切片派生。
+在 Session 编辑器中通过规范 `/skill <name>` 手势选择和加载 Skill。正式 Session 目录提供候选项与来源标签。已结束的 Skill 调用通过可展开卡片显示冻结的指令。
 
 ## 目录
 
+- [包行为](#package-behavior)
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
@@ -21,6 +22,11 @@ kind: "package-reference"
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+`dsh-client-ui-skill` 让用户通过规范的 `/skill <name>` 编辑器手势调用 skill。普通会话候选来自正式 `composerCatalog.listSession({sessionId})` 投影，因此 `Skills` 分区和行尾来源标签与首次发送准入使用同一最终 scope；旧 `skills/list` Remote 作为兼容回退保留。选择一项会落下每种客户端都能发送的同一段字面文本。加载是确定性的：宿主的 pre-step 边界（`dsh-tool-skill`）识别用户消息中任意位置、以空白为界的 `/skill <name>` token，并注入渲染后的 `<skill_content>`；旧 `/<name>` 手势仅在有效命令不存在同名项时继续兼容。已结算的 skill 调用在对话中渲染为可展开的 `Instructions` 卡片，只从冻结的调用/结果切片派生。
 
 <a id="use-this-package"></a>
 ## 使用本包

@@ -11,12 +11,9 @@ English | [中文](README.zh.md)
 
 Use this package to require a one-shot decision before a sensitive tool action proceeds. The `ask` policy sends each request to the deployment's human or machine answerers; `never` rejects it without prompting. Missing or failed answerers return `unavailable`, so the action fails closed, and an approval applies only to that request. Every request and outcome is recorded in the requesting session's audit log. The model sees the resulting tool outcome and current policy, but not the human permission UI or audit events.
 
-`ctx.approval.requestDecision(req)` performs the same operation while also returning the service-issued audit id. Exact event signatures live in the generated region of [approval.md](../../../docs/subsystems/approval.md#cordis-surface).
-
-Each request must belong to an open agent turn. The service appends a paired `approval/asked` and `approval/decided` audit record. `requestDecision()` returns `{ id, outcome }` only after both appends commit, so trusted composite operations can bind their durable receipt to the audit pair without recovering ids from Session history. The model sees only the resulting logged tool outcome. An aborted request resolves `cancelled`; an audit append that fails before commit rejects rather than returning an unlogged decision.
-
 ## Table of Contents
 
+- [Package behavior](#package-behavior)
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
@@ -25,6 +22,13 @@ Each request must belong to an open agent turn. The service appends a paired `ap
 - [Dev Note](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## Package behavior
+
+`ctx.approval.requestDecision(req)` performs the same operation while also returning the service-issued audit id. Exact event signatures live in the generated region of [approval.md](../../../docs/subsystems/approval.md#cordis-surface).
+
+Each request must belong to an open agent turn. The service appends a paired `approval/asked` and `approval/decided` audit record. `requestDecision()` returns `{ id, outcome }` only after both appends commit, so trusted composite operations can bind their durable receipt to the audit pair without recovering ids from Session history. The model sees only the resulting logged tool outcome. An aborted request resolves `cancelled`; an audit append that fails before commit rejects rather than returning an unlogged decision.
 
 <a id="use-this-package"></a>
 ## Use this package

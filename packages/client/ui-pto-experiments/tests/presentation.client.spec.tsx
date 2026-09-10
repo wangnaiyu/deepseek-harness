@@ -53,6 +53,11 @@ describe('PTO comparison presentation', () => {
     const row = render(<ComparisonRow {...rowProps} />)
     expect(row.container.textContent).toContain('100 → 80 us · -20%')
     expect(row.container.textContent).toContain('result.inconclusive')
+    const disclosure = row.container.querySelector('details')
+    expect(disclosure?.open).toBe(false)
+    expect(disclosure?.querySelector('summary')?.textContent).toContain('row.title')
+    expect(disclosure?.querySelectorAll('[role="row"]')).toHaveLength(7)
+    expect(disclosure?.textContent).toContain('details.significance')
     row.unmount()
 
     const detailsProps = owner(block) as Parameters<typeof ComparisonDetails>[0]

@@ -1,5 +1,5 @@
 /** Compact, replay-stable row for the PTO experiment comparison tool. */
-import { IconDataOutline16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronRightOutline14, IconDataOutline16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { ReactNode } from 'react'
@@ -48,17 +48,18 @@ export function ComparisonRow({ block, t }: ComparisonRowProps) {
       ? t('row.failed')
       : model.state === 'unavailable' ? t('row.unavailable') : null
   return (
-    <details>
-    <summary className={css.row} data-state={model.state} data-tool="pto_experiment_compare">
-      <span className={css.leading}>{stateIcon(model.state)}</span>
-      {stateLabel !== null ? <span className={css.visuallyHidden}>{stateLabel}</span> : null}
-      <span className={css.title}>{t('row.title')}</span>
-      <span className={css.separator} aria-hidden />
-      <span className={model.state === 'error' ? `${css.summary} ${css.error}` : css.summary}>{summary}</span>
-      {badge !== null ? <span className={css.badge} data-result={badgeResult}>{t(badge)}</span> : null}
-      {model.state === 'unavailable' ? <span className={css.badge} data-result="unavailable">{t('row.unavailable')}</span> : null}
-    </summary>
-    <ComparisonDetails block={block} t={t} />
+    <details className={css.disclosure}>
+      <summary className={css.row} data-state={model.state} data-tool="pto_experiment_compare">
+        <IconChevronRightOutline14 className={css.chevron} />
+        <span className={css.leading}>{stateIcon(model.state)}</span>
+        {stateLabel !== null ? <span className={css.visuallyHidden}>{stateLabel}</span> : null}
+        <span className={css.title}>{t('row.title')}</span>
+        <span className={css.separator} aria-hidden />
+        <span className={model.state === 'error' ? `${css.summary} ${css.error}` : css.summary}>{summary}</span>
+        {badge !== null ? <span className={css.badge} data-result={badgeResult}>{t(badge)}</span> : null}
+        {model.state === 'unavailable' ? <span className={css.badge} data-result="unavailable">{t('row.unavailable')}</span> : null}
+      </summary>
+      <ComparisonDetails block={block} t={t} />
     </details>
   )
 }

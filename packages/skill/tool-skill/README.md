@@ -13,6 +13,7 @@ Agents can discover and load skills during a session. Before the first request, 
 
 ## Table of Contents
 
+- [Package behavior](#package-behavior)
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
@@ -21,6 +22,11 @@ Agents can discover and load skills during a session. Before the first request, 
 - [Dev Note](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## Package behavior
+
+Agents can discover and load skills during a session: before the first request they receive a durable catalog of every available skill's name and capped description, and they can load any listed skill's full instructions by name through the `skill` loader tool. A user can also invoke a skill directly with the canonical `/skill <name>` gesture, which injects that skill's instructions into the step; legacy `/<name>` remains accepted only when no effective same-name command exists. The catalog stays current: membership, description, or visibility changes append a complete replacement catalog, and a deleted skill is explicitly retired. Mount it alongside the skill registry (and at least one provider) when agents should load skills; its only configuration caps catalog description length. It requires `ctx.agents`, `ctx.tools`, and `ctx.skills`; when an effective `ctx.commands` service is present, the legacy gesture path also consults it for same-name conflicts.
 
 <a id="use-this-package"></a>
 ## Use this package

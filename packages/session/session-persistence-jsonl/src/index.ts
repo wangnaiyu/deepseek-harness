@@ -904,7 +904,9 @@ class JsonlSessionPersistence extends SessionPersistence {
    * @param dir - the resolved directory of an existing artifact, when known.
    * @returns the held lock.
    */
-  private acquireLease(id: SessionId, cwd: string | undefined, dir = dirname(this.activeLogPath(cwd, id, this.compression))): Promise<SessionWriteLease> {
+  private acquireLease(
+    id: SessionId, cwd: string | undefined, dir = dirname(this.activeLogPath(cwd, id, this.compression)),
+  ): Promise<SessionWriteLease> {
     return SessionWriteLease.acquire(dir, id)
   }
 
@@ -1482,7 +1484,9 @@ class JsonlSessionPersistence extends SessionPersistence {
     }
     let expectedPaths: string[]
     try {
-      const configured = join(this.storageProjectDir(meta.cwd), encodeSegment(meta.id), generationLogFilename(storedVersion, this.compression))
+      const configured = join(
+        this.storageProjectDir(meta.cwd), encodeSegment(meta.id), generationLogFilename(storedVersion, this.compression),
+      )
       const conventional = generationLogPath(this.root, meta.cwd, meta.id, storedVersion, this.compression)
       expectedPaths = configured === conventional ? [configured] : [configured, conventional]
     } catch (error) {
