@@ -1,4 +1,9 @@
+.chevron { flex: none; }
+
+.disclosure[open] > .row .chevron { transform: rotate(90deg); }
+
 .row {
+  cursor: pointer;
   position: relative;
   overflow: hidden;
   display: flex;

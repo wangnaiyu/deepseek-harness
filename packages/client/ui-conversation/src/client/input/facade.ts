@@ -333,9 +333,9 @@ export class SessionInputShell implements SessionInput {
    * @returns attachment ids whose draft registrations the caller must release.
    */
   resetDraft(): readonly DraftAttachmentId[] {
-    const released = this.imageIds
+    const released = this.attachmentIds
     this.dispatchRun({ type: 'release' })
-    this.imageIds = []
+    this.attachmentIds = []
     this.setDraft('')
     this.notices.set(null)
     return released

@@ -172,7 +172,8 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       agentPresetsRemote, commandsRemote, settingsControllerRemote, goalsRemote, llmRemote, dynamicRemote,
-      composerCatalogRemote, ptoArtifactInspectionRemote, ptoExperimentDashboardRemote, pluginInventoryRemote, messageFeedbackRemote, fileUploadsRemote, sessionReferencesRemote,
+      composerCatalogRemote, ptoArtifactInspectionRemote, ptoExperimentDashboardRemote, pluginInventoryRemote,
+      messageFeedbackRemote, fileUploadsRemote, sessionReferencesRemote,
       subagentsRemote, sessionRemote, workspaceRemote, workspaceFilesRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))

@@ -587,7 +587,7 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     await page.getByRole('menuitem', { name: 'Archive session' }).click()
     // The row disappears on the archive-set echo. The persistent Ungrouped
     // bucket remains available as the Host-cwd session creation entry.
-    await expect.poll(() => sessionRows.count(), { timeout: 10_000 }).toBe(0)
+    await expect.poll(() => sessionRow.count(), { timeout: 10_000 }).toBe(0)
     await expect.poll(() => page.getByText('Ungrouped', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     // Durable on the host: the registry-global set carries the id while the
     // session log itself stays in persistence untouched.

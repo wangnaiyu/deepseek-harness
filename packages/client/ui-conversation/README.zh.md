@@ -11,14 +11,9 @@ kind: "package-reference"
 
 `ui-conversation` 拥有与 target 无关的 Conversation 组装和共享浏览器 shell。它消费 Session Controller 的 `SessionEventLikeEntry` feed，通过 `ctx.uiConversation` 暴露不依赖 React 的 registry 与逐 Session binding，并通过 `ctx.uiSession` 提供 `useConversation`、`useInput` 和 `inputActions` 标准 props。它还拥有按会话的持久化图片 URL 缓存：`ctx.uiConversation.imageUrl(sessionId, attachment)` 为每个附件解析一个经会话授权的浏览器 URL，并随 Session binding 释放而撤销，因此所有 Conversation target 共享一次 `session.attachment` 读取。Chat 等具体 target 位于独立 package，由各自 package 注册 Definition、snapshot builder、View 和 renderer。
 
-没有 Agent 身份的浏览器草稿不会提供会话作用域的命令发现和控件。手工输入的斜杠命令或规范 Skill 手势本身可以作为首次提交：实体化后，捕获的文本会与真实 Session 能力目录对比。能力消失、来源／策略改变或新出现的命令／Skill 冲突会在 prompt 提交前拒绝；payload 保留在当前可见的真实 Session composer 中，可修正后重试。
-
-压缩（compaction）在检查点自身的消息流位置渲染为一行折叠标记，不替换其上方的 transcript（文本记录）。自动压缩使用「上下文已压缩」标题。每个已加载对应 `compaction/summary` 事件的完成标记都会显示被替换条目数量和估算 token 数量，并可点击展开摘要。手动 `/compact` 开始时显示为运行中的 `compact` 行；成功结算后，其显式摘要事件引用会在保持同一 React key 的前提下把该命令折叠进检查点行。完成的检查点静止时保留上下文压缩（context compaction）图标，仅在悬停或键盘聚焦时将其替换为收起／展开指示图标。输入被拒绝、没有可压缩历史、取消和失败时仍使用通用命令行及处理器撰写的文本。配对绝不依赖相邻关系，因为压缩运行期间可能注入持久上下文。面向模型的带框检查点载荷绝不渲染；被引用的 `compaction/summary` 事件位于已加载窗口之外时，检查点仍然可见但不可展开。
-
-常驻会话壳会跨无会话与会话状态切换而保留。普通无选择页面仍把虚线编辑器作为 Workspace picker 入口；点击 New Session 后则安装不含 Session id 的浏览器输入机和目标 cwd，可直接编辑文本与图片，且不会创建或持久化任何实体。选择 Workspace 只改变该草稿的目标。首次提交才创建 Host Session、应用已暂存的前置准备并发送捕获的 prompt；同一 textarea DOM 会跨越这一状态转换继续存在。Host-cwd 草稿与没有注册 Workspace 归属的真实会话都把输入框左上方的标签显示为 `default`；它的 title tooltip 仍暴露实际执行使用的精确 cwd。Hero 前方的标记是独立的根作用域 `conversation.hero.brand.mark` slot，未被占用时回退到鱼形标记。彼此独立的严格会话页头和主体 outlet 只在实体化之后填入。Host blank 会话与活跃会话渲染同一编辑器主体，但在 prompt 被接受前不进入导航。活跃阶段，会话标题栏作为普通列 chrome，显示当前会话 title、可选谱系控件和视图标签；普通 fork 谱系仍保留为会话数据，不投影到标题栏。其下滚动容器（`data-conversation-scroll`）承载流动排版的各视图与 sticky 编辑器栈（统计 dock＋输入区 dock＋输入栏）。该滚动容器无条件预留自己的滚动条槽，选用编辑器 overlay 的视图也仍把它保留为滚动容器，因此无论对话记录是否滚动、无论展示哪个视图标签，输入卡片都保持同一个横向位置（[决策](../../../.agents/notes/implemented/bug-fix/2026-08-04-composer-tab-gutter-reservation.zh.md)）。textarea 上的滚轮会链式处理：限高草稿先在本地滚动，到达边缘后再转交给该宿主。只有 Safari 会在原生编辑缩短草稿并留下陈旧软换行溢出时执行绘制前恢复；草稿增长、程序化更新与其他浏览器都不会为这项恢复读取布局（[决策](../../../.agents/notes/archived/bug-fix/2026-08-13-safari-textarea-soft-wrap-reflow.md)）。
-
 ## 目录
 
+- [包行为](#package-behavior)
 - [Conversation 组装](#conversation-assembly)
 - [Shell 与标准 props](#shell-and-standard-props)
 - [临时 composer entry](#temporary-composer-entries)
@@ -27,6 +22,13 @@ kind: "package-reference"
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+没有 Agent 身份的浏览器草稿不会提供会话作用域的命令发现和控件。手工输入的斜杠命令或规范 Skill 手势本身可以作为首次提交：实体化后，捕获的文本会与真实 Session 能力目录对比。能力消失、来源／策略改变或新出现的命令／Skill 冲突会在 prompt 提交前拒绝；payload 保留在当前可见的真实 Session composer 中，可修正后重试。
+
+New Session 在首次提交实体化 Host Session 前，把目标 cwd、文本与附件保留在浏览器草稿中。选择 Workspace 会改变草稿目标。通用文件在 prompt 提交前上传到实体化后的 Session。正式能力准入被拒绝时，payload 保留在真实 Session 编辑器中供修正。根作用域 `conversation.hero.brand.mark` slot 提供 Hero 标记。Host-cwd 草稿和未归属已注册 Workspace 的 Session 显示 `default`，tooltip 提供精确 cwd。
 
 <a id="conversation-assembly"></a>
 ## Conversation 组装

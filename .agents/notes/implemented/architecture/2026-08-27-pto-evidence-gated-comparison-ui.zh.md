@@ -12,6 +12,8 @@
 
 ## 决策
 
+下述 details-slot 机制由[upstream 兼容决策](2026-09-10-pto-upstream-compatibility.zh.md)替代。证据规则继续有效。
+
 `ui-tool` 继续作为 `conversation.details.tool` 的唯一 occupant，并新增 session-scoped keyed 子槽 `tool.result.detailview`。`ToolDetails` 按 wire Tool name 分派已选中的冻结 call block，并把现有结构化/raw renderer 作为 fallback。业务包因此可以只拥有某一个 Tool 的 details，不导入 conversation 面板，也不处理其他 Tool。
 
 `@deepseek-ai/dsh-client-ui-pto-experiments` 同时注册 `pto_experiment_compare` 的两个位置：紧凑 transcript row 与完整 details body。它只读取持久 Tool result，不调用 Host、不检查 artifact，也不维护另一份 registry projection。

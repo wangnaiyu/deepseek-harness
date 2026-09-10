@@ -11,11 +11,10 @@ English | [中文](README.zh.md)
 
 Use this package to choose Web GUI permission presets for future sessions or switch the current session. The General settings row changes only the default for sessions created later, while the `/permission` picker changes only the current session and marks its active preset. Built-in presets use localized labels; explicit host labels remain unchanged, and unknown kebab-case names appear in title case. Full access always requires explicit risk acknowledgement. Both surfaces confirm changes only after the host pushes the resulting permission state.
 
-For the New Session composer, the plugin registers a draft source through `ctx.conversation`: the same Host-described dynamic enum as a catalog plus browser-local staging callbacks. The resident permission chip consumes that source without changing Settings or Session persistence. First-send preparation executes `/permission <preset>` against the newly materialized Session before the captured prompt is released. Starting another draft or reconnecting drops an unsent choice. Full access keeps the same risk acknowledgement in this draft path.
-
 ## Table of Contents
 
-The `/client` exports are the plugin body (`apply`/`inject`) plus the Settings-row shared types; the browser-draft controller stays package-internal.
+- [Package behavior](#package-behavior)
+
 
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
@@ -25,6 +24,13 @@ The `/client` exports are the plugin body (`apply`/`inject`) plus the Settings-r
 - [Dev Note](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## Package behavior
+
+The `/client` exports are the plugin body (`apply`/`inject`) plus the Settings-row shared types; the browser-draft controller stays package-internal.
+
+For the New Session composer, the plugin registers a draft source through `ctx.conversation`: the same Host-described dynamic enum as a catalog plus browser-local staging callbacks. The resident permission chip consumes that source without changing Settings or Session persistence. First-send preparation executes `/permission <preset>` against the newly materialized Session before the captured prompt is released. Starting another draft or reconnecting drops an unsent choice. Full access keeps the same risk acknowledgement in this draft path.
 
 <a id="use-this-package"></a>
 ## Use this package

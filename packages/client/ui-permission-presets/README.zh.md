@@ -11,11 +11,10 @@ kind: "package-reference"
 
 使用本包可在 Web GUI 中为未来会话选择权限预设，或切换当前会话的权限预设。通用设置行只更改之后创建会话所用的默认值；`/permission` 选择器只更改当前会话，并标记其当前预设。内置预设使用本地化标签；显式宿主标签保持原样，未知的 kebab-case 名称显示为 Title Case。完全权限始终需要显式确认风险。两个表面都只在宿主推送更改后的权限状态后确认变更。
 
-对于 New Session composer，插件经 `ctx.conversation` 注册草稿数据源：以同一份 Host 描述的动态 enum 作为目录，并提供浏览器本地暂存回调。常驻权限 chip 消费该数据源，不改 Settings，也不写 Session 持久化。首次发送的前置准备会在放行捕获的 prompt 前，对刚实体化的 Session 执行 `/permission <preset>`。开始另一份草稿或重连会丢弃未发送选择。Full access 在这条草稿路径中保留同一风险确认。
-
 ## 目录
 
-`/client` 导出面为插件本体（`apply`／`inject`）与 Settings 行共享类型；浏览器草稿 controller 保持包内私有。
+- [包行为](#package-behavior)
+
 
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
@@ -25,6 +24,13 @@ kind: "package-reference"
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+`/client` 导出面为插件本体（`apply`／`inject`）与 Settings 行共享类型；浏览器草稿 controller 保持包内私有。
+
+对于 New Session composer，插件经 `ctx.conversation` 注册草稿数据源：以同一份 Host 描述的动态 enum 作为目录，并提供浏览器本地暂存回调。常驻权限 chip 消费该数据源，不改 Settings，也不写 Session 持久化。首次发送的前置准备会在放行捕获的 prompt 前，对刚实体化的 Session 执行 `/permission <preset>`。开始另一份草稿或重连会丢弃未发送选择。Full access 在这条草稿路径中保留同一风险确认。
 
 <a id="use-this-package"></a>
 ## 使用本包

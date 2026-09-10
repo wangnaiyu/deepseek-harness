@@ -70,7 +70,7 @@ Each session gets a session-owned directory under a readable project directory. 
 
 Session ids are injectively escaped to one safe path segment before use (no traversal, no collision). The normalized cwd keeps the project directory readable for navigation; cwd strings that normalize alike share a project directory while session ids still select distinct session directories. Runtime operations select the numerically highest canonical generation, and format-refusal diagnostics name that absolute path so an operator can find the raw log a build refused to interpret.
 
-`projectDirectoryAliases` changes only physical routing for selected absolute cwd values: the immutable header and resumed Session retain the real cwd. Existing artifacts in the conventional cwd-derived directory remain readable and continue appending in place; new artifacts use the configured alias.
+`projectDirectoryAliases` changes only physical routing for selected absolute cwd values: the immutable header and resumed Session retain the real cwd. Existing artifacts in the conventional cwd-derived directory remain readable. Appends use the current format generation in the same directory; migration retains committed predecessor generations. New Sessions use the configured alias.
 
 ### Durability and crash semantics
 

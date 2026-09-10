@@ -11,14 +11,9 @@ kind: "package-reference"
 
 当用户在 Web GUI 的光标处键入 `/` 或 `@` 时，本包会为斜杠命令、文件引用和会话引用打开分组菜单。它支持键盘和指针选择，包括下钻候选项，以及在当前选区上打开单个候选分组的 launcher。pick 会触发命令流程或插入引用，具体结果由消费它的输入表面处理。本包只影响浏览器呈现；它既不组装也不发送模型请求。
 
-本包为 Web GUI 提供输入触发流水线：检测光标处键入的 `/` 与 `@`，显示分组候选菜单，并把 pick 路由到已注册 source。`ctx.inputTriggers` 拥有 source roster、每个 Session scope 的 controller，以及一个显式绑定的浏览器草稿 controller。source 收到 `InputTriggerTarget`；旧 source 默认仍只服务 Session，除非显式加入草稿 target。键入会 seed 所有有效 source，launcher 则可打开一个 source 或整个 trigger roster。草稿 pick 以同样的 span CAS 直接应用到驻留输入状态机，不创建 Session。
-
-首次发送实体化后，`admitMaterialized` 会按 roster 顺序让每个草稿 source 针对新 Session 执行可选的对比钩子，再决定是否提交 prompt；拒绝时 payload 保留在可见的真实 Session composer 中。warm 后 `lexicon` 名录仍会变化的 source 实现 `subscribeLexicon`，controller 在收到通知时重新拉取。
-
-纯内核负责检测和菜单归约。失败 source 相互隔离且可重试；成功 source 可在候选旁返回分区问题。MenuView 占用 `session-maybe` 输入浮层，在保留上游面包屑与目录深入行为的同时，加入受限描述、可信来源和重试行。流水线仍仅负责呈现；命令声明、文本变更与引用插入由消费包拥有。
-
 ## 目录
 
+- [包行为](#package-behavior)
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
@@ -27,6 +22,15 @@ kind: "package-reference"
 - [开发备注](#dev-note)
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+本包为 Web GUI 提供输入触发流水线：检测光标处键入的 `/` 与 `@`，显示分组候选菜单，并把 pick 路由到已注册 source。`ctx.inputTriggers` 拥有 source roster、每个 Session scope 的 controller，以及一个显式绑定的浏览器草稿 controller。source 收到 `InputTriggerTarget`；旧 source 默认仍只服务 Session，除非显式加入草稿 target。键入会 seed 所有有效 source，launcher 则可打开一个 source 或整个 trigger roster。草稿 pick 以同样的 span CAS 直接应用到驻留输入状态机，不创建 Session。
+
+首次发送实体化后，`admitMaterialized` 会按 roster 顺序让每个草稿 source 针对新 Session 执行可选的对比钩子，再决定是否提交 prompt；拒绝时 payload 保留在可见的真实 Session composer 中。warm 后 `lexicon` 名录仍会变化的 source 实现 `subscribeLexicon`，controller 在收到通知时重新拉取。
+
+纯内核负责检测和菜单归约。失败 source 相互隔离且可重试；成功 source 可在候选旁返回分区问题。MenuView 占用 `session-maybe` 输入浮层，在保留上游面包屑与目录深入行为的同时，加入受限描述、可信来源和重试行。流水线仍仅负责呈现；命令声明、文本变更与引用插入由消费包拥有。
 
 <a id="use-this-package"></a>
 ## 使用本包

@@ -510,7 +510,7 @@ describe('JsonlSessionPersistence: project directory aliases', () => {
     })
     const aliased = meta('aliased', '/host/workbench')
     const ordinary = meta('ordinary', '/workspace')
-    const aliasedPath = join(absoluteRoot, 'default', encodeSegment(aliased.id), 'session.jsonl')
+    const aliasedPath = join(absoluteRoot, 'default', encodeSegment(aliased.id), generationLogFilename(SESSION_FORMAT_VERSION, 'none'))
 
     await writeLog(ctx.sessionPersistence, aliased, oneTurnLog())
     await writeLog(ctx.sessionPersistence, ordinary, oneTurnLog())
@@ -518,6 +518,37 @@ describe('JsonlSessionPersistence: project directory aliases', () => {
     expect((await stat(aliasedPath)).isFile()).toBe(true)
     expect((await stat(rawLogPath(absoluteRoot, ordinary.cwd, ordinary.id))).isFile()).toBe(true)
     await fiber.dispose()
+  })
+
+  it.each(['aliased', 'conventional'])('migrates a %s predecessor without changing its directory or bytes', async (routing) => {
+    const absoluteRoot = await freshRoot()
+    const ctx = new Context()
+    const header = meta('alias-migration', '/host/workbench')
+    const dir = routing === 'aliased'
+      ? join(absoluteRoot, 'default', encodeSegment(header.id))
+      : sessionDir(absoluteRoot, header.cwd, header.id)
+    const sourcePath = join(dir, generationLogFilename(0, 'none'))
+    const source = Buffer.from(
+      `${JSON.stringify(releasedV0Header(header))}\n${migrationOneTurnLog().map(event => JSON.stringify(event)).join('\n')}\n`,
+    )
+    await mkdir(dir, { recursive: true })
+    await writeFile(sourcePath, source)
+    await ctx.plugin(JsonlSessionPersistence, {
+      root: absoluteRoot, compression: 'none',
+      projectDirectoryAliases: [{ cwd: header.cwd!, directory: 'default' }],
+    })
+    try {
+      const suffix: SessionEvent[] = [
+        { type: 'turn/start', seq: SessionSeq(7), time: 9, data: { turn: 2 } },
+        { type: 'turn/end', seq: SessionSeq(8), time: 10, data: { turn: 2, reason: { kind: 'completed' } } },
+      ]
+      await appendBatch(ctx.sessionPersistence, header.id, suffix)
+      expect(await readFile(sourcePath)).toEqual(source)
+      expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual([...migratedOneTurnLog(), ...suffix])
+      expect((await stat(join(dir, generationLogFilename(SESSION_FORMAT_VERSION, 'none')))).isFile()).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('keeps an existing conventional cwd artifact readable after adding an alias', async () => {
@@ -544,7 +575,7 @@ describe('JsonlSessionPersistence: project directory aliases', () => {
     expect((await readAll(aliased.sessionPersistence, m.id)).events.map(event => event.seq))
       .toEqual([0, 1, 2, 3, 4, 5, 6, 7])
     expect((await stat(conventionalPath)).isFile()).toBe(true)
-    await expect(stat(join(absoluteRoot, 'default', encodeSegment(m.id), 'session.jsonl'))).rejects.toThrow()
+    await expect(stat(join(absoluteRoot, 'default', encodeSegment(m.id), generationLogFilename(SESSION_FORMAT_VERSION, 'none')))).rejects.toThrow()
     await aliased.fiber.dispose()
   })
 

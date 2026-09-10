@@ -11,6 +11,19 @@ kind: "package-reference"
 
 面向草稿与正式 Session 输入框的只读 Host 投影。`ComposerCatalogGateway` 发布 `composerCatalog/listDraft` 与 `composerCatalog/listSession`。草稿请求只携带可选 `workspaceId` 和 Agent preset id，绝不接受客户端路径；Session 请求只携带 `sessionId`。Host 解析规范 cwd、Workspace 标签、最终 Agent／standing scope 和隔离 Skill registry，再分别返回最终有效的 Commands 与用户可调用 Skills。Session 读取不会启动 turn，读取冷的已挂载 Session 也不会恢复 Agent。
 
+## 目录
+
+- [包行为](#package-behavior)
+- [配置](#configuration)
+- [模型体验](#model-experience)
+- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="package-behavior"></a>
+## 包行为
+
 未分组请求只列出全局 Commands，并以 `cwd: undefined` 调用 Host Skill registry；结果还会过滤项目 Skill 来源。Workspace 请求包含 scoped command winner，并在 preset 挂载了隔离 Skill registry 时查询该 registry，否则查询 Host registry。未知 Workspace 会拒绝。preset 损坏时，全局 Commands 与 Host registry Skills 仍可用，同时返回归属于 `Agent` 的 `commands` 和 `skills` 局部错误。
 
 命令定义可以携带不透明 `provider` id。命令 registry 会在无处理器描述符旁保留这个 id 与最终胜出的 `global`／`scoped` layer。本包把可信 provider 声明映射为产品来源：没有显式归属的全局注册项属于 `DSH`，没有显式归属的 scoped 注册项属于 `Agent`，未知的显式 provider 属于 `Plugin`。Skills 先解析项目和用户 source bucket（来源分桶），再依次使用最精确的 provider/source 声明、provider 级声明和安全默认值：custom root 属于 `User`，未映射的 bundled root 属于 `DSH`，其他未映射 provider 属于 `Plugin`。配置中的产品类型使用固定的 `DSH`、`PTO` 与 `User` 标签；只有 plugin 来源接受友好名称，缺失时回退到 `Plugin`。
@@ -20,15 +33,6 @@ kind: "package-reference"
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过 [`api-remotes`](../../api/remotes/README.zh.md) 消费生成的 `./remote` contribution（贡献）与 `./types` payload vocabulary（载荷词汇），不直接导入 Host 实现。
 
 本包不发布运行时 invariant companion，因为每个响应都直接从权威 registry 投影，且不保留可变状态。
-
-## 目录
-
-- [配置](#configuration)
-- [模型体验](#model-experience)
-- [已知限制与暂缓事项](#known-limitations-and-deferred-work)
-- [开发备注](#dev-note)
-
------
 
 <a id="configuration"></a>
 ## 配置
