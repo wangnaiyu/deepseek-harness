@@ -9,21 +9,25 @@ kind: "package-reference"
 
 ## 概述
 
-该纯浏览器包负责展示持久 PTO 实验。它注册由 `ptoExperimentDashboard` Remote 支撑、Session 作用域的 **实验** conversation view，并为 `pto_experiment_compare` 注册按工具名分派的会话行与 details 内容。details 子槽由 `ui-tool` 委托；没有专用注册的工具仍使用通用渲染器。
+该纯浏览器包负责展示持久 PTO 实验。它注册由 `ptoExperimentDashboard` Remote 支撑、Session 作用域的 **实验** conversation view，并为 `pto_experiment_compare` 注册按工具名分派的会话行。展开该行即可在会话记录内读取完整证据；没有专用注册的工具仍使用通用渲染器。
+
+## 目录
+
+- [包行为](#package-behavior)
+- [模型体验](#model-experience)
+- [已知限制与延期项](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="package-behavior"></a>
+## 包行为
 
 dashboard 通过已有 Session id 读取权威、Workspace 受限的 registry；浏览器不能提供路径。已规划行可以携带可见 optimistic revision 启动可信长执行 Remote。审批或执行活动期间，只有原发起 Session 的行会提供显式取消动作。卸载绝不发送取消；重新挂载会读取 Host 活动。execute/cancel 结算后触发权威刷新，loading、empty、action error 与 Remote error 状态都隔离在视图内部。
 
 UI 受证据门控：它只接受闭合的对比 schema，并校验 `inconclusive` 差值确实来自两个 app-owned 度量以及七个一致的身份维度；UI 不重新计算或升级业务结论。失败、运行中或格式异常的输出只显示失败、等待或“依据不可用”，不会展示差值。
 
 本包不发布运行时 invariant companion，因为 Host 准入拥有变更操作，且组件 generation 已拒绝陈旧的完成结果。
-
-## 目录
-
-- [模型体验](#model-experience)
-- [已知限制与延期项](#known-limitations-and-deferred-work)
-- [开发备注](#dev-note)
-
------
 
 <a id="model-experience"></a>
 

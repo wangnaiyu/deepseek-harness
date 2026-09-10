@@ -11,12 +11,9 @@ kind: "package-reference"
 
 Web GUI 允许用户通过 `/model` 弹窗或 composer 模型控件切换既有会话使用的模型与推理（reasoning）强度。两个界面呈现同一组按提供方分组的选择；所选模型决定可用的推理强度名称与默认值。完整选择从下一次请求开始生效；运行中的步骤保留其启动时的模型与推理强度。如果没有适配器可以服务会话路由，composer 会保持停用，直至路由恢复可用。
 
-composer seat 为 `session-maybe`。New Session 浏览器草稿通过 Session Controller 的 `session.modelCatalog` 加载 Host 作用域目录，把完整选择暂存在浏览器内存中，不发出会话选择 RPC。首次发送的前置准备会在较早的 Agent Preset 组合等准备之后、放行已捕获 prompt 之前，把该选择应用到刚实体化的普通 Session。开始另一份草稿或重连会清除暂存选择与目录。
-
-Host 报告的 `ModelSelection` 是唯一的选择事实，其中包含提供方、模型与推理（reasoning）强度；但只有当该提供方／模型对仍在已公布分组中时才会回显。目录行缺席时，可路由的选择保持不变，但触发器会提示 `Select model`；系统不会合成陈旧行，且在用户选择已公布的模型之前不会显示 Effort 行。目录加载与选择共享一个代次计数器，旧响应不会覆盖新结果；连接重置会丢弃所有常驻目录投影，并在显示前重新拉取 Host 恢复的选择。各提供方的元数据获取失败会内联列出，同时可用分组仍可选择；选择失败会保留先前的选择和目录。
-
 ## 目录
 
+- [包行为](#package-behavior)
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
@@ -27,6 +24,13 @@ Host 报告的 `ModelSelection` 是唯一的选择事实，其中包含提供方
 真实目录按会话惰性解析（`ctx.modelDirectories.directoryFor(sessionId)`），随会话作用域一并 dispose（资源释放）；草稿使用一个 root 所有的 `DraftModelDirectory`。已寻址 subagent 会话不公开任一真实会话入口，其目录会拒绝加载、选择与重新连接刷新，因为绑定到 agent（智能体）的普通模型 RPC 会在直接 parent 继续执行路径之外激活持久化 child 历史。
 
 -----
+
+<a id="package-behavior"></a>
+## 包行为
+
+composer seat 为 `session-maybe`。New Session 浏览器草稿通过 Session Controller 的 `session.modelCatalog` 加载 Host 作用域目录，把完整选择暂存在浏览器内存中，不发出会话选择 RPC。首次发送的前置准备会在较早的 Agent Preset 组合等准备之后、放行已捕获 prompt 之前，把该选择应用到刚实体化的普通 Session。开始另一份草稿或重连会清除暂存选择与目录。
+
+Host 报告的 `ModelSelection` 是唯一的选择事实，其中包含提供方、模型与推理（reasoning）强度；但只有当该提供方／模型对仍在已公布分组中时才会回显。目录行缺席时，可路由的选择保持不变，但触发器会提示 `Select model`；系统不会合成陈旧行，且在用户选择已公布的模型之前不会显示 Effort 行。目录加载与选择共享一个代次计数器，旧响应不会覆盖新结果；连接重置会丢弃所有常驻目录投影，并在显示前重新拉取 Host 恢复的选择。各提供方的元数据获取失败会内联列出，同时可用分组仍可选择；选择失败会保留先前的选择和目录。
 
 <a id="use-this-package"></a>
 ## 使用本包

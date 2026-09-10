@@ -95,8 +95,9 @@ describe('CI workflow', () => {
     (jobName) => {
       const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), jobName)
       if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
-      expect(job.steps[0]).toEqual({
+      expect(job.steps[1]).toEqual({
         name: 'Use runner-owned temporary storage',
+        if: "github.repository == 'deepseek-ai/deepseek-harness'",
         run: [
           'echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"',
           ...(jobName === 'node-24-consumers'

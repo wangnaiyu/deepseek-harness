@@ -360,8 +360,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'conversation.composer',
     kind: 'chain',
     scope: 'session',
-    summary: 'Selector-routed replacements for the current Session\'s resident composer.',
-    doc: 'Selector-routed replacements for the current Session\'s resident composer.',
+    summary: 'The composer takeover chain: entries are selector-routed replacements of the default InputBar.',
+    doc: 'The composer takeover chain: entries are selector-routed replacements\nof the default InputBar. Declared by this package\'s \'conversation\'\nentry; the owner dispatches the ComposerChainProps currency and\nrouting lives in entry selectors — new takeover kinds register with\nzero owner changes.',
     registerOptions: [
       {
         name: 'select',
@@ -573,8 +573,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'conversation.hero.workspace',
     kind: 'single',
     scope: 'root',
-    summary: 'Workspace picker shown by the blank-session Hero.',
-    doc: 'Workspace picker shown by the blank-session Hero.',
+    summary: 'The hero-phase Workspace picker hole: rendered by ConversationRoot while the session is blank (picking another workspace switches to that browser draft\'s target Workspace, carrying its local draft).',
+    doc: 'The hero-phase Workspace picker hole: rendered by ConversationRoot\nwhile the session is blank (picking another workspace switches to that\nbrowser draft\'s target Workspace, carrying its local draft). Root\nscope: the picker reads the global workspace list.',
     registerOptions: [],
     ownerProps: [
       '/** Owner share common to blank-session Workspace pickers. */\nexport interface EmptyWorkspaceOwnerProps {\n  open: boolean\n  anchorRef?: RefObject<HTMLElement>\n  /** Currently selected Workspace, when available. */\n  selectedId?: WorkspaceId | undefined\n  onPick: (workspaceId: WorkspaceId) => void\n  onClose: () => void\n}',
@@ -795,9 +795,9 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   {
     key: 'conversation.input.model',
     kind: 'single',
-    scope: 'session',
-    summary: 'Model selector inside the composer tool row.',
-    doc: 'Model selector inside the composer tool row.',
+    scope: 'session-maybe',
+    summary: 'The named model-select seat at the right end of the composer tool row, left of the send button — one occupant, so taking it means rendering the whole model affordance yourself.',
+    doc: 'The named model-select seat at the right end of the composer tool row,\nleft of the send button — one occupant, so taking it means rendering the\nwhole model affordance yourself. Same `locked`-only owner share and same\nrenders-nothing-while-empty contract as the plan seat. Note the composer\ndeliberately keeps this seat LIVE while it refuses text for a\nmodel-related block: every such block is one the user clears by picking\na model here.',
     registerOptions: [],
     ownerProps: [
       '/** Owner share of the named plan, permission, and model controls. */\nexport interface InputControlOwnerProps {\n  /** Whether the composer currently refuses interaction. */\n  locked: boolean\n}',
@@ -818,7 +818,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'useSession: SessionSnapshotSelector',
       'sessionId: SessionId',
       'useProjection: UseProjection',
-      'useTrajectory: UseTrajectory',
     ],
     keyDomain: '',
     hookContext: '',
@@ -834,9 +833,9 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   {
     key: 'conversation.input.overlay',
     kind: 'list',
-    scope: 'session',
-    summary: 'Floating entries rendered inside the resident composer card.',
-    doc: 'Floating entries rendered inside the resident composer card.',
+    scope: 'session-maybe',
+    summary: 'Floating entries rendered inside the resident composer card, including browser drafts.',
+    doc: 'Floating entries rendered inside the resident composer card, including browser drafts.',
     registerOptions: [
       {
         name: 'id',
@@ -874,7 +873,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'useSession: SessionSnapshotSelector',
       'sessionId: SessionId',
       'useProjection: UseProjection',
-      'useTrajectory: UseTrajectory',
     ],
     keyDomain: '',
     hookContext: '',
@@ -1534,6 +1532,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'conversation.session\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
       'client-ui-chat ChatView id \'chat\'',
+      'client-ui-pto-experiments ExperimentDashboardView id \'pto-experiments\'',
       'client-ui-trajectory TrajectoryView id \'trajectory\'',
     ],
     replaceRisk: 'none',

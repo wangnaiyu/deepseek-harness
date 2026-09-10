@@ -75,7 +75,6 @@ class ProbeSubprocess extends SubprocessRuntime {
       readFrom: (_offset: number) => ({ text, nextOffset: Buffer.byteLength(text), lossy: false }),
     })
     return {
-      pid: 1,
       stdin: undefined,
       stdout: undefined,
       stderr: undefined,

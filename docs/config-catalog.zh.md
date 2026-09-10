@@ -1116,6 +1116,38 @@ export interface Config {
 
 来源：[`packages/host/open-in-app/src/index.ts:50`](../packages/host/open-in-app/src/index.ts)
 
+<a id="deepseek-aidsh-host-pto-artifact-inspection"></a>
+
+## `@deepseek-ai/dsh-host-pto-artifact-inspection`
+
+需要： `fs` · `webServer` · `tools`
+
+```ts config-catalog
+/** Deployment limits and pinned official analysis dependencies. */
+export interface Config {
+  /** Maximum number of artifact entries inspected per record. */
+  maxArtifactEntries?: number
+  /** Maximum bytes read from one metadata probe. */
+  maxProbeBytes?: number
+  /** Absolute URL prefix for revocable exact-file viewer routes. */
+  routePrefix?: string
+  /** Provider identity required for official dependency analysis. */
+  officialDependencySkillProvider?: string
+  /** Exact official Skill revision accepted at admission. */
+  officialDependencySkillRevision?: string
+  /** Pinned tool revision recorded in analysis receipts. */
+  dependencyAnalysisToolRevision?: string
+  /** Absolute path to the pinned upstream dependency tool. */
+  dependencyAnalysisToolPath?: string
+  /** Application-owned directory for dependency tool outputs. */
+  dependencyAnalysisOutputRoot?: string
+  /** Python executable used to launch the pinned tool. */
+  pythonExecutable?: string
+}
+```
+
+来源： [`packages/host/pto-artifact-inspection/src/index.ts:76`](../packages/host/pto-artifact-inspection/src/index.ts)
+
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`
@@ -1979,6 +2011,28 @@ export interface LaunchConfig {
 ```
 
 来源： [`packages/ptc-runtime/ptc-runtime-node/src/index.ts:26`](../packages/ptc-runtime/ptc-runtime-node/src/index.ts)
+
+<a id="deepseek-aidsh-pto-experiments"></a>
+
+## `@deepseek-ai/dsh-pto-experiments`
+
+需要：`fs` · `storageDomain` · `systemPrompt` · `tools`
+
+```ts config-catalog
+/** Deployment-owned executables and execution/metric-collection bounds. */
+export interface Config {
+  /** Trusted Git executable used only with fixed identity-probe arguments. */
+  gitCommand?: string
+  /** Trusted Python executable used only with the fixed PyPTO environment probe. */
+  pythonCommand?: string
+  /** Maximum accepted planned workload timeout in milliseconds. */
+  maxExecutionTimeoutMs?: number
+  /** Maximum chip-swimlane artifact size admitted by metric collection. */
+  maxMetricArtifactBytes?: number
+}
+```
+
+来源：[`packages/pto/pto-experiments/src/index.ts:140`](../packages/pto/pto-experiments/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -3848,6 +3902,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-permission-presets`（[`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-plan`（[`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-plugin-manager`（[`packages/client/ui-plugin-manager/src/index.ts`](../packages/client/ui-plugin-manager/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-pto-experiments` ([`packages/client/ui-pto-experiments/src/index.ts`](../packages/client/ui-pto-experiments/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-reference`（[`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-renderer`（[`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-schedule`（[`packages/client/ui-schedule/src/index.ts`](../packages/client/ui-schedule/src/index.ts)）
@@ -3888,6 +3943,7 @@ export interface Config {
 - `@deepseek-ai/dsh-host-directory-picker-auto` — 需要 `webServer` · `loader`（[`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts)）
 - `@deepseek-ai/dsh-host-directory-picker-native`（[`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts)）
 - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
+- `@deepseek-ai/dsh-host-pto-experiment-dashboard` — 需要 `sessions` · `agents` · `ptoExperiments` ([`packages/host/pto-experiment-dashboard/src/index.ts`](../packages/host/pto-experiment-dashboard/src/index.ts))
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
 - `@deepseek-ai/dsh-mcp-resources` — 需要 `tools`（[`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts)）

@@ -455,7 +455,10 @@ export class ConversationController extends Service implements IConversation {
    */
   async prepareDraftFiles(sessionId: SessionId, ids: readonly DraftAttachmentId[]): Promise<void> {
     this.rebindDraftFiles(sessionId, ids)
-    await Promise.all(ids.map(id => this.fileUploadOperations.get(id)?.done))
+    await Promise.all(ids.flatMap((id) => {
+      const operation = this.fileUploadOperations.get(id)
+      return operation === undefined ? [] : [operation.done]
+    }))
   }
 
   private beginFileUpload(sessionId: SessionId, attachment: ComposerFileAttachment): void {
