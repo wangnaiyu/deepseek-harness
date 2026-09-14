@@ -6,6 +6,9 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'analysis.invalid': '分析关联无效，请从 Viewer 重新关联',
+  'analysis.missing': '缺少分析关联，请从 Viewer 重新关联',
+  'analysis.retry': '可在本会话重试；若记录或 Host 已变化，请从 Viewer 重新关联',
   'tabs.aria': '侧边栏视图',
   'tabs.sessions': '会话',
   'tabs.runRecords': '运行记录',
@@ -99,6 +102,9 @@ export type WorkspaceKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'analysis.invalid': 'Invalid analysis binding; reassociate from the Viewer',
+  'analysis.missing': 'Missing analysis binding; reassociate from the Viewer',
+  'analysis.retry': 'Retry this Session, or reassociate from the Viewer if the record or Host changed',
   'tabs.aria': 'Sidebar view',
   'tabs.sessions': 'Sessions',
   'tabs.runRecords': 'Run Records',

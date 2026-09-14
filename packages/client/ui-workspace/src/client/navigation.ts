@@ -448,6 +448,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   private beginSessionDraft(workspaceId: WorkspaceId | undefined): void {
+    const conversation = this.ctx.get('conversation') as { guardedDrafts?: { assertCanStart(): void } } | undefined
+    conversation?.guardedDrafts?.assertCanStart()
     const workspace = workspaceId === undefined
       ? undefined
       : this.workspaces.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
