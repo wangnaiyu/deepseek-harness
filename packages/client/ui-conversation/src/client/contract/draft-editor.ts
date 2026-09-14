@@ -17,6 +17,8 @@ export interface ReferenceInsert {
   readonly label: string
   readonly appearance?: 'session' | 'file' | 'folder'
   readonly clipboardText: string
+  /** Source-owned click/keyboard activation is available. */
+  readonly activatable?: boolean
 }
 
 /** Keyboard keys intercepted by an open trigger menu. */
@@ -100,6 +102,8 @@ export interface Occurrence {
   readonly appearance?: ReferenceInsert['appearance']
   /** Clipboard / persistence projection, e.g. `/name` (insert-time cache, never the model form). */
   readonly clipboardText: string
+  /** Source-owned click/keyboard activation is available. */
+  readonly activatable?: boolean
   /** Owner-resolution failure flag: the chip renders the failure treatment. */
   readonly invalid?: boolean
 }

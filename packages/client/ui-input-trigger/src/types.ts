@@ -167,6 +167,8 @@ export interface InputTriggerPick {
  */
 export interface ReferenceCodec {
   /** Clipboard / persistence projection of one reference (e.g. `/name`). */
+  /** Open the referenced resource through its owner. */
+  activate?(ref: string): Promise<void>
   clipboardText(ref: string): string
   /** Model serialization of one reference (e.g. `<skill>name</skill>`). */
   serialize(ref: string, signal: AbortSignal): Promise<string>

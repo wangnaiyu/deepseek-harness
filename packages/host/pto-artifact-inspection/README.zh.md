@@ -38,9 +38,10 @@ Remote 只登记用户明确选定的目录，返回事实型 Profile 和动作�
 
 ## 已知限制与延期项
 
+已准入的 qualified Skill 拥有分析指令。PTO pre-step listener 包围规范 Skill 注入运行，将同名指令与已准入 provider 和渲染正文核对，并生成一条 instructions 消息。provider 冲突或正文变化会拒绝该 step。已有分析 context 阻止重试时重复注入。此协作不改变 admission receipt 或工具门禁。
+
 <a id="known-limitations-and-deferred-work"></a>
 
-- Viewer 组合的首次发送路径可能在 Host 准入前丢失结构化分析身份；Controller 和 Host 单测不代表端到端成功。见[基线决定](../../../.agents/notes/implemented/feature/2026-09-09-pto-artifact-inspection-baseline.zh.md)。
 - 未安装需现场生成或本地服务的泳道、关键路径和程序图 viewer。
 - 静态 viewer 仅查看，不提供选区或深链回调。
 - 依赖分析要求已配置的 Python 可执行文件、固定工具路径、live Session Agent 和精确 qualified Skill provider。

@@ -108,6 +108,8 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
 
 ## 已知限制与延期工作
 
+分析暂存会插入规范 Skill 手势、原子 `deps.json` 引用和简短问题，然后关闭 overlay。引用通过 Host 解析准确的 Record 和 revision，不依赖 Session cwd。点击或键盘激活会打开新的完整 Viewer handle。PTO candidate source 支持手动重新选择同一绑定引用。必需 token 缺失或变化会拒绝首次准入；已准入的问题重试保留现有 launch 绑定。过期 Record 需要重新关联。
+
 <a id="known-limitations-and-deferred-work"></a>
 
 

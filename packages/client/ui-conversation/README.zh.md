@@ -133,6 +133,8 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
 
 ## 已知限制与暂缓事项
 
+受保护草稿将编辑器文本与 source 拥有的 reference occurrences 一起保存。恢复草稿会重建原子引用，序列化失败时保留引用。提交 owner 接收模型序列化前捕获的编辑器投影。引用可提供 source 拥有的激活动作，不持久化回调，也不扩展 Session 历史。
+
 <a id="known-limitations-and-deferred-work"></a>
 
 - **只有已注册 target 可以渲染**——除已注册的 `chat` 偏好外，shell 刻意不提供隐式 fallback target。

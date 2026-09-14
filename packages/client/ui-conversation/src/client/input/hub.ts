@@ -24,7 +24,7 @@ import type { InputSubmitMode } from '../contract/composer-submission.ts'
 import type { PopupDismissFace, SessionInputDeps } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
 import { SubmissionBindings } from '../submission-bindings.ts'
-import type { GuardedDrafts } from '../contract/guarded-drafts.ts'
+import type { DraftContent, GuardedDrafts } from '../contract/guarded-drafts.ts'
 
 /** Structural command face for per-session popup resolution. */
 interface CommandFace {
@@ -47,6 +47,7 @@ interface ConversationAttachmentFace {
     attachmentIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal?: AbortSignal,
+    content?: DraftContent,
   ): Promise<SubmitOutcome>
   serializeDraftAttachments(attachmentIds: readonly DraftAttachmentId[]): Promise<DraftAttachmentSerializationResult>
   prepareDraftFiles(sessionId: SessionId, ids: readonly DraftAttachmentId[]): Promise<void>
@@ -73,6 +74,7 @@ export class InputHub implements SessionInputResolver {
   private materializingGuarded = false
   /** Owner registration and protected draft navigation. */
   readonly guardedDrafts: GuardedDrafts = {
+    binding: sessionId => this.submissionBindings.read(sessionId ?? 'browser')?.binding,
     register: (owner, check) => this.submissionBindings.register(owner, check),
     assertCanStart: () => {
       if (this.startingGuarded) return
@@ -95,14 +97,14 @@ export class InputHub implements SessionInputResolver {
       try {
         begin()
         this.submissionBindings.stage(binding, text)
-        this.draftShell().setDraft(text)
+        this.draftShell().setContent(typeof text === 'string' ? { text, references: [] } : text)
       } finally { this.startingGuarded = false }
     },
     restore: (begin) => {
       const saved = this.submissionBindings.read('browser')
       if (saved === undefined) return
       this.startingGuarded = true
-      try { begin(); this.draftShell().setDraft(saved.text) }
+      try { begin(); this.draftShell().setContent({ text: saved.text, references: saved.references ?? [] }) }
       finally { this.startingGuarded = false }
     },
   }
@@ -153,12 +155,12 @@ export class InputHub implements SessionInputResolver {
     this.browserDraft = new SessionInputShell({
       actx: this.rootCtx,
       inputTriggers: () => (this.rootCtx.get('inputTriggers') as InputTriggerServiceFace | undefined)?.draft(),
-      defaultSink: (text, imageIds, mode, signal) => this.sinkDraft(text, imageIds, mode, signal),
+      defaultSink: (text, imageIds, mode, signal, content) => this.sinkDraft(text, imageIds, mode, signal, content),
       commandAttachments: this.commandAttachments(),
     })
     const draft = this.browserDraft
     this.rootCtx.effect(() => draft.state.subscribe(() => {
-      if (!this.startingGuarded) this.submissionBindings.edit(draft.snapshot.draft)
+      if (!this.startingGuarded) this.submissionBindings.edit(draft.snapshot.draft, draft.snapshot.occurrences)
     }), 'conversation: persist guarded browser draft')
     return this.browserDraft
   }
@@ -188,7 +190,7 @@ export class InputHub implements SessionInputResolver {
       inputTriggers: () => this.controller(actx),
       popup: () => this.popup(actx),
       queue: queueReadFaceOf(session),
-      defaultSink: (text, attachmentIds, mode, signal) => this.sink(session, text, attachmentIds, mode, signal),
+      defaultSink: (text, attachmentIds, mode, signal, content) => this.sink(session, text, attachmentIds, mode, signal, content),
       steerQueue: () => { void this.steerQueue(session, shell) },
       commandAttachments: this.commandAttachments(),
     })
@@ -292,9 +294,10 @@ export class InputHub implements SessionInputResolver {
     attachmentIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
+    content?: DraftContent,
   ): Promise<SubmitOutcome> {
     if (text === '' && attachmentIds.length === 0) return Promise.resolve({ kind: 'success' })
-    return this.sendAdmitted(session, text, attachmentIds, mode, signal)
+    return this.sendAdmitted(session, text, attachmentIds, mode, signal, content)
   }
 
   /** Re-run a retained first-send admission before allowing the materialized Session to send. */
@@ -304,6 +307,7 @@ export class InputHub implements SessionInputResolver {
     attachmentIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
+    content?: DraftContent,
   ): Promise<SubmitOutcome> {
     const pending = this.pendingDraftAdmissions.get(session.sessionId)
     if (pending !== undefined) {
@@ -312,7 +316,7 @@ export class InputHub implements SessionInputResolver {
       )
       this.pendingDraftAdmissions.delete(session.sessionId)
     }
-    return this.conversation().sendSession(session, text, attachmentIds, mode, signal)
+    return this.conversation().sendSession(session, text, attachmentIds, mode, signal, content)
   }
 
   /**
@@ -328,28 +332,37 @@ export class InputHub implements SessionInputResolver {
     imageIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
+    content?: DraftContent,
   ): Promise<SubmitOutcome> {
     if (text === '' && imageIds.length === 0) return { kind: 'success' }
     const capturedBinding = this.submissionBindings.read('browser')
     this.materializingGuarded = capturedBinding !== undefined
     try {
-      return await this.materializeDraft(text, imageIds, mode, signal, capturedBinding)
+      return await this.materializeDraft(text, imageIds, mode, signal, capturedBinding, content)
     } finally { this.materializingGuarded = false }
   }
 
   private async materializeDraft(
     text: string, imageIds: readonly DraftAttachmentId[], mode: InputSubmitMode, signal: AbortSignal,
     capturedBinding: ReturnType<SubmissionBindings['read']>,
+    content?: DraftContent,
   ): Promise<SubmitOutcome> {
-    if (capturedBinding !== undefined) await this.submissionBindings.check(capturedBinding, { signal })
+    if (capturedBinding !== undefined) {
+      await this.submissionBindings.check(capturedBinding, { signal, ...content === undefined ? {} : { content } })
+    }
     const draftTriggers = this.draftInputTriggers()
     const draftTarget = draftTriggers?.target()
     const sessionId = await this.uiWorkspace().materializeSessionDraft()
-    if (capturedBinding !== undefined) this.submissionBindings.bind(sessionId, { ...capturedBinding, text })
+    if (capturedBinding !== undefined) {
+      this.submissionBindings.bind(sessionId, {
+        ...capturedBinding, text: content?.text ?? text, ...content === undefined ? {} : { references: content.references },
+      })
+    }
     const binding = this.sessions().binding(sessionId)
     if (binding === undefined) throw new Error(`conversation.input: created session "${sessionId}" resolved no binding`)
     const shell = this.shellFor(binding)
-    if (text !== '') shell.setDraft(text)
+    if (content !== undefined) shell.setContent(content)
+    else if (text !== '') shell.setDraft(text)
     if (imageIds.length > 0) shell.addAttachments(imageIds)
     signal.throwIfAborted()
     await this.conversation().prepareDraftFiles(sessionId, imageIds)
