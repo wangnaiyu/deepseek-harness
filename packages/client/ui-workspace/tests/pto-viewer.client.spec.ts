@@ -108,25 +108,31 @@ describe('PtoViewerController', () => {
     await expect(controller.switchViewer('open.program-graph')).rejects.toThrow('is not available')
   })
 
-  it('stages a structured analysis and admits it idempotently for first send', async () => {
+  it('keeps a fixed launch intent for admission retry and rejects missing bindings', async () => {
     const gateway = remote()
     const controller = new PtoViewerController(gateway)
     await controller.open('/data/pack')
-    const begin = vi.fn(() => 'draft-revision')
+    const begin = vi.fn<Parameters<PtoViewerController['stageAnalysis']>[0]>()
     controller.stageAnalysis(begin)
-
-    expect(begin).toHaveBeenCalledWith('分析此数据记录中的冗余依赖。请给出结论、证据、限制和下一步。')
-    await expect(controller.admitAnalysis('other-draft', 'session-1')).resolves.toBeUndefined()
-    const first = await controller.admitAnalysis('draft-revision', 'session-1')
-    const second = await controller.admitAnalysis('draft-revision', 'session-1')
-    expect(first).toEqual(second)
+    const intent = begin.mock.calls[0]![1]
+    expect(intent).toMatchObject({ recordId: 'record-1', revision: 'revision-1' })
+    await controller.checkAnalysis(intent, intent.requestId)
+    expect(gateway.admitAnalysis).not.toHaveBeenCalled()
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1')
+    await controller.close()
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1')
     expect(gateway.admitAnalysis).toHaveBeenCalledTimes(2)
-    expect(gateway.admitAnalysis).toHaveBeenLastCalledWith(expect.objectContaining({
-      sessionId: 'session-1',
-      recordId: 'record-1',
-      revision: 'revision-1',
-      actionId: 'analyze.dependency-redundancy',
-      requestedSkill: { name: 'dependency-redundancy', provider: 'pypto-official-rev', revision: 'rev' },
-    }))
+    const { artifactRefs, ...wireIntent } = intent
+    expect(artifactRefs).toEqual(['deps.json'])
+    expect(gateway.admitAnalysis).toHaveBeenLastCalledWith({ ...wireIntent, sessionId: 'session-1' })
+    await expect(controller.checkAnalysis(undefined, intent.requestId, 'session-1')).rejects.toThrow('Missing analysis binding')
+    await expect(controller.checkAnalysis(intent, 'wrong-id', 'session-1')).rejects.toThrow('Invalid analysis binding')
+  })
+
+  it('preserves the Viewer and displays a refused activation without replacing the draft', async () => {
+    const controller = new PtoViewerController(remote())
+    await controller.open('/data/pack')
+    expect(() => { controller.stageAnalysis(() => { throw new Error('Unsent draft') }) }).toThrow('Unsent draft')
+    expect(controller.getSnapshot()).toMatchObject({ kind: 'open', analysisError: 'Unsent draft' })
   })
 })

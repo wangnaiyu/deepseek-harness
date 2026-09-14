@@ -1,3 +1,4 @@
+import { en, type WorkspaceKey } from './locales.ts'
 /** Browser controller for the Host-owned PTO static-viewer lifecycle. */
 
 import type {
@@ -8,7 +9,7 @@ import type {
 export type PtoViewerState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'loading'; readonly path: string }
-  | { readonly kind: 'open'; readonly record: PtoArtifactRecordView; readonly handle: PtoArtifactViewerHandle }
+  | { readonly kind: 'open'; readonly record: PtoArtifactRecordView; readonly handle: PtoArtifactViewerHandle; readonly analysisError?: string }
   | { readonly kind: 'error'; readonly path: string; readonly message: string }
 
 /** Host admission receipt for the staged record and qualified Skill. */
@@ -23,11 +24,13 @@ export interface PtoAnalysisReceipt {
   readonly tool: { readonly name: string; readonly revision: string }
 }
 
-interface PtoAnalysisDraft {
-  readonly draftRevision: string
+interface PtoAnalysisIntent {
+  readonly artifactRefs: readonly string[]
   readonly requestId: string
-  readonly record: PtoArtifactRecordView
-  readonly action: PtoArtifactRecordView['actions'][number]
+  readonly recordId: string
+  readonly revision: string
+  readonly actionId: string
+  readonly requestedSkill: { readonly name: string; readonly provider: string; readonly revision: string }
 }
 
 /** Typed Host operations consumed by the browser viewer controller. */
@@ -60,9 +63,8 @@ export class PtoViewerController {
   private readonly listeners = new Set<() => void>()
   private generation = 0
   private activeHandle: PtoArtifactViewerHandle | undefined
-  private analysisDraft: PtoAnalysisDraft | undefined
 
-  constructor(private readonly remote: PtoViewerRemote) {}
+  constructor(private readonly remote: PtoViewerRemote, private readonly t: (key: WorkspaceKey) => string = key => en[key]) {}
 
   /** Read the current immutable viewer snapshot. */
   readonly getSnapshot = (): PtoViewerState => this.state
@@ -139,46 +141,63 @@ export class PtoViewerController {
     if (previous !== undefined) await this.remote.close({ handleId: previous.handleId })
   }
 
-  /**
-   * Stage a structured dependency-analysis attachment while keeping the viewer open.
-   * @param beginDraft - stages prompt text and returns its browser draft revision.
+  /** Stage one new launch; the Conversation owner protects existing drafts.
+   * @param beginDraft - Protected draft staging callback.
    */
-  stageAnalysis(beginDraft: (text: string) => string): void {
+  stageAnalysis(beginDraft: (text: string, intent: PtoAnalysisIntent) => void): void {
     const current = this.state
     if (current.kind !== 'open') throw new Error('A PTO viewer must be open before staging analysis')
     const action = current.record.actions.find(candidate =>
       candidate.actionId === 'analyze.dependency-redundancy'
-      && candidate.kind === 'analysis'
-      && candidate.status === 'available')
+      && candidate.kind === 'analysis' && candidate.status === 'available')
     if (action?.skill === undefined) throw new Error('Dependency redundancy analysis is not available for this record')
-    const draftRevision = beginDraft('分析此数据记录中的冗余依赖。请给出结论、证据、限制和下一步。')
-    this.analysisDraft = Object.freeze({
-      draftRevision,
-      requestId: `pto-analysis-${globalThis.crypto.randomUUID()}`,
-      record: current.record,
-      action,
-    })
+    try {
+      beginDraft('分析此数据记录中的冗余依赖。请给出结论、证据、限制和下一步。', {
+        requestId: `pto-analysis-${globalThis.crypto.randomUUID()}`,
+        artifactRefs: [...action.artifactRefs],
+        recordId: current.record.recordId,
+        revision: current.record.profile.revision,
+        actionId: action.actionId,
+        requestedSkill: { ...action.skill },
+      })
+      this.publish({ kind: 'open', record: current.record, handle: current.handle })
+    } catch (error) {
+      this.publish({ ...current, analysisError: errorMessage(error) })
+      throw error
+    }
   }
 
-  /**
-   * Revalidate the staged record/action/Skill tuple in the materialized Session scope.
-   * @param draftRevision - browser draft revision to match.
-   * @param sessionId - materialized Session receiving the analysis.
-   * @returns admission receipt, or undefined when no staged draft matches.
+  /** Validate persisted intent, and re-admit against the real Session before every send.
+   * @param payload - Persisted owner payload.
+   * @param requestId - Stable launch id.
+   * @param sessionId - Actual Session after materialization.
    */
-  async admitAnalysis(draftRevision: string, sessionId: string): Promise<PtoAnalysisReceipt | undefined> {
-    const draft = this.analysisDraft
-    if (draft === undefined || draft.draftRevision !== draftRevision) return undefined
-    const skill = draft.action.skill
-    if (skill === undefined) throw new Error('The staged analysis has no qualified Skill tuple')
-    return resultValue('ptoArtifactInspection.admitAnalysis', await this.remote.admitAnalysis({
-      requestId: draft.requestId,
-      sessionId,
-      recordId: draft.record.recordId,
-      revision: draft.record.profile.revision,
-      actionId: draft.action.actionId,
-      requestedSkill: { ...skill },
-    }))
+  async checkAnalysis(payload: unknown, requestId: string, sessionId?: string): Promise<void> {
+    if (typeof payload !== 'object' || payload === null) throw new Error(this.t('analysis.missing'))
+    const intent = payload as Partial<PtoAnalysisIntent>
+    if (!Array.isArray(intent.artifactRefs) || !intent.artifactRefs.includes('deps.json') || intent.artifactRefs.some(ref => typeof ref !== 'string')
+      || intent.requestId !== requestId || typeof intent.recordId !== 'string'
+      || typeof intent.revision !== 'string' || intent.actionId !== 'analyze.dependency-redundancy'
+      || typeof intent.requestedSkill?.name !== 'string'
+      || typeof intent.requestedSkill.provider !== 'string' || typeof intent.requestedSkill.revision !== 'string') {
+      throw new Error(this.t('analysis.invalid'))
+    }
+    if (sessionId === undefined) return
+    try {
+      resultValue('ptoArtifactInspection.admitAnalysis', await this.remote.admitAnalysis({
+        requestId, sessionId, recordId: intent.recordId, revision: intent.revision,
+        actionId: intent.actionId, requestedSkill: { ...intent.requestedSkill },
+      }))
+    } catch (error) {
+      throw new Error(`${errorMessage(error)}. ${this.t('analysis.retry')}`)
+    }
+  }
+
+  /** Surface a failed restore without removing the registered submission gate.
+   * @param error - Restoration failure.
+   */
+  reportRecoveryError(error: unknown): void {
+    this.publish({ kind: 'error', path: '', message: errorMessage(error) })
   }
 
   /** Close the current route or dismiss a pending/error surface. */
@@ -194,7 +213,6 @@ export class PtoViewerController {
   /** Revoke any current Host handle during plugin disposal. */
   async dispose(): Promise<void> {
     await this.close()
-    this.analysisDraft = undefined
     this.listeners.clear()
   }
 }

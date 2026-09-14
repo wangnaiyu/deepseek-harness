@@ -69,7 +69,7 @@ export function PtoViewerOverlay({ useViewer, closeViewer, analyzeRecord, switch
           type="button"
           className={css.analyze}
           disabled={!canAnalyze}
-          onClick={analyzeRecord}
+          onClick={(event) => { if (event.detail < 2) analyzeRecord() }}
         >
           {t('viewer.analyze')}
         </button>
@@ -77,6 +77,7 @@ export function PtoViewerOverlay({ useViewer, closeViewer, analyzeRecord, switch
           <IconCloseFill14 />
         </button>
       </header>
+      {state.analysisError !== undefined && <p role="alert">{state.analysisError}</p>}
       <iframe
         className={css.frame}
         title={state.handle.title}
