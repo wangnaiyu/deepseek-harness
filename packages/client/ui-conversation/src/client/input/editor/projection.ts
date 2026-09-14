@@ -203,6 +203,7 @@ export function $projectComposer(idOf: (key: NodeKey) => number): EditorProjecti
       occurrenceId: idOf(chip.getKey()),
       source: chip.getSource(),
       ref: chip.getReference(),
+      activatable: chip.isActivatable(),
       offset: segment.clipboardStart,
       length: segment.clipboardLength,
       label: chip.getLabel(),

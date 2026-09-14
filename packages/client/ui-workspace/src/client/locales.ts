@@ -6,6 +6,8 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'analysis.question': '分析冗余依赖，给出结论、证据、限制和建议。',
+  'analysis.tokens': '请重新选择依赖分析 Skill 和数据引用，或清除草稿后从 Viewer 重新关联',
   'analysis.invalid': '分析关联无效，请从 Viewer 重新关联',
   'analysis.missing': '缺少分析关联，请从 Viewer 重新关联',
   'analysis.retry': '可在本会话重试；若记录或 Host 已变化，请从 Viewer 重新关联',
@@ -101,6 +103,8 @@ export type WorkspaceKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'analysis.question': 'Analyze redundant dependencies with conclusions, evidence, limitations, and recommendations.',
+  'analysis.tokens': 'Reselect the dependency analysis Skill and data reference, or clear the draft and reassociate from the Viewer',
   'analysis.invalid': 'Invalid analysis binding; reassociate from the Viewer',
   'analysis.missing': 'Missing analysis binding; reassociate from the Viewer',
   'analysis.retry': 'Retry this Session, or reassociate from the Viewer if the record or Host changed',

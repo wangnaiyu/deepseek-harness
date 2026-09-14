@@ -1,3 +1,4 @@
+import type { DraftContent } from './contract/guarded-drafts.ts'
 /**
  * Scope-addressed conversation send, cancel, and history orchestration.
  *
@@ -238,6 +239,7 @@ export class ConversationController extends Service implements IConversation {
     this.blocks = config.blocks
     this.submissionBindings = config.submissionBindings ?? new SubmissionBindings()
     this.guardedDrafts = config.guardedDrafts ?? {
+      binding: sessionId => this.submissionBindings.read(sessionId ?? 'browser')?.binding,
       register: (owner, check) => this.submissionBindings.register(owner, check),
       stage: () => { throw new Error('Browser draft input is unavailable') },
       restore: () => {},
@@ -325,6 +327,7 @@ export class ConversationController extends Service implements IConversation {
    * @param attachmentIds - ordered draft-local attachment ids.
    * @param mode - queue or steer delivery selected by composer policy.
    * @param signal - optional cancellation for the complete Host admission.
+   * @param draftContent - Captured editor text and references before model serialization.
    * @returns the Host admission outcome; local attachment preparation failures reject.
    */
   async sendSession(
@@ -333,11 +336,13 @@ export class ConversationController extends Service implements IConversation {
     attachmentIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal?: AbortSignal,
+    draftContent?: DraftContent,
   ): Promise<SubmitOutcome> {
     const guarded = this.submissionBindings.read(session.sessionId)
     if (guarded !== undefined) {
       await this.submissionBindings.check(guarded, {
         sessionId: session.sessionId, signal: signal ?? new AbortController().signal,
+        ...draftContent === undefined ? {} : { content: draftContent },
       })
     }
     const attachments = this.resolveDraftAttachments(attachmentIds)

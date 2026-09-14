@@ -53,6 +53,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
     settings: {},
     agentPresets: { list: () => roster },
     ptoArtifactInspection: {
+      refresh: async (recordId: string) => ({ ok: true, value: { recordId, profile: { revision: 'revision-1' } } }),
       inspect: async () => ({ ok: true, value: {
         recordId: viewedRecord, profile: { revision: 'revision-1', displayPath: '/fixture' },
         actions: [
@@ -95,6 +96,23 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   expect(submit.agentPreset).toBe('standard')
   expect(submit.draftRevision).not.toBe(stage.draftRevision)
   const shell = (runtime.ctx.conversation.input as InputHub).draftShell()
+  const original = { text: shell.snapshot.draft, references: shell.snapshot.occurrences }
+  // Manual candidate selection and Viewer staging use identical owner identity.
+  const query = '/skill dependency-redundancy @dep'
+  shell.setDraft(query)
+  controller.track(query, query.length, { tier: 'plain' }, shell.snapshot.draftRev)
+  await vi.waitFor(() => {
+    const menu = controller.menu.getSnapshot()
+    expect(menu.open && menu.groups.some(group => group.source === 'pto-artifact' && group.status === 'ready')).toBe(true)
+  })
+  controller.pick('pto-artifact', 0)
+  expect(shell.snapshot.occurrences.map(({ occurrenceId: _id, ...ref }) => ref))
+    .toEqual(original.references.map(({ occurrenceId: _id, ...ref }) => ref))
+  shell.setContent(original)
+  // Restore uses saved reference projections, never reinterprets @deps.json as cwd-relative text.
+  runtime.ctx.conversation.guardedDrafts.restore(() => { runtime.ctx.uiWorkspace.startUnassignedSession() })
+  expect(shell.snapshot.draft).toBe(original.text)
+  expect(shell.snapshot.occurrences).toMatchObject([{ source: 'pto-artifact', ref: original.references[0]!.ref, activatable: true }])
   const alternate = await runtime.workspaces.create({ path: '/alternate' })
   runtime.workspaces.list.set({ ...runtime.workspaces.list.getSnapshot(), items: [alternate] })
   runtime.ctx.uiWorkspace.selectDraftWorkspace(alternate.workspaceId)
@@ -103,7 +121,9 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   viewedRecord = 'record-2'
   browser.openRunRecordViewer?.('/second-record')
   await vi.waitFor(() => { expect(viewer.hooks.viewer.getSnapshot()).toMatchObject({ kind: 'open', record: { recordId: 'record-2' } }) })
-  shell.actions.setDraft('edited analysis question')
+  const references = shell.snapshot.occurrences
+  const editedDraft = '/skill dependency-redundancy @deps.json edited analysis question'
+  shell.setContent({ text: editedDraft, references })
   shell.actions.submit()
   shell.actions.submit()
   await vi.waitFor(() => { expect(shell.state.getSnapshot().draft).toBe('') })
@@ -115,7 +135,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   expect(sent).not.toHaveBeenCalled()
   expect(nextSession).toBe(1)
   const sessionInput = runtime.ctx.conversation.input.for(runtime.sessions.scope('session-1')!)
-  await vi.waitFor(() => { expect(sessionInput.state.getSnapshot().draft).toBe('edited analysis question') })
+  await vi.waitFor(() => { expect(sessionInput.state.getSnapshot().draft).toBe(editedDraft) })
   const firstRequest = admitAnalysis.mock.calls[0]![0]
   expect(firstRequest).toMatchObject({ recordId: 'record-1', sessionId: 'session-1' })
   missingProvider = false
@@ -137,9 +157,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   expect(fresh).not.toBe('')
   viewer.analyzeRecord()
   expect(shell.state.getSnapshot().draft).toBe(fresh)
-  const refused = viewer.hooks.viewer.getSnapshot()
-  if (refused.kind !== 'open') throw new Error('expected the open Viewer to retain its error')
-  expect(refused.analysisError).toMatch(/unsent/)
+  expect(viewer.hooks.viewer.getSnapshot().kind).toBe('idle')
   shell.actions.submit()
   await vi.waitFor(() => { expect(sent).toHaveBeenCalledTimes(4) })
   expect(nextSession).toBe(2)
@@ -148,6 +166,8 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   expect(lastRequest.sessionId).toBe('session-2')
   expect(lastRequest.recordId).toBe('record-2')
   await vi.waitFor(() => { expect(runtime.ctx.conversation.input.for(runtime.sessions.scope('session-2')!).state.getSnapshot().draft).toBe('') })
+  browser.openRunRecordViewer?.('/second-record')
+  await vi.waitFor(() => { expect(viewer.hooks.viewer.getSnapshot().kind).toBe('open') })
   viewer.analyzeRecord()
   shell.actions.setDraft('')
   runtime.ctx.uiWorkspace.startUnassignedSession()
