@@ -9,6 +9,12 @@ const PLAN_NEXT_ACTION_EN = 'describe your task to generate plan'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'analysis.invalid': '分析关联无效，请从 Viewer 重新关联后发送',
+  'analysis.unavailable': '分析草稿持久化不可用',
+  'analysis.ownerUnavailable': '分析功能不可用，请重新关联后发送',
+  'analysis.changed': '准入期间分析关联已变化',
+  'analysis.unsent': '请先保留或清空未发送草稿，再开始新的分析',
+  'analysis.unsentSession': '请先保留或清空未发送分析草稿，再创建会话',
   'hint.plan': PLAN_NEXT_ACTION_ZH,
   'hint.goal': '输入目标，智能体将持续执行',
   'hint.goal.active': '当前目标进行中。可输入 edit 修改 / pause 暂停 / resume 继续 / clear 清除',
@@ -170,6 +176,12 @@ export type ConversationKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'analysis.invalid': 'Analysis binding is invalid; reassociate it from the Viewer before sending',
+  'analysis.unavailable': 'Analysis draft persistence is unavailable',
+  'analysis.ownerUnavailable': 'Analysis owner is unavailable; reassociate before sending',
+  'analysis.changed': 'Analysis binding changed during admission',
+  'analysis.unsent': 'Keep or clear the unsent draft before starting another analysis',
+  'analysis.unsentSession': 'Keep or clear the unsent analysis draft before starting another session',
   'hint.plan': PLAN_NEXT_ACTION_EN,
   'hint.goal': 'describe the objective for a long-running task',
   'hint.goal.active': 'goal active — edit / pause / resume / clear',
