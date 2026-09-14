@@ -76,7 +76,8 @@
     "@deepseek-ai/dsh-util-workspace-path": "workspace:*",
     "@types/react": "~18.3.1",
     "clsx": "^2.0.0",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-client-ui-input-trigger": "workspace:*"
   },
   "files": [
     "lib/index.js",

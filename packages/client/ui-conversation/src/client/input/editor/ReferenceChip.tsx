@@ -4,7 +4,7 @@
  * ReferenceChipNode; this component renders whatever the node carries.
  */
 import clsx from 'clsx'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { ReferenceIconRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReferenceIconKind } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './ReferenceChip.module.css'
@@ -17,6 +17,7 @@ export interface ReferenceChipProps {
   readonly appearance?: ReferenceIconKind | undefined
   /** Owner-resolution failure styling bit. */
   readonly invalid: boolean
+  readonly activate?: () => void
 }
 
 /**
@@ -24,13 +25,23 @@ export interface ReferenceChipProps {
  * @param props - label, optional domain glyph, and the invalid bit.
  * @returns the chip body (icon + truncating label).
  */
-export function ReferenceChip({ label, appearance, invalid }: ReferenceChipProps): ReactNode {
+export function ReferenceChip({ label, appearance, invalid, activate }: ReferenceChipProps): ReactNode {
+  const Tag = activate === undefined ? 'span' : 'button'
   return (
-    <span className={clsx(referenceCss.reference, css.chip, appearance === 'file' && !invalid && referenceCss.openable, invalid && css.invalid)} title={label}>
+    <Tag className={clsx(referenceCss.reference, css.chip, appearance === 'file' && !invalid && referenceCss.openable, invalid && css.invalid)} title={label} {...activate === undefined ? {} : {
+      type: 'button' as const, onClick: activate,
+      onKeyDownCapture: (event: KeyboardEvent) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        // Stop before Lexical's root keymap interprets Enter as Send.
+        event.preventDefault()
+        event.stopPropagation()
+        if (!event.repeat) activate()
+      },
+    }}>
       {appearance === undefined
         ? <span className={css.marker} aria-hidden>@</span>
         : <ReferenceIconRegular kind={appearance} size={14} className={css.icon} />}
       <span className={css.label}>{label}</span>
-    </span>
+    </Tag>
   )
 }

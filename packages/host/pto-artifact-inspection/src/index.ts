@@ -185,8 +185,21 @@ export class PtoArtifactInspectionGateway extends TypertRemoteService {
       const admission = this.admissionsBySession.get(String(agent.id))
       if (admission === undefined || !messages.some(message => message.source.kind === 'user')) return next()
       const decision = await next()
-      if (decision.kind === 'reject' || this.hasAnalysisContext(agent, decision.messages, admission.receipt.requestId)) {
-        return decision
+      if (decision.kind === 'reject') return decision
+      // The admitted qualified definition owns this launch. Canonical /skill
+      // gestures may already have injected the same instructions downstream.
+      // Never erase a conflicting provider or changed body to make it appear valid.
+      const normalizedMessages = decision.messages.filter((message) => {
+        if (message.source.kind !== 'skill-invocation' || message.source.name !== admission.skill.name) return true
+        if (message.source.provider !== admission.skill.provider
+          || message.content.length !== 1 || message.content[0]?.type !== 'text'
+          || message.content[0].text !== renderSkillContent(admission.skill)) {
+          throw new Error('PTO analysis Skill gesture does not match the admitted qualified definition')
+        }
+        return false
+      })
+      if (this.hasAnalysisContext(agent, decision.messages, admission.receipt.requestId)) {
+        return { ...decision, messages: normalizedMessages }
       }
       const context = createUserMessage({
         content: [{ type: 'text', text: renderAnalysisContext(admission.receipt) }],
@@ -206,8 +219,8 @@ export class PtoArtifactInspectionGateway extends TypertRemoteService {
         content: [{ type: 'text', text: renderSkillContent(admission.skill) }],
         source: skillSource,
       })
-      return { ...decision, messages: [...decision.messages, context, skill] }
-    })
+      return { ...decision, messages: [...normalizedMessages, context, skill] }
+    }, { prepend: true })
     ctx.effect(() => () => {
       for (const viewer of this.viewers.values()) viewer.disposeRoute()
       this.viewers.clear()

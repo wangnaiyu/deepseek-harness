@@ -1,3 +1,4 @@
+import type { DraftContent, ReferenceInsert } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { en, type WorkspaceKey } from './locales.ts'
 /** Browser controller for the Host-owned PTO static-viewer lifecycle. */
 
@@ -25,6 +26,7 @@ export interface PtoAnalysisReceipt {
 }
 
 interface PtoAnalysisIntent {
+  readonly composerVersion?: 1
   readonly artifactRefs: readonly string[]
   readonly requestId: string
   readonly recordId: string
@@ -35,6 +37,7 @@ interface PtoAnalysisIntent {
 
 /** Typed Host operations consumed by the browser viewer controller. */
 export interface PtoViewerRemote {
+  refresh: (recordId: string) => Promise<RemoteResult<PtoArtifactRecordView>>
   inspect: (request: { path: string }) => Promise<RemoteResult<PtoArtifactRecordView>>
   open: (request: { recordId: string; revision: string; actionId: string }) => Promise<RemoteResult<PtoArtifactViewerHandle>>
   close: (request: { handleId: string }) => Promise<RemoteResult<{ closed: boolean }>>
@@ -144,7 +147,7 @@ export class PtoViewerController {
   /** Stage one new launch; the Conversation owner protects existing drafts.
    * @param beginDraft - Protected draft staging callback.
    */
-  stageAnalysis(beginDraft: (text: string, intent: PtoAnalysisIntent) => void): void {
+  stageAnalysis(beginDraft: (text: DraftContent, intent: PtoAnalysisIntent) => void): void {
     const current = this.state
     if (current.kind !== 'open') throw new Error('A PTO viewer must be open before staging analysis')
     const action = current.record.actions.find(candidate =>
@@ -152,27 +155,80 @@ export class PtoViewerController {
       && candidate.kind === 'analysis' && candidate.status === 'available')
     if (action?.skill === undefined) throw new Error('Dependency redundancy analysis is not available for this record')
     try {
-      beginDraft('分析此数据记录中的冗余依赖。请给出结论、证据、限制和下一步。', {
+      const intent: PtoAnalysisIntent = {
+        composerVersion: 1,
         requestId: `pto-analysis-${globalThis.crypto.randomUUID()}`,
         artifactRefs: [...action.artifactRefs],
         recordId: current.record.recordId,
         revision: current.record.profile.revision,
         actionId: action.actionId,
         requestedSkill: { ...action.skill },
-      })
-      this.publish({ kind: 'open', record: current.record, handle: current.handle })
+      }
+      const reference = this.reference(intent)
+      const prefix = `/skill ${intent.requestedSkill.name} `
+      beginDraft({
+        text: `${prefix}${reference.clipboardText} ${this.t('analysis.question')}`,
+        references: [{ ...reference, occurrenceId: 0, offset: prefix.length, length: reference.clipboardText.length }],
+      }, intent)
+      void this.close().catch((error: unknown) => { this.reportRecoveryError(error) })
     } catch (error) {
       this.publish({ ...current, analysisError: errorMessage(error) })
       throw error
     }
   }
 
+  /** Build the same atomic reference inserted by the PTO candidate source.
+   * @param payload - Bound analysis intent.
+   * @returns Source-owned Record reference, independent of Session cwd.
+   */
+  reference(payload: unknown): ReferenceInsert {
+    const intent = payload as Partial<PtoAnalysisIntent> | null
+    if (intent === null || typeof intent !== 'object' || typeof intent.recordId !== 'string'
+      || typeof intent.revision !== 'string' || !intent.artifactRefs?.includes('deps.json')) {
+      throw new Error(this.t('analysis.invalid'))
+    }
+    return { source: 'pto-artifact', ref: JSON.stringify({ recordId: intent.recordId, revision: intent.revision, artifactRef: 'deps.json' }),
+      label: 'deps.json', appearance: 'file', clipboardText: '@deps.json', activatable: true }
+  }
+
+  /** Resolve a reference against the Host's current Record inventory.
+   * @param ref - Opaque source-owned reference.
+   * @returns Full current Record after exact revision validation.
+   */
+  async resolveReference(ref: string): Promise<PtoArtifactRecordView> {
+    const value = JSON.parse(ref) as { recordId?: unknown; revision?: unknown; artifactRef?: unknown } | null
+    if (value === null || typeof value.recordId !== 'string' || typeof value.revision !== 'string' || value.artifactRef !== 'deps.json') {
+      throw new Error(this.t('analysis.invalid'))
+    }
+    const record = resultValue('ptoArtifactInspection.refresh', await this.remote.refresh(value.recordId))
+    if (record.profile.revision !== value.revision) throw new Error(this.t('analysis.retry'))
+    return record
+  }
+
+  /** Reopen a referenced Record with a fresh viewer handle, retiring the previous handle.
+   * @param ref - Exact Record/revision/artifact reference.
+   */
+  async openReference(ref: string): Promise<void> {
+    const generation = ++this.generation
+    const record = await this.resolveReference(ref)
+    const handle = resultValue('ptoArtifactInspection.open', await this.remote.open({
+      recordId: record.recordId, revision: record.profile.revision, actionId: 'open.dependency-graph',
+    }))
+    if (generation !== this.generation) { await this.remote.close({ handleId: handle.handleId }); return }
+    const previous = this.activeHandle
+    this.activeHandle = handle
+    this.publish({ kind: 'open', record, handle })
+    if (previous !== undefined) await this.remote.close({ handleId: previous.handleId })
+  }
+
   /** Validate persisted intent, and re-admit against the real Session before every send.
    * @param payload - Persisted owner payload.
    * @param requestId - Stable launch id.
    * @param sessionId - Actual Session after materialization.
+   * @param content - Actual captured editor input before serialization.
+   * @param admitted - Whether this launch already passed Session admission.
    */
-  async checkAnalysis(payload: unknown, requestId: string, sessionId?: string): Promise<void> {
+  async checkAnalysis(payload: unknown, requestId: string, sessionId?: string, content?: DraftContent, admitted = false): Promise<void> {
     if (typeof payload !== 'object' || payload === null) throw new Error(this.t('analysis.missing'))
     const intent = payload as Partial<PtoAnalysisIntent>
     if (!Array.isArray(intent.artifactRefs) || !intent.artifactRefs.includes('deps.json') || intent.artifactRefs.some(ref => typeof ref !== 'string')
@@ -181,6 +237,15 @@ export class PtoViewerController {
       || typeof intent.requestedSkill?.name !== 'string'
       || typeof intent.requestedSkill.provider !== 'string' || typeof intent.requestedSkill.revision !== 'string') {
       throw new Error(this.t('analysis.invalid'))
+    }
+    if (intent.composerVersion === 1 && (!admitted || /(?:^|\s)\/skill\b/.test(content?.text ?? '') || (content?.references.length ?? 0) > 0)) {
+      const expected = this.reference(intent)
+      const gestures = [...(content?.text ?? '').matchAll(/(?:^|\s)\/skill[\t ]+([a-z0-9-]+)(?=\s|$)/g)]
+      if (content === undefined || gestures.length !== 1 || gestures[0]?.[1] !== intent.requestedSkill.name
+        || content.references.filter(ref => ref.source === expected.source).length !== 1
+        || !content.references.some(ref => ref.source === expected.source && ref.ref === expected.ref && !ref.invalid)) {
+        throw new Error(this.t('analysis.tokens'))
+      }
     }
     if (sessionId === undefined) return
     try {

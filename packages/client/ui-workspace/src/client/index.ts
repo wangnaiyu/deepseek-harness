@@ -1,3 +1,4 @@
+import type { InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 /**
  * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
  * the sidebar shell's `sidebar.workspaces` hole (the whole browsing region),
@@ -120,10 +121,37 @@ export function apply(ctx: Context): void {
   ctx.inject(['conversation'], (scope) => {
     const conversation = scope.conversation
     scope.effect(() => conversation.guardedDrafts.register('pto-analysis', async (binding, target) => {
-      await ptoViewer.checkAnalysis(binding.payload, binding.id, target.sessionId)
+      await ptoViewer.checkAnalysis(binding.payload, binding.id, target.sessionId, target.content, target.admitted)
     }), 'ui-workspace: guarded analysis submission')
     try { conversation.guardedDrafts.restore(() => { uiWorkspace.startUnassignedSession() }) }
     catch (error) { ptoViewer.reportRecoveryError(error) }
+  })
+  ctx.inject(['conversation', 'inputTriggers'], (scope) => {
+    const source: InputTriggerSource = {
+      trigger: '@', name: 'pto-artifact', showGroupTitle: false, targets: ['draft', 'session'],
+      candidates(target, { query }) {
+        if (!'deps.json'.includes(query.toLowerCase())) return Promise.resolve([])
+        const binding = scope.conversation.guardedDrafts.binding(target.kind === 'draft' ? undefined : target.sessionId)
+        if (binding?.owner !== 'pto-analysis') return Promise.resolve([])
+        const reference = ptoViewer.reference(binding.payload)
+        return Promise.resolve([{ name: reference.label, icon: 'file', value: reference.ref }])
+      },
+      onPick({ candidate }) {
+        if (candidate.value === undefined) return undefined
+        return { insert: { source: 'pto-artifact', ref: candidate.value, label: 'deps.json',
+          appearance: 'file', clipboardText: '@deps.json', activatable: true } }
+      },
+      codec: {
+        clipboardText: () => '@deps.json',
+        async serialize(ref, signal) {
+          await ptoViewer.resolveReference(ref)
+          signal.throwIfAborted()
+          return 'PTO artifact: deps.json (bound analysis record)'
+        },
+        activate: ref => ptoViewer.openReference(ref),
+      },
+    }
+    scope.effect(() => scope.inputTriggers.registerSource(source), 'ui-workspace: PTO artifact reference')
   })
   ctx.effect(() => async () => { await ptoViewer.dispose() }, 'ui-workspace: close PTO viewer')
   ctx.slots.provideRoot({ hooks: { workspaces: uiWorkspace.list } })

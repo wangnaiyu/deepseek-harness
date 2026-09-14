@@ -80,6 +80,8 @@ kind: "package-reference"
 
 ## 已知限制与延期工作
 
+引用 source 可在剪贴板投影与模型序列化之外提供激活动作。编辑器将可激活 chip 的鼠标和键盘操作路由至对应 owner。owner 缺失或不支持该动作时，controller 拒绝操作，不猜测文件路径。
+
 <a id="known-limitations-and-deferred-work"></a>
 
 
