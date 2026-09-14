@@ -61,18 +61,6 @@ export type {
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
 
-interface PtoAnalysisInputTriggerSource {
-  readonly trigger: '/'
-  readonly name: string
-  readonly targets: readonly ('session' | 'draft')[]
-  candidates(): Promise<readonly never[]>
-  onPick(): undefined
-  admitMaterialized(
-    draft: { readonly draftRevision: string },
-    session: { readonly sessionId: string },
-  ): Promise<void>
-}
-
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface GlobalStandardProps {
     /** Selector hook over the pure Workspace Controller snapshot. */
@@ -128,23 +116,14 @@ export function apply(ctx: Context): void {
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
   )
-  const ptoViewer = new PtoViewerController(ctx.remote.ptoArtifactInspection)
-  ctx.inject(['inputTriggers'], (scope: Context) => {
-    const inputTriggers = scope.get('inputTriggers') as {
-      registerSource(source: PtoAnalysisInputTriggerSource): () => void
-    } | undefined
-    if (inputTriggers === undefined) return
-    const source: PtoAnalysisInputTriggerSource = {
-      trigger: '/',
-      name: 'pto-artifact-analysis-admission',
-      targets: ['draft', 'session'],
-      candidates: () => Promise.resolve([]),
-      onPick: () => undefined,
-      admitMaterialized: async (draft, session) => {
-        await ptoViewer.admitAnalysis(draft.draftRevision, session.sessionId)
-      },
-    }
-    scope.effect(() => inputTriggers.registerSource(source), 'ui-workspace: PTO analysis first-send admission')
+  const ptoViewer = new PtoViewerController(ctx.remote.ptoArtifactInspection, ctx.locale.bind(NS))
+  ctx.inject(['conversation'], (scope) => {
+    const conversation = scope.conversation
+    scope.effect(() => conversation.guardedDrafts.register('pto-analysis', async (binding, target) => {
+      await ptoViewer.checkAnalysis(binding.payload, binding.id, target.sessionId)
+    }), 'ui-workspace: guarded analysis submission')
+    try { conversation.guardedDrafts.restore(() => { uiWorkspace.startUnassignedSession() }) }
+    catch (error) { ptoViewer.reportRecoveryError(error) }
   })
   ctx.effect(() => async () => { await ptoViewer.dispose() }, 'ui-workspace: close PTO viewer')
   ctx.slots.provideRoot({ hooks: { workspaces: uiWorkspace.list } })
@@ -352,17 +331,14 @@ export function apply(ctx: Context): void {
         closeViewer: () => { void ptoViewer.close() },
         switchViewer: (actionId) => { void ptoViewer.switchViewer(actionId) },
         analyzeRecord: () => {
-          ptoViewer.stageAnalysis((text) => {
-            uiWorkspace.startUnassignedSession()
-            const draft = uiWorkspace.list.getSnapshot().sessionDraft
-            if (draft === undefined) throw new Error('PTO analysis could not create a browser draft')
-            const conversation = ctx.get('conversation') as {
-              stageBrowserDraft(value: string): void
-            } | undefined
-            if (conversation === undefined) throw new Error('PTO analysis composer is unavailable')
-            conversation.stageBrowserDraft(text)
-            return `${draft.revision}:${draft.catalogRevision}:${String(draft.workspaceId ?? '')}:${draft.agentPreset ?? ''}`
-          })
+          try {
+            ptoViewer.stageAnalysis((text, intent) => {
+              const conversation = ctx.get('conversation')
+              if (conversation === undefined) throw new Error('PTO analysis composer is unavailable')
+              conversation.guardedDrafts.stage({ owner: 'pto-analysis', id: intent.requestId, payload: intent }, text,
+                () => { uiWorkspace.startUnassignedSession() })
+            })
+          } catch { /* The viewer's observable analysisError owns this refusal. */ }
         },
       }),
       locale: NS,

@@ -653,6 +653,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   ctx.plugin(ConversationController, {
     input: inputHub,
+    guardedDrafts: inputHub.guardedDrafts,
+    submissionBindings: inputHub.submissionBindings,
     blocks: composerBlocks,
     maxConcurrentFileUploads,
     stageBrowserDraft: (text) => { inputHub.draftShell().setDraft(text) },

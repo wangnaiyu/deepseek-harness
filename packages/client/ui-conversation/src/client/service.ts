@@ -7,6 +7,8 @@
  * through one property read; assignment through the tracker proxy and `#`
  * private fields bypass that rebinding.
  */
+import { SubmissionBindings } from './submission-bindings.ts'
+import type { GuardedDrafts } from './contract/guarded-drafts.ts'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
@@ -69,6 +71,8 @@ export interface DraftPermissionSource {
 export interface IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
   readonly input: SessionInputResolver
+  /** Persistent plugin launch bindings checked before ordinary prompt delivery. */
+  readonly guardedDrafts: GuardedDrafts
   /**
    * The per-session composer-block registry: how a plugin the composer
    * cannot import makes a session's input inert with its own reason.
@@ -193,6 +197,8 @@ export class UnsupportedImageMediaTypeError extends Error {
 export class ConversationController extends Service implements IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
   readonly input: SessionInputResolver
+  /** Persistent plugin launch bindings checked before ordinary prompt delivery. */
+  readonly guardedDrafts: GuardedDrafts
   /** The per-session composer-block registry. */
   readonly blocks: ComposerBlocks
   /** Live upload state per file-kind draft; images never appear here. */
@@ -223,6 +229,8 @@ export class ConversationController extends Service implements IConversation {
    */
   constructor(ctx: Context, config: {
     input: SessionInputResolver
+    guardedDrafts?: GuardedDrafts
+    submissionBindings?: SubmissionBindings
     blocks: ComposerBlocks
     maxConcurrentFileUploads: number
     stageBrowserDraft?: (text: string) => void
@@ -230,6 +238,13 @@ export class ConversationController extends Service implements IConversation {
     super(ctx, 'conversation')
     this.input = config.input
     this.blocks = config.blocks
+    this.submissionBindings = config.submissionBindings ?? new SubmissionBindings()
+    this.guardedDrafts = config.guardedDrafts ?? {
+      register: (owner, check) => this.submissionBindings.register(owner, check),
+      stage: () => { throw new Error('Browser draft input is unavailable') },
+      restore: () => {},
+      assertCanStart: () => {},
+    }
     this.stageBrowserDraft = config.stageBrowserDraft ?? (() => {
       throw new Error('conversation.stageBrowserDraft: browser draft input is unavailable')
     })
@@ -253,6 +268,7 @@ export class ConversationController extends Service implements IConversation {
   }
 
   /** Replace the browser-only New Session draft without allocating Host state. */
+  private readonly submissionBindings: SubmissionBindings
   readonly stageBrowserDraft: (text: string) => void
 
   /**
@@ -320,6 +336,12 @@ export class ConversationController extends Service implements IConversation {
     mode: InputSubmitMode,
     signal?: AbortSignal,
   ): Promise<SubmitOutcome> {
+    const guarded = this.submissionBindings.read(session.sessionId)
+    if (guarded !== undefined) {
+      await this.submissionBindings.check(guarded, {
+        sessionId: session.sessionId, signal: signal ?? new AbortController().signal,
+      })
+    }
     const attachments = this.resolveDraftAttachments(attachmentIds)
     if (attachments.length !== attachmentIds.length) {
       throw new Error('conversation.sendSession: one or more draft attachments are no longer available')

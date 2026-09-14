@@ -84,6 +84,8 @@ Client 在启动时按其语言选择初始目录名和标题：中文使用 `�
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
+PTO Viewer 将每次有意分析暂存为新浏览器草稿，在发送时物化。稳定 request id、Record revision、artifact references、action 和 qualified Skill 通过 Conversation 的受保护草稿跨问题编辑及目标变化保留。之后打开其他 Viewer 不会重定向已有 launch。准入与模型重试使用已物化 Session；准入失败时保留草稿并阻止 prompt 发送。浏览器刷新恢复绑定，但 Host 重启可能使已注册 Record 失效，此时需要重新打开 Viewer 关联新 launch。Host receipt 和 Session log 格式保持不变。
+
 <details>
 <summary>实现细节——点击展开</summary>
 
