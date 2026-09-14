@@ -140,6 +140,8 @@ export interface InputTriggerController {
   onSpace(): boolean
   /** @param source - reference source. @param ref - source-local id. @param signal - submit cancellation. @returns model text. */
   serializeReference(source: string, ref: string, signal: AbortSignal): Promise<string>
+  /** @param source - owner. @param ref - owner id. @returns activation settlement. */
+  activateReference?(source: string, ref: string): Promise<void>
   /** @param line - trimmed draft. @param signal - submit cancellation. @param envelope - attachment count. @returns winning result. */
   adjudicate(
     line: string,

@@ -2,6 +2,8 @@
 
 .chip {
   display: inline-flex;
+  border: 0;
+  font: inherit;
   align-items: baseline;
   gap: 3px;
   max-width: 240px;
@@ -29,4 +31,8 @@
   color: var(--dsw-alias-state-error-primary);
   text-decoration: line-through;
   opacity: 0.7;
+}
+
+button.chip {
+  cursor: pointer;
 }

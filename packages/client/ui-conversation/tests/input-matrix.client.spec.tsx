@@ -148,7 +148,7 @@ describe('matrix row: plain', () => {
     act(() => { shell.setDraft('普通消息') })
     expect(shell.snapshot.claim).toBeUndefined()
     fireEvent.keyDown(textarea, { key: 'Enter' })
-    expect(sink).toHaveBeenCalledWith('普通消息', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('普通消息', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     // The detached default send never freezes the composer.
     expect(shell.snapshot.phase).toBe('plain')
     expect(shell.snapshot.draft).toBe('')
@@ -347,7 +347,7 @@ describe('matrix row: locked (session disabled)', () => {
     expect(textarea.getAttribute('aria-disabled')).not.toBe('true')
     act(() => { shell.setDraft('排队') })
     fireEvent.keyDown(textarea, { key: 'Enter' })
-    expect(sink).toHaveBeenCalledWith('排队', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('排队', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 })
 

@@ -403,6 +403,17 @@ export class InputTriggerController {
     return false
   }
 
+  /** Activate one reference through its source.
+   * @param source - Owning source name.
+   * @param ref - Source-local identity.
+   * @returns Owner activation settlement.
+   */
+  activateReference(source: string, ref: string): Promise<void> {
+    const owner = this.deps.roster.all().find(s => s.name === source)
+    if (owner?.codec?.activate === undefined) return Promise.reject(new Error(`No activation for reference source "${source}"`))
+    return owner.codec.activate(ref)
+  }
+
   /**
    * Serialize one reference occurrence to its model form via the owning
    * source's codec (prompt serialization: registry → explicit

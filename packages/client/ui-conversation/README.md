@@ -143,6 +143,8 @@ None; Conversation assembly and browser input state do not alter provider-side p
 
 ## Known Limitations and Deferred Work
 
+Guarded drafts retain the editor text and source-owned reference occurrences together. Restoring a draft reconstructs its atomic references; serialization failure preserves them. The submission owner receives the captured editor projection before model serialization. A reference can offer a source-owned activation action without persisting callbacks or extending Session history.
+
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Only registered targets can render** — the shell deliberately has no implicit fallback target beyond the registered `chat` preference.

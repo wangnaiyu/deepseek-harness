@@ -14,6 +14,8 @@ import {
   createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-store'
 import type { LexicalEditor } from 'lexical'
+import { COMMAND_PRIORITY_EDITOR } from 'lexical'
+import { ACTIVATE_REFERENCE } from './editor/chip-node.tsx'
 import type {
   CommandClaim, ConsumeTokenRequest, DraftAttachmentId,
   InputActions, InputEffect, InputNotice, InputState, InputTriggerController, PickOutcome,
@@ -23,6 +25,7 @@ import type {
   ArbitrateKey, ArbitrateOutcome, ComposerKeyboard, Occurrence, ReferenceInsert, TokenSpan,
 } from '../contract/draft-editor.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
+import type { DraftContent } from '../contract/guarded-drafts.ts'
 import { SubmitMachine } from './machine.ts'
 import { DraftEditorRuntime } from './editor/runtime.ts'
 import type { EditorProjection } from './editor/projection.ts'
@@ -58,6 +61,7 @@ export interface SessionInputDeps {
     attachmentIds: readonly DraftAttachmentId[],
     mode: InputSubmitMode,
     signal: AbortSignal,
+    content?: DraftContent,
   ): Promise<SubmitOutcome>
   /** Command-plane attachment plumbing (the hub owns the conversation face and the copy). */
   commandAttachments: {
@@ -164,7 +168,16 @@ export class SessionInputShell implements SessionInput {
       lexicon: () => this.lexicon.getSnapshot(),
       resolveLexicon: () => this.deps.inputTriggers?.()?.lexicon,
     })
-    this.unregister = this.draftEditor.register()
+    const disposeEditor = this.draftEditor.register()
+    const disposeActivation = this.editor.registerCommand(ACTIVATE_REFERENCE, ({ source, ref }) => {
+      const controller = this.deps.inputTriggers?.()
+      if (controller?.activateReference === undefined) return false
+      void controller.activateReference(source, ref).catch((error: unknown) => {
+        this.notify('error', error instanceof Error ? error.message : String(error))
+      })
+      return true
+    }, COMMAND_PRIORITY_EDITOR)
+    this.unregister = () => { disposeActivation(); disposeEditor() }
     this.state = createSnapshotStore<InputState>(this.compose())
     this.unsubscribeInbox = deps.inbox?.subscribe(() => { this.publish() })
   }
@@ -636,7 +649,9 @@ export class SessionInputShell implements SessionInput {
       this.failedRestoreRev = undefined
     }
     if (occurrences.length === 0) {
-      this.settleSink(attempt, this.deps.defaultSink(draft.trim(), attachmentIds, mode, attempt.signal))
+      this.settleSink(attempt, this.deps.defaultSink(
+        draft.trim(), attachmentIds, mode, attempt.signal, { text: draft, references: occurrences },
+      ))
       return
     }
     const inputTriggers = this.deps.inputTriggers?.()
@@ -660,7 +675,9 @@ export class SessionInputShell implements SessionInput {
           cursor = part.offset + part.length
         }
         out += draft.slice(cursor)
-        this.settleSink(attempt, this.deps.defaultSink(out.trim(), attachmentIds, mode, attempt.signal))
+        this.settleSink(attempt, this.deps.defaultSink(
+          out.trim(), attachmentIds, mode, attempt.signal, { text: draft, references: occurrences },
+        ))
       },
       (error: unknown) => {
         if (this.dead(attempt)) return
@@ -705,6 +722,24 @@ export class SessionInputShell implements SessionInput {
     this.dispatchRun(({ type: 'sink-settled', attempt, ok: false, ...(message === undefined ? {} : { message }) }))
   }
 
+  /** Rebuild the editor using the same occurrence projection as failed-send recovery.
+   * @param content - Captured text and ordered atomic references.
+   */
+  setContent(content: DraftContent): void {
+    const { text: draft, references: occurrences } = content
+    let end = 0
+    for (const occurrence of occurrences) {
+      if (!Number.isInteger(occurrence.offset) || occurrence.offset < end
+        || occurrence.length !== occurrence.clipboardText.length
+        || draft.slice(occurrence.offset, occurrence.offset + occurrence.length) !== occurrence.clipboardText) {
+        throw new Error('Invalid composer reference projection')
+      }
+      end = occurrence.offset + occurrence.length
+    }
+    this.draftEditor.restoreDraft(draft, occurrences)
+    this.draftEditor.clearHistory()
+  }
+
   /** Rebuild all currently failed snapshots in submission order. */
   private restoreFailedDrafts(): void {
     const records = [...this.failedDetached.entries()].sort(([a], [b]) => a - b).map(([, record]) => record)
@@ -722,8 +757,7 @@ export class SessionInputShell implements SessionInput {
     }
     this.restoringFailures = true
     try {
-      this.draftEditor.restoreDraft(draft, occurrences)
-      this.draftEditor.clearHistory()
+      this.setContent({ text: draft, references: occurrences })
       this.failedRestoreRev = this.rev
     } finally {
       this.restoringFailures = false

@@ -80,6 +80,8 @@ None; this package neither assembles nor sends a provider request.
 
 ## Known Limitations and Deferred Work
 
+Reference sources can provide an activation action beside their clipboard and model serialization. The editor routes an activatable chip to that owner for both pointer and keyboard use. The controller refuses an absent owner or unsupported action instead of guessing a file path.
+
 <a id="known-limitations-and-deferred-work"></a>
 
 

@@ -116,6 +116,8 @@ None; this package neither assembles nor sends a provider request.
 
 ## Known Limitations and Deferred Work
 
+Analysis staging inserts the canonical Skill gesture, an atomic `deps.json` reference, and a short question, then closes the overlay. The reference resolves its exact Record and revision through the Host independently of Session cwd. Click or keyboard activation opens a fresh complete viewer handle. The PTO candidate source allows manual reselection of the same bound reference. Missing or changed required tokens reject first admission; admitted question retries retain the existing launch binding. A stale Record requires reassociation.
+
 <a id="known-limitations-and-deferred-work"></a>
 
 

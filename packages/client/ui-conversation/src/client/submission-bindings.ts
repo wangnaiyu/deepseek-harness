@@ -1,12 +1,13 @@
 import { en } from './locales.ts'
 import type { ConversationKey } from './locales.ts'
 
-import type { SubmissionBinding, SubmissionCheck } from './contract/guarded-drafts.ts'
+import type { DraftContent, SubmissionBinding, SubmissionCheck } from './contract/guarded-drafts.ts'
 
 interface SavedBinding {
   readonly version: 1
   readonly binding: SubmissionBinding
   readonly text: string
+  readonly references?: DraftContent['references']
   readonly phase: 'pending' | 'admitted'
   readonly sessionId?: string
 }
@@ -61,16 +62,18 @@ export class SubmissionBindings {
    * @param binding - Stable launch identity and owner payload.
    * @param text - Initial question.
    */
-  stage(binding: SubmissionBinding, text: string): void {
-    this.save('browser', { version: 1, binding, text, phase: 'pending' })
+  stage(binding: SubmissionBinding, text: string | DraftContent): void {
+    const content = typeof text === 'string' ? { text } : { text: text.text, references: text.references }
+    this.save('browser', { version: 1, binding, ...content, phase: 'pending' })
   }
 
   /** Keep browser text edits with the stable binding.
    * @param text - Current browser question.
+   * @param references - Atomic reference projections accompanying the text.
    */
-  edit(text: string): void {
+  edit(text: string, references?: DraftContent['references']): void {
     const current = this.read('browser')
-    if (current !== undefined) this.save('browser', { ...current, text })
+    if (current !== undefined) this.save('browser', { ...current, text, ...references === undefined ? {} : { references } })
   }
 
   /** Retire only the browser copy after transfer or explicit cancellation. */
@@ -97,7 +100,7 @@ export class SubmissionBindings {
     target.signal.throwIfAborted()
     const check = this.checks.get(saved.binding.owner)
     if (check === undefined) throw new Error(this.t('analysis.ownerUnavailable'))
-    const key = `${saved.binding.id}:${target.sessionId ?? 'browser'}`
+    const key = `${saved.binding.id}:${target.sessionId ?? 'browser'}:${JSON.stringify(target.content)}`
     const previous = this.checking.get(key)
     if (previous !== undefined) {
       await previous
@@ -105,7 +108,7 @@ export class SubmissionBindings {
       return
     }
     const pending = (async () => {
-      await check(saved.binding, target)
+      await check(saved.binding, { ...target, admitted: saved.phase === 'admitted' })
       target.signal.throwIfAborted()
       if (target.sessionId !== undefined) {
         const current = this.read(target.sessionId)

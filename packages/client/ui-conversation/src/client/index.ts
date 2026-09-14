@@ -79,3 +79,5 @@ declare module '@deepseek-ai/cordis' {
     uiConversation: import('./conversation/assembly.ts').UiConversation
   }
 }
+
+export type { DraftContent } from './contract/guarded-drafts.ts'

@@ -12,7 +12,7 @@ import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { $getRoot, $isTextNode } from 'lexical'
+import { $getRoot, $isTextNode, COMMAND_PRIORITY_CRITICAL } from 'lexical'
 import {
   bindSnapshotSelector, conversationSnapshot as conversationFixture, makeTranslate, RemoteError,
   sessionSnapshot as sessionFixture,
@@ -23,6 +23,7 @@ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubmitOutcome } from '../src/client/contract/input.ts'
+import { ACTIVATE_REFERENCE } from '../src/client/input/editor/chip-node.tsx'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { $replaceDetectSpanWithText, $selectDetectSpan } from '../src/client/input/editor/span-map.ts'
 import type {
@@ -595,7 +596,7 @@ describe('Enter semantics', () => {
   it('plain Enter submits queue mode through the machine; repeat and empty are suppressed', () => {
     const { textarea, sink } = bench({ draft: 'hello' })
     fireEvent.keyDown(textarea, { key: 'Enter' })
-    expect(sink).toHaveBeenCalledWith('hello', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('hello', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     // The submitting-phase lock, not draft emptiness, suppresses the repeat:
     // the draft is still uncleared while the sink round-trip is in flight.
     fireEvent.keyDown(textarea, { key: 'Enter', repeat: true })
@@ -623,15 +624,17 @@ describe('Enter semantics', () => {
   it('Ctrl/Meta+Enter sends normally while idle and steers while running', () => {
     const idle = bench({ draft: 'hello' })
     fireEvent.keyDown(idle.textarea, { key: 'Enter', metaKey: true })
-    expect(idle.sink).toHaveBeenCalledWith('hello', [], 'queue', expect.any(AbortSignal))
+    expect(idle.sink).toHaveBeenCalledWith('hello', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
 
     const busyCtrl = bench({ running: true, draft: 'steer with ctrl' })
     fireEvent.keyDown(busyCtrl.textarea, { key: 'Enter', ctrlKey: true })
-    expect(busyCtrl.sink).toHaveBeenCalledWith('steer with ctrl', [], 'steer', expect.any(AbortSignal))
+    expect(busyCtrl.sink).toHaveBeenCalledWith('steer with ctrl', [], 'steer', expect.any(AbortSignal),
+      expect.objectContaining({ references: [] }))
 
     const busyMeta = bench({ running: true, draft: 'steer with cmd' })
     fireEvent.keyDown(busyMeta.textarea, { key: 'Enter', metaKey: true })
-    expect(busyMeta.sink).toHaveBeenCalledWith('steer with cmd', [], 'steer', expect.any(AbortSignal))
+    expect(busyMeta.sink).toHaveBeenCalledWith('steer with cmd', [], 'steer', expect.any(AbortSignal),
+      expect.objectContaining({ references: [] }))
   })
 
   it('empty-draft Cmd/Ctrl+Enter steers the whole queue instead of submitting', () => {
@@ -697,7 +700,7 @@ describe('Enter semantics', () => {
     const steerQueue = vi.fn()
     const { textarea, sink } = bench({ running: true, queue: [row('q-1')], draft: '插话', steerQueue })
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
-    expect(sink).toHaveBeenCalledWith('插话', [], 'steer', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('插话', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     expect(steerQueue).not.toHaveBeenCalled()
   })
 
@@ -832,7 +835,7 @@ describe('running and lock semantics', () => {
     writeDraft(shell, '排队消息2')
     expect(button.getAttribute('aria-label')).toBe('排队发送')
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('排队消息2', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('排队消息2', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     await vi.waitFor(() => { expect(button.getAttribute('aria-label')).toBe('停止生成') })
     expect(stop).toHaveBeenCalledTimes(1)
   })
@@ -841,7 +844,7 @@ describe('running and lock semantics', () => {
     const { button, sink } = bench({ running: true, busyEnter: 'steer', draft: '按钮插话' })
     expect(button.getAttribute('aria-label')).toBe('插话发送')
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('按钮插话', [], 'steer', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('按钮插话', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 
   it('running Send relabels when the busy-state preference changes live', () => {
@@ -850,7 +853,7 @@ describe('running and lock semantics', () => {
     act(() => { busyEnter.set('steer') })
     expect(button.getAttribute('aria-label')).toBe('插话发送')
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('跟随设置', [], 'steer', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('跟随设置', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 
   it('running Send keeps the plain label for a slash line and a claimed command', () => {
@@ -903,7 +906,7 @@ describe('running and lock semantics', () => {
     const { button, sink } = bench({ busyEnter: 'steer', draft: '空闲发送' })
     expect(button.getAttribute('aria-label')).toBe('发送消息')
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('空闲发送', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('空闲发送', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 
   it('running treats an attachment-only draft as Send', async () => {
@@ -939,17 +942,17 @@ describe('running and lock semantics', () => {
   it('running plain Enter follows the busy-state Steer preference', () => {
     const { textarea, sink } = bench({ running: true, busyEnter: 'steer', draft: '直接插话' })
     fireEvent.keyDown(textarea, { key: 'Enter' })
-    expect(sink).toHaveBeenCalledWith('直接插话', [], 'steer', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('直接插话', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 
   it('running Cmd/Ctrl+Enter uses the opposite of the busy-state Enter preference', () => {
     const meta = bench({ running: true, busyEnter: 'steer', draft: '排到下一轮' })
     fireEvent.keyDown(meta.textarea, { key: 'Enter', metaKey: true })
-    expect(meta.sink).toHaveBeenCalledWith('排到下一轮', [], 'queue', expect.any(AbortSignal))
+    expect(meta.sink).toHaveBeenCalledWith('排到下一轮', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
 
     const ctrl = bench({ running: true, busyEnter: 'steer', draft: 'also queue' })
     fireEvent.keyDown(ctrl.textarea, { key: 'Enter', ctrlKey: true })
-    expect(ctrl.sink).toHaveBeenCalledWith('also queue', [], 'queue', expect.any(AbortSignal))
+    expect(ctrl.sink).toHaveBeenCalledWith('also queue', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
   })
 
   it('running continuable subagent keeps Send beside an independent Stop', () => {
@@ -977,7 +980,7 @@ describe('running and lock semantics', () => {
     expect(click).not.toHaveBeenCalled()
     click.mockRestore()
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('后续消息', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('后续消息', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     fireEvent.click(interruptButton!)
     expect(stop).toHaveBeenCalledTimes(1)
   })
@@ -994,7 +997,7 @@ describe('running and lock semantics', () => {
     const { button, sink } = bench({ running: true, busyEnter: 'steer', draft: '子代理插话', subagent })
     expect(button.getAttribute('aria-label')).toBe('插话发送')
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('子代理插话', [], 'steer', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('子代理插话', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
 
     // No draft: the child has no Stop seat to fall back to, so its disabled
     // Send keeps the plain label instead of naming a delivery it cannot make.
@@ -1097,15 +1100,17 @@ describe('running and lock semantics', () => {
     }
     const plain = bench({ running: true, busyEnter: 'steer', draft: 'plain', subagent })
     fireEvent.keyDown(plain.textarea, { key: 'Enter' })
-    expect(plain.sink).toHaveBeenCalledWith('plain', [], 'steer', expect.any(AbortSignal))
+    expect(plain.sink).toHaveBeenCalledWith('plain', [], 'steer', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
 
     const accelerated = bench({ running: true, draft: 'accelerated', subagent })
     fireEvent.keyDown(accelerated.textarea, { key: 'Enter', metaKey: true })
-    expect(accelerated.sink).toHaveBeenCalledWith('accelerated', [], 'steer', expect.any(AbortSignal))
+    expect(accelerated.sink).toHaveBeenCalledWith('accelerated', [], 'steer', expect.any(AbortSignal),
+      expect.objectContaining({ references: [] }))
 
     const opposite = bench({ running: true, busyEnter: 'steer', draft: 'opposite', subagent })
     fireEvent.keyDown(opposite.textarea, { key: 'Enter', metaKey: true })
-    expect(opposite.sink).toHaveBeenCalledWith('opposite', [], 'queue', expect.any(AbortSignal))
+    expect(opposite.sink).toHaveBeenCalledWith('opposite', [], 'queue', expect.any(AbortSignal),
+      expect.objectContaining({ references: [] }))
   })
 
   it('disabled (session removed) locks the textarea and chrome', () => {
@@ -1118,7 +1123,7 @@ describe('running and lock semantics', () => {
   it('idle primary sends and disables on empty draft', () => {
     const { button, sink } = bench({ draft: 'go' })
     fireEvent.click(button)
-    expect(sink).toHaveBeenCalledWith('go', [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenCalledWith('go', [], 'queue', expect.any(AbortSignal), expect.objectContaining({ references: [] }))
     const empty = bench()
     expect(empty.button.disabled).toBe(true)
   })
@@ -1682,4 +1687,24 @@ describe('command launcher chrome and control seats', () => {
     const live = bench({ running: true })
     expect((live.view.getByLabelText('添加文件或调用指令') as HTMLButtonElement).disabled).toBe(false)
   })
+})
+
+it('activates a reference with Enter or Space without sending the composer', () => {
+  const { shell, view, sink } = bench()
+  const activate = vi.fn(() => true)
+  const unregister = shell.editor.registerCommand(ACTIVATE_REFERENCE, activate, COMMAND_PRIORITY_CRITICAL)
+  onTestFinished(unregister)
+  act(() => {
+    shell.setDraft('@dep')
+    shell.insertReference({ source: 'pto-artifact', ref: 'record-ref', label: 'deps.json',
+      appearance: 'file', clipboardText: '@deps.json', activatable: true },
+    { start: 0, end: 4, draftRev: shell.snapshot.draftRev })
+  })
+  const button = view.getByRole('button', { name: 'deps.json' })
+  fireEvent.keyDown(button, { key: 'Enter' })
+  fireEvent.keyDown(button, { key: ' ', code: 'Space' })
+  fireEvent.keyDown(button, { key: 'Enter', repeat: true })
+  expect(activate).toHaveBeenCalledTimes(2)
+  expect(sink).not.toHaveBeenCalled()
+  expect(shell.snapshot.occurrences).toHaveLength(1)
 })

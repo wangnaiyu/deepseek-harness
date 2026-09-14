@@ -4,6 +4,7 @@
  * accepted prompt.
  */
 import { describe, expect, it, vi } from 'vitest'
+import type { DraftContent } from '../src/client/contract/guarded-drafts.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { InputTriggerController, SubmitOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
@@ -67,7 +68,7 @@ describe('reference submission', () => {
     restored.setDraft(mirror.mock.calls.at(-1)?.[0] as string)
     restored.submit()
     await vi.waitFor(() => {
-      expect(sink).toHaveBeenCalledWith(spacedMention, [], 'queue', expect.any(AbortSignal))
+      expect(sink).toHaveBeenCalledWith(spacedMention, [], 'queue', expect.any(AbortSignal), { text: `${spacedMention} `, references: [] })
     })
   })
 
@@ -106,7 +107,7 @@ describe('reference submission', () => {
     await vi.waitFor(() => {
       expect(shell.snapshot.draft).toBe(`${mention} `)
     })
-    expect(sink).toHaveBeenNthCalledWith(1, mention, [], 'queue', expect.any(AbortSignal))
+    expect(sink).toHaveBeenNthCalledWith(1, mention, [], 'queue', expect.any(AbortSignal), expect.objectContaining({ text: `${mention} `, references: [expect.objectContaining({ source: 'reference', ref: mention })] }))
     expect(shell.snapshot).toMatchObject({
       draft: `${mention} `,
       occurrences: [{ source: 'reference', ref: mention, label: 'Research', offset: 0, length: mention.length }],
@@ -119,7 +120,7 @@ describe('reference submission', () => {
     shell.submit('queue')
     expect(shell.snapshot.draft).toBe('')
     await vi.waitFor(() => {
-      expect(sink).toHaveBeenNthCalledWith(2, mention, [], 'queue', expect.any(AbortSignal))
+      expect(sink).toHaveBeenNthCalledWith(2, mention, [], 'queue', expect.any(AbortSignal), expect.objectContaining({ text: `${mention} `, references: [expect.objectContaining({ source: 'reference', ref: mention })] }))
     })
     expect(shell.snapshot.occurrences).toEqual([])
     expect(serializeReference).toHaveBeenCalledTimes(2)
@@ -282,4 +283,21 @@ describe('submit transaction hardening', () => {
     // is a contract passenger now): a trailing '/' keeps the menu open.
     expect(track).toHaveBeenCalledWith('@src/', 5, { tier: 'plain' }, shell.snapshot.draftRev)
   })
+  it('restores atomic occurrences from a JSON draft snapshot and rejects ownerless serialization', async () => {
+    const first = new SessionInputShell({ actx: {} as Context, defaultSink: vi.fn(), commandAttachments })
+    chip(first)
+    const captured = JSON.parse(JSON.stringify({ text: first.snapshot.draft, references: first.snapshot.occurrences })) as DraftContent
+    first.dispose()
+    const sink = vi.fn()
+    const restored = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments })
+    try {
+      restored.setContent(captured)
+      expect(restored.snapshot.occurrences).toMatchObject([{ source: 'reference', ref: mention }])
+      restored.submit()
+      await vi.waitFor(() => { expect(restored.snapshot.occurrences).toHaveLength(1) })
+      expect(sink).not.toHaveBeenCalled()
+      expect(() =>{  restored.setContent({ ...captured, text: 'unrelated' }) }).toThrow('Invalid composer reference projection')
+    } finally { restored.dispose() }
+  })
+
 })
