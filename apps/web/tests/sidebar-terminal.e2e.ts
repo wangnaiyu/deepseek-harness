@@ -1,3 +1,5 @@
+import { acknowledgeReloadConnectionLoss } from './scaffold.ts'
+import { join } from 'node:path'
 /** Shipped sidebar terminal over the real Loader, Remote mux, Chromium and local PTY. */
 import { mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -64,8 +66,11 @@ describe.skipIf(process.platform === 'win32')('Web sidebar terminal', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    const agent = scaffold.ctx.agents.list()[0]
-    if (agent === undefined) throw new Error('Workspace did not create a Session')
+    // PTO workspace selection stages a draft; explicitly create this fixture's Session.
+    const created = await scaffold.ctx.sessionController.create({ cwd: join(scaffold.workspaceCwd, 'workspace') })
+    const resolved = await scaffold.ctx.sessionController.resolveAgent(created.sessionId)
+    if ('error' in resolved) throw resolved.error
+    const agent = resolved.agent
     handles = []
     const subprocess = agent.ctx.get('subprocess')
     if (subprocess === undefined) throw new Error('Session subprocess provider is missing')
@@ -82,6 +87,16 @@ describe.skipIf(process.platform === 'win32')('Web sidebar terminal', () => {
     agent.session.append('step/end', { turn: 1, step: 1 })
     agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     await scaffold.ctx.sessions.flush(agent.session)
+    agent.session.append('session/title', { title: 'Sidebar fixture', messageSeqs: [], source: { kind: 'fallback' } })
+    await scaffold.ctx.sessions.flush(agent.session)
+    const workspace = await scaffold.ctx.workspaceRegistry.resolveByPath(join(scaffold.workspaceCwd, 'workspace'))
+    await workspace!.attachSession(agent.session.id)
+    const group = page.getByRole('treeitem', { name: /^workspace/ }).first()
+    if (await group.getAttribute('aria-expanded') === 'false') await group.click()
+    await page.evaluate((sessionId) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId })) }, agent.session.id)
+    const beforeReload = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    acknowledgeReloadConnectionLoss(tripwire, beforeReload)
     await page.getByText('Ready for terminal input.').waitFor()
     await mkdir(shots, { recursive: true })
   }, 180_000)

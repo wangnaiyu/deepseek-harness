@@ -76,6 +76,10 @@ describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages opt-
     expect(await page.locator('body').innerText()).not.toContain('sk-e2e-')
     await page.keyboard.press('Escape')
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd, 'messages-settings-e2e')
+    // Reference discovery and model selection consume a formal Session scope.
+    const created = await scaffold.ctx.sessionController.create({ cwd: join(scaffold.workspaceCwd, 'workspace') })
+    await page.evaluate((sessionId) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId })) }, created.sessionId)
+    await page.reload({ waitUntil: 'load' })
     await page.getByRole('button', { name: /^选择模型/ }).click()
     await page.getByRole('menuitem', { name: /模型/ }).click()
     await page.getByRole('menuitemradio', { name: 'Messages Flash', exact: true }).waitFor()

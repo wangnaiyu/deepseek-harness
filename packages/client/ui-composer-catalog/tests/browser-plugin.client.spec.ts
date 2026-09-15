@@ -27,6 +27,7 @@ async function bench(
   > = result,
 ) {
   const ctx = new Context()
+  ctx.provide('commandUi', { presentDescriptor: () => undefined })
   let source: InputTriggerSource | undefined
   let disposed = false
   ctx.provide('inputTriggers', {
@@ -61,7 +62,7 @@ const req = (query = '') => ({
 
 describe('draft composer catalog source', () => {
   it('declares the generated Remote and trigger dependencies', () => {
-    expect(inject).toEqual(['remote', 'remote.composerCatalog', 'inputTriggers'])
+    expect(inject).toEqual(['remote', 'remote.composerCatalog', 'inputTriggers', 'commandUi'])
   })
 
   it('projects Commands first and Skills second with origin, search, contained errors, and canonical pick text', async () => {
@@ -78,6 +79,7 @@ describe('draft composer catalog source', () => {
       ['Skills', 'evidence', 'PTO'],
     ])
     expect(all.issues).toEqual([{ section: 'Skills', message: 'Acme: one plugin failed' }])
+    expect((await b.source.candidates(target(), req('evdnc'))).map(row => row.name)).toEqual(['evidence'])
     const byOrigin = await b.source.candidates(target(), req('pto'))
     expect(byOrigin.map(row => row.name)).toEqual(['analyze', 'evidence'])
     expect(b.source.onPick({ candidate: all[0]!, session: target(), position: 'leading', via: 'menu', action: 'pick', span: { start: 0, end: 0, draftRev: 1 } }))
@@ -190,6 +192,7 @@ describe('draft composer catalog source', () => {
 
   it('serves typed `/` and the `+` launcher through one draft controller without creating a Session', async () => {
     const ctx = new Context()
+    ctx.provide('commandUi', { presentDescriptor: () => undefined })
     const create = vi.fn()
     ctx.provide('sessions', { scopeOf: () => undefined, create })
     await ctx.plugin(InputTriggerService)

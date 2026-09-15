@@ -1,3 +1,4 @@
+import type { DraftComposerCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 /**
  * RemoteMock scenario for built-client tests that do not own a Host.
  * The adjacent JSON is maintained with this module when Remote responses or
@@ -128,6 +129,13 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
   }
   let nextSession = 1
 
+  const commandRows = (fixture.commands as { value: DraftComposerCatalog['commands'] }).value
+  const composerCatalog: DraftComposerCatalog = {
+    revision: 'assembled-catalog',
+    commands: commandRows.map(command => ({ ...command, origin: { kind: 'agent', label: 'Agent' } })),
+    skills: [],
+    partialErrors: [],
+  }
   const mock = RemoteMock.create().load(remoteDefaultResponses)
   mock.load({
     unary: {
@@ -136,6 +144,8 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
       'session/modelCatalog': structuredClone(fixture.modelCatalog),
       'agentPresets/list': structuredClone(fixture.agentPresets),
       'commands/list': structuredClone(fixture.commands),
+      'composerCatalog/listDraft': ok(composerCatalog),
+      'composerCatalog/listSession': ok(composerCatalog),
       'settings/canOpenAgentPresetDirectory': ok(true),
       'settings/openSettingsDocument': ok({ opened: true }),
       'settings/openAgentPresetDirectory': ok({ opened: true }),
@@ -306,8 +316,9 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
       summary.running = true
       mock.streams.push('$events', { type: 'emit', event: 'api-session/status', args: [sessionId, true] })
     }
-    const turnEvent = eventOf(sessionRecords.length, 'turn/start', { turn })
-    const userEvent = eventOf(sessionRecords.length + 1, 'user/message', {
+    const nextSeq = (sessionRecords.at(-1)?.event.seq ?? -1) + 1
+    const turnEvent = eventOf(nextSeq, 'turn/start', { turn })
+    const userEvent = eventOf(nextSeq + 1, 'user/message', {
       content,
       source: { kind: 'user', rpcId: requestId },
       role: 'user',

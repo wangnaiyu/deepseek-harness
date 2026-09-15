@@ -79,6 +79,8 @@ export class InputTriggerController {
 
   /** The authoritative hit: single truth for span CAS material (menu snapshot never carries it alone). */
   private hit: TriggerHit | null = null
+  /** Escape remains closed across selection-only editor publications. */
+  private escapedHit: TriggerHit | null = null
   /** Whether the open menu was reached by a drill pick; cleared with the menu. */
   private drilled = false
   private readonly fetches = new Map<string, AbortController>()
@@ -129,12 +131,17 @@ export class InputTriggerController {
     this.clearLauncher()
     const raw = detectTrigger(draft, caret, guard)
     if (raw === null) {
+      this.escapedHit = null
       this.hit = null
       this.stopFetch()
       this.reduce({ type: 'close' })
       return
     }
     const hit: TriggerHit = { ...raw, span: { ...raw.span, draftRev } }
+    const escaped = this.escapedHit
+    if (escaped !== null && !launched && escaped.trigger === hit.trigger && escaped.query === hit.query
+      && escaped.quoted === hit.quoted && escaped.span.start === hit.span.start && escaped.span.end === hit.span.end) return
+    this.escapedHit = null
     const prev = this.menu.getSnapshot()
     const same = !launched && prev.open && prev.hit !== null
       && prev.hit.trigger === hit.trigger && prev.hit.query === hit.query
@@ -304,6 +311,7 @@ export class InputTriggerController {
         return 'consumed'
       }
       case 'escape': {
+        this.escapedHit = this.hit
         this.stopFetch()
         this.reduce({ type: 'close' })
         return 'consumed'

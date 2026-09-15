@@ -956,10 +956,17 @@ describe('arbitrate', () => {
     expect(controller.menu.getSnapshot().open).toBe(false)
   })
 
-  it('escape closes and consumes', async () => {
+  it('escape closes across unchanged editor publications and reopens for a changed query', async () => {
     const { controller } = await menuBench()
+    const hit = controller.menu.getSnapshot().hit!
     expect(controller.arbitrate('escape', false)).toBe('consumed')
     expect(controller.menu.getSnapshot().open).toBe(false)
+    controller.track(`/${hit.query}`, hit.span.end, { tier: 'plain' }, 2)
+    await tick()
+    expect(controller.menu.getSnapshot().open).toBe(false)
+    controller.track('/changed', 8, { tier: 'plain' }, 3)
+    await tick()
+    expect(controller.menu.getSnapshot().open).toBe(true)
   })
 
   it('tab drills into a drillable highlight and picks a plain completion', async () => {

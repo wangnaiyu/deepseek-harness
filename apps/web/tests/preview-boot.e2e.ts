@@ -410,6 +410,9 @@ async function bootPreview(origin: string, browser: Browser): Promise<void> {
     expect(exercised.credentialConfigured).toBe(true)
 
     const sessions = page.getByRole('tree', { name: 'Sessions' })
+    while (await sessions.getByRole('treeitem', { expanded: false }).count() > 0) {
+      await sessions.getByRole('treeitem', { expanded: false }).first().click()
+    }
     const showcase = sessions.getByRole('treeitem').filter({ hasText: SHOWCASE_TITLE })
     await expect.poll(() => showcase.count(), { timeout: 15_000 }).toBe(1)
     await showcase.click()

@@ -22,7 +22,7 @@ import {
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot,
+  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot, writeComposerDraft,
 } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip', import.meta.url))
@@ -84,7 +84,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     await input.waitFor({ timeout: 10_000 })
     // Arm the host-side settled barrier BEFORE the send click.
     const settled = scaffold.whenTurnSettled()
-    await input.fill(PROMPT)
+    await writeComposerDraft(page, input, PROMPT)
     const echoSnapshot = await input.evaluate(async (element, prompt) => {
       element.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'Enter', code: 'Enter', bubbles: true, cancelable: true,

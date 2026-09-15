@@ -28,7 +28,7 @@ kind: "package-reference"
 
 命令定义可以携带不透明 `provider` id。命令 registry 会在无处理器描述符旁保留这个 id 与最终胜出的 `global`／`scoped` layer。本包把可信 provider 声明映射为产品来源：没有显式归属的全局注册项属于 `DSH`，没有显式归属的 scoped 注册项属于 `Agent`，未知的显式 provider 属于 `Plugin`。Skills 先解析项目和用户 source bucket（来源分桶），再依次使用最精确的 provider/source 声明、provider 级声明和安全默认值：custom root 属于 `User`，未映射的 bundled root 属于 `DSH`，其他未映射 provider 属于 `Plugin`。配置中的产品类型使用固定的 `DSH`、`PTO` 与 `User` 标签；只有 plugin 来源接受友好名称，缺失时回退到 `Plugin`。
 
-两个方法都会移除处理器、scope key、provider id、路径、resource base 与 Skill 正文。描述上限为 1,000 个字符。User Skills 排在 PTO、Workspace、DSH 与 plugin Skills 之前，最后一个分桶内再按标签与名称稳定排序。响应 revision 由 SHA-256 派生，只要返回条目或局部错误变化就会变化。Skill registry 会隔离 provider rejection：成功条目继续保留，Skills 区域以 `skill-catalog-incomplete` 标记不完整。
+两个方法都会移除处理器、scope key、provider id、resource base 与 Skill 正文。草稿目录还会省略源文件路径；正式 Session 目录保留可选的 Skill 源文件路径，供引用预览使用。描述上限为 1,000 个字符。User Skills 排在 PTO、Workspace、DSH 与 plugin Skills 之前，最后一个分桶内再按标签与名称稳定排序。响应 revision 由 SHA-256 派生，只要返回条目或局部错误变化就会变化。Skill registry 会隔离 provider rejection：成功条目继续保留，Skills 区域以 `skill-catalog-incomplete` 标记不完整。
 
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过 [`api-remotes`](../../api/remotes/README.zh.md) 消费生成的 `./remote` contribution（贡献）与 `./types` payload vocabulary（载荷词汇），不直接导入 Host 实现。
 

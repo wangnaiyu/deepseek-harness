@@ -6,10 +6,12 @@
       - img
     - button "New session in {{workspace}}":
       - img
-  - treeitem "New Session" [selected]
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - button "Show 1 more sessions"
+  - treeitem "Ungrouped":
+    - img
+    - text: Ungrouped

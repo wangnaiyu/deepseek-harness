@@ -303,6 +303,7 @@ const archive = async (): Promise<Uint8Array> =>
       parent: { tree },
     }
     inventory.apply({
+      get: () => undefined,
       baseUrl,
       loader: tree,
       deepseekLlmApiExtensions: {

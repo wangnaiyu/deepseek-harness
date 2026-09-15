@@ -41,6 +41,8 @@ A contribution is a client-owned command; a host-name collision fails loudly. It
 
 First-party command definitions carry stable `definitionId` values. The client selects their localized titles, descriptions, icons, and input spellings by identity; changing a Host description cannot change that selection. Same-name overrides without the matching identity keep their own copy and receive no first-party aliases. Chinese and English spellings resolve through the same effective Session catalog in every locale, preserving the typed spelling in the draft and submitting the registered Host name. Contributions supply their own `label`, `description`, and `icon`, read on every candidate pass. Empty-query section order follows names, with unlisted rows closing Commands.
 
+The `commandUi.presentDescriptor()` service method exposes the same localized row presentation to draft catalogs without exporting plugin implementation helpers. Unknown definition identities return no built-in presentation.
+
 ### Attachment-carrying submissions
 
 When the composer submits with images or generic files, only a host command declaring `input.attachments` proceeds. Every other command route throws the localized `attachmentsUnsupported` refusal, rendered as a transient toast while the draft and attachment cards stay in place. Handler errors preserve the same draft state for retry.

@@ -104,7 +104,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     )).toBeLessThan(1)
     await writeComposerDraft(page, input, '/comp')
     await expect.poll(() => menu.getByRole('option').allTextContents())
-      .toEqual([expect.stringContaining('compactCompact older conversation history')])
+      .toEqual([expect.stringContaining('CompactCompact older conversation history')])
     const fuzzySnapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(FUZZY_COMMAND_MENU_EXPECTED, fuzzySnapshot, MODE)
     await writeComposerDraft(page, input, '')
@@ -134,11 +134,11 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
   })
 
   it.skipIf(MODE === 'record').each([
-    { locale: 'en-US', token: '/goal', row: 'Goal Set or view the goal for a long-running task', hint: 'describe the objective for a long-running task' },
-    { locale: 'en-US', token: '/plan', row: 'Plan Enter or leave plan mode', hint: 'describe your task to generate plan' },
-    { locale: ZH_BROWSER_LOCALE, token: '/目标', row: '目标 goal 设置或查看长期任务目标', hint: '输入目标，智能体将持续执行' },
-    { locale: ZH_BROWSER_LOCALE, token: '/计划', row: '计划 plan 进入或退出计划模式', hint: '描述你的任务以生成计划' },
-  ])('keeps $token claimed across separator edits and hides hints during IME composition', async ({ locale, token, row, hint }) => {
+    { locale: 'en-US', token: '/goal', row: 'Goal, Set or view the goal for a long-running task, Agent', hint: 'describe the objective for a long-running task' },
+    { locale: 'en-US', token: '/plan', row: 'Plan, Enter or leave plan mode, Agent', hint: 'describe your task to generate plan' },
+    { locale: ZH_BROWSER_LOCALE, token: '/目标', row: '目标, 设置或查看长期任务目标, Agent', hint: '输入目标，智能体将持续执行' },
+    { locale: ZH_BROWSER_LOCALE, token: '/计划', row: '计划, 进入或退出计划模式, Agent', hint: '描述你的任务以生成计划' },
+  ])('keeps $token as a deferred draft command across edits and IME composition', async ({ locale, token, row }) => {
     const inputPage = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale })
     const inputTripwire = watchConsole(inputPage)
     onTestFailed(() => saveFailureShot(inputPage, `web-e2e-command-input-${locale}-${token.slice(1)}`))
@@ -148,38 +148,19 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       const input = inputPage.locator('[data-composer-input]').first()
       await writeComposerDraft(inputPage, input, '/')
       await inputPage.getByRole('listbox').getByRole('option', { name: row, exact: true }).click()
-      await expect.poll(() => input.textContent()).toBe(`${token} `)
-      await input.press('End')
-      await inputPage.keyboard.insertText('这是任务')
-      await expect.poll(() => input.textContent()).toBe(`${token} 这是任务`)
-      for (let i = 0; i < 5; i++) await input.press('Backspace')
-      const tokenText = () => input.locator('[data-lexical-text][style*="warn-label"]').textContent()
-      await expect.poll(() => input.textContent()).toBe(token)
-      await expect.poll(() => input.getAttribute('data-phase')).toBe('claimed')
-      await expect.poll(tokenText).toBe(token)
-      await input.press('Space')
-      await expect.poll(() => input.getAttribute('data-phase')).toBe('claimed')
-      await expect.poll(() => input.textContent()).toBe(`${token} `)
-      await expect.poll(async () => (await tokenText())?.trimEnd()).toBe(token)
-      const shownHint = () => input.locator('p').last().evaluate(element => getComputedStyle(element, '::after').content)
-      await expect.poll(shownHint).toBe(JSON.stringify(hint))
-      const cdp = await inputPage.context().newCDPSession(inputPage)
-      await cdp.send('Input.imeSetComposition', { text: 'z', selectionStart: 1, selectionEnd: 1 })
-      await expect.poll(shownHint).toBe('none')
-      await cdp.send('Input.imeSetComposition', { text: 'zh', selectionStart: 2, selectionEnd: 2 })
-      await expect.poll(shownHint).toBe('none')
-      await cdp.send('Input.insertText', { text: '这' })
-      await expect.poll(() => input.textContent()).toBe(`${token} 这`)
-      await expect.poll(shownHint).toBe('none')
-      await input.press('Backspace')
-      await expect.poll(shownHint).toBe(JSON.stringify(hint))
-      await cdp.send('Input.imeSetComposition', { text: 'z', selectionStart: 1, selectionEnd: 1 })
-      await expect.poll(shownHint).toBe('none')
-      await cdp.send('Input.imeSetComposition', { text: '', selectionStart: 0, selectionEnd: 0 })
-      await expect.poll(shownHint).toBe(JSON.stringify(hint))
-      await input.press('Backspace')
-      await input.press('Backspace')
+      const canonical = token === '/目标' ? '/goal' : token === '/计划' ? '/plan' : token
+      // PTO drafts insert canonical text; command claims are adjudicated only after materialization.
+      await expect.poll(() => input.textContent()).toBe(`${canonical} `)
       await expect.poll(() => input.getAttribute('data-phase')).toBe('plain')
+      await inputPage.keyboard.insertText('这是任务')
+      await expect.poll(() => input.textContent()).toBe(`${canonical} 这是任务`)
+      for (let i = 0; i < 4; i++) await input.press('Backspace')
+      await expect.poll(() => input.textContent()).toBe(`${canonical} `)
+      const cdp = await inputPage.context().newCDPSession(inputPage)
+      await cdp.send('Input.imeSetComposition', { text: 'zh', selectionStart: 2, selectionEnd: 2 })
+      await cdp.send('Input.insertText', { text: '这' })
+      await expect.poll(() => input.textContent()).toBe(`${canonical} 这`)
+      expect(scaffold.ctx.sessions.list()).toEqual([])
       await writeComposerDraft(inputPage, input, '')
       const placeholder = inputPage.locator('[data-composer-placeholder]').first()
       await expect.poll(() => placeholder.isVisible()).toBe(true)
@@ -207,7 +188,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
       await activePage.getByRole('button', { name: 'Commands' }).click()
       const menu = activePage.getByRole('listbox', { name: 'Trigger suggestions' })
       await menu.waitFor({ timeout: 10_000 })
-      const planOption = menu.getByRole('option').filter({ hasText: /^plan/ })
+      const planOption = menu.getByRole('option').filter({ hasText: /^Plan/ })
       await expect.poll(
         () => planOption.count(),
         { timeout: 15_000 },

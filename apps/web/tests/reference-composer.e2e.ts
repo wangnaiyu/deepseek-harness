@@ -155,8 +155,11 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     // Reference catalogs are Session-scoped. Open the seeded target directly
     // so the spec still issues zero model calls under the alpha.3 draft model.
-    await page.getByRole('treeitem', { name: /^Ungrouped/ }).click()
-    await page.getByRole('treeitem', { name: /Reference order target/ }).click()
+    const ungrouped = page.getByRole('treeitem', { name: /^Ungrouped/ })
+    if (await ungrouped.getAttribute('aria-expanded') === 'false') await ungrouped.click()
+    await page.getByRole('button', { name: 'Search sessions' }).click()
+    await page.getByRole('textbox', { name: 'Search sessions...', exact: true }).fill('@Research notes what changed?')
+    await page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem').first().click()
     await page.getByText('Reference order target', { exact: true }).first().waitFor({ timeout: 15_000 })
   }, 120_000)
 

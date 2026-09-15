@@ -28,7 +28,7 @@ describe.skipIf(webSnapshotMode() === 'record')('historical preset restoration t
       const rows: Record<string, unknown>[] = events.map((event, seq) => ({ ...event, seq, time: seq + 2 }))
       const source = Buffer.concat([header, ...rows].map(row => zstdCompressSync(Buffer.from(JSON.stringify(row) + '\n'))))
       const predecessor = generationLogPath(scaffold.persistenceRoot, scaffold.workspaceCwd, id, 2, 'zstd')
-      const successor = join(dirname(predecessor), 'session.v3.jsonl.zstd')
+      const successor = join(dirname(predecessor), 'session.v4.jsonl.zstd')
       await mkdir(dirname(predecessor), { recursive: true })
       await writeFile(predecessor, source)
 
@@ -65,7 +65,7 @@ describe.skipIf(webSnapshotMode() === 'record')('historical preset restoration t
       expect(normalizeSessionSnapshots([published], context)).toEqual(normalizeSessionSnapshots([expected], context))
       expect(await readFile(predecessor)).toEqual(source)
       expect((await readdir(dirname(predecessor))).filter(name => name.endsWith('.jsonl.zstd')).sort())
-        .toEqual(['session.v2.jsonl.zstd', 'session.v3.jsonl.zstd'])
+        .toEqual(['session.v2.jsonl.zstd', 'session.v4.jsonl.zstd'])
     } finally {
       await scaffold.close()
     }

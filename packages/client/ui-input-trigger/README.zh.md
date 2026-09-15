@@ -69,6 +69,8 @@ kind: "package-reference"
 
 -----
 
+Escape 关闭键入触发的菜单后，相同编辑器选区的再次发布不会重开菜单。修改查询或光标位置会恢复发现；显式 launcher 仍可重新打开菜单。
+
 <a id="model-experience"></a>
 ## 模型体验
 

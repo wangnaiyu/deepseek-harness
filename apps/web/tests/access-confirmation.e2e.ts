@@ -143,12 +143,13 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
   }, 60_000)
 
   it('requires acknowledgement before the composer picker can enable Full access', async () => {
+    const sessionsBefore = scaffold.ctx.sessions.list().map(session => session.id)
     onTestFailed(() => saveFailureShot(page, 'web-e2e-full-access-confirmation'))
     const access = page.locator('button[aria-label^="访问模式"]').first()
     await access.waitFor({ timeout: 10_000 })
 
     expect(await access.getAttribute('aria-label')).toBe('访问模式，当前：工作区内修改')
-    expect(scaffold.ctx.sessions.list()).toEqual([])
+    expect(scaffold.ctx.sessions.list().map(session => session.id)).toEqual(sessionsBefore)
 
     await access.click()
     await page.getByRole('menuitem', { name: '完全权限' }).click()
@@ -171,7 +172,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     expect(await dialog.count()).toBe(0)
     // A draft picker selection is browser-local: only the first user prompt
     // materializes a Session and applies the staged preset.
-    expect(scaffold.ctx.sessions.list()).toEqual([])
+    expect(scaffold.ctx.sessions.list().map(session => session.id)).toEqual(sessionsBefore)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
@@ -198,6 +199,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
 
     const input = page.locator('[data-composer-input]').first()
     await writeComposerDraft(page, input, '/permission')
+    await page.getByRole('listbox', { name: '触发候选建议' }).waitFor()
     await input.press('Escape')
     await input.press('Enter')
     const slash = page.locator('[aria-label="/permission 选项"]')
@@ -225,6 +227,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await expect.poll(() => access.getAttribute('aria-label')).toBe('访问模式，当前：Auto review EXP')
     expect(await page.getByRole('dialog').count()).toBe(0)
     await writeComposerDraft(page, input, '/permission')
+    await page.getByRole('listbox', { name: '触发候选建议' }).waitFor()
     await input.press('Escape')
     await input.press('Enter')
     const slash = page.locator('[aria-label="/permission 选项"]')
@@ -256,6 +259,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await captureAutoReviewState(page, 'reinstalled-current-session-picker')
     await page.keyboard.press('Escape')
     await writeComposerDraft(page, input, '/permission')
+    await page.getByRole('listbox', { name: '触发候选建议' }).waitFor()
     await input.press('Escape')
     await input.press('Enter')
     await slash.waitFor()
@@ -300,6 +304,7 @@ describe('web e2e: default permission choices', () => {
     await page.keyboard.press('Escape')
     const input = page.locator('[data-composer-input]').first()
     await writeComposerDraft(page, input, '/permission')
+    await page.getByRole('listbox', { name: '触发候选建议' }).waitFor()
     await input.press('Escape')
     await input.press('Enter')
     const slash = page.locator('[aria-label="/permission 选项"]')

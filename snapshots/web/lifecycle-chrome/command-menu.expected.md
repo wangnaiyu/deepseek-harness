@@ -1,11 +1,7 @@
 - listbox "Trigger suggestions":
-  - text: Add
-  - option "File" [selected]
-  - option "Goal Set or view the goal for a long-running task"
-  - option "Plan Enter or leave plan mode"
-  - option "Feedback Record feedback about this session"
-  - text: Commands
-  - option "Compact Compact older conversation history"
-  - option "Permission Switch the permission preset (sandbox mode + approval policy)"
-  - option "Model Select the model for this conversation"
-  - option "Export Download this Session log as a ZIP archive"
+  - option "Export, Download this Session log as a ZIP archive, DSH" [selected]: Export Download this Session log as a ZIP archive DSH
+  - option "Feedback, Record feedback about this session, DSH": Feedback Record feedback about this session DSH
+  - option "Permission, Switch the permission preset (sandbox mode + approval policy), DSH": Permission Switch the permission preset (sandbox mode + approval policy) DSH
+  - option "Compact, Compact older conversation history, Agent": Compact Compact older conversation history Agent
+  - option "Goal, Set or view the goal for a long-running task, Agent": Goal Set or view the goal for a long-running task Agent
+  - option "Plan, Enter or leave plan mode, Agent": Plan Enter or leave plan mode Agent

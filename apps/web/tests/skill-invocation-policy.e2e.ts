@@ -135,6 +135,12 @@ describe('web e2e: skill invocation policy through the real host', () => {
 
   it('opens skill and file references beside the unchanged draft with matching hover backgrounds', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-reference-preview'))
+    // Reference discovery and model selection consume a formal Session scope.
+    const created = await scaffold.ctx.sessionController.create({ cwd: join(scaffold.workspaceCwd, 'workspace') })
+    const workspace = await scaffold.ctx.workspaceRegistry.resolveByPath(join(scaffold.workspaceCwd, 'workspace'))
+    await workspace!.attachSession(created.sessionId)
+    await page.evaluate((sessionId) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId })) }, created.sessionId)
+    await page.reload({ waitUntil: 'load' })
     const input = page.locator('[data-composer-input]').first()
     await writeComposerDraft(page, input, '/policy-shared hello @meeting-notes')
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
@@ -142,6 +148,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
     await option.click()
     const skill = input.locator('[data-composer-text-ref]').filter({ hasText: '/policy-shared' })
     const file = input.locator('[data-composer-chip]')
+    await skill.waitFor({ timeout: 10_000 })
     const draft = await input.textContent()
     const alignment = await input.evaluate((el) => {
       const skill = el.querySelector<HTMLElement>('[data-composer-text-ref]')!

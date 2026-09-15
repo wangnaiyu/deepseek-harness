@@ -69,6 +69,8 @@ Read these pages when the trigger pipeline is not enough. They move from the pip
 
 -----
 
+Escape keeps a typed trigger menu closed across unchanged editor selection publications. Changing the query or caret re-enables discovery; the explicit launcher can reopen it.
+
 <a id="model-experience"></a>
 ## Model Experience
 

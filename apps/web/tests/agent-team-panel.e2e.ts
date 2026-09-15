@@ -1,3 +1,4 @@
+import { acknowledgeReloadConnectionLoss } from './scaffold.ts'
 // Keyless assembled-browser coverage for the opt-in Agent Teams Web profiles
 // over the real Host Typert Remote flow.
 import { fileURLToPath } from 'node:url'
@@ -55,8 +56,10 @@ describe('web e2e: Agent Teams panel', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    const agent = scaffold.ctx.agents.list()[0]
-    if (agent === undefined) throw new Error('connected Team workspace did not create an Agent')
+    const created = await scaffold.ctx.sessionController.create({ cwd: scaffold.workspaceCwd })
+    const resolved = await scaffold.ctx.sessionController.resolveAgent(created.sessionId)
+    if ('error' in resolved) throw resolved.error
+    const agent = resolved.agent
     agent.session.append('turn/start', { turn: 1 })
     agent.session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'Open the Agent Team controls.' }],
@@ -76,6 +79,10 @@ describe('web e2e: Agent Teams panel', () => {
     agent.session.append('step/end', { turn: 1, step: 1 })
     agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     await scaffold.ctx.sessions.flush(agent.session)
+    await page.evaluate((sessionId) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId })) }, agent.session.id)
+    const warningStart = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    acknowledgeReloadConnectionLoss(tripwire, warningStart)
     await page.getByText('Ready.').waitFor({ timeout: 10_000 })
   }, 120_000)
 

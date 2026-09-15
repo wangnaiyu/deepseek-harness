@@ -190,7 +190,7 @@ describe('ComposerCatalogGateway', () => {
 
   it('projects the formal Session scope and Workspace origin without creating another Session', async () => {
     const list = vi.fn(() => Promise.resolve([
-      candidate('filesystem', 'workspace-final', 'project-dsh'),
+      { ...candidate('filesystem', 'workspace-final', 'project-dsh'), path: '/work/reviewer/.agents/skills/workspace-final/SKILL.md' },
       candidate('filesystem', 'pto-final', 'bundled'),
     ]))
     const { ctx, catalog, standingKey } = await harness({
@@ -208,6 +208,9 @@ describe('ComposerCatalogGateway', () => {
 
     const before = ctx.sessions.list()
     const result = await catalog.listSession({ sessionId: 'session-final' })
+    expect(result.skills.find(skill => skill.name === 'workspace-final')?.path).toBe('/work/reviewer/.agents/skills/workspace-final/SKILL.md')
+    const draft = await catalog.listDraft({ workspaceId: 'workspace-1' })
+    expect(draft.skills.every(skill => skill.path === undefined)).toBe(true)
 
     expect(ctx.sessions.list()).toEqual(before)
     expect(result.commands).toEqual([
