@@ -299,7 +299,7 @@ describe('candidates', () => {
     expect(formalCalls).toEqual([{ sessionId: sid('s1') }])
     expect(listCalls).toEqual([])
     expect(source.showGroupTitle).toBe(false)
-    expect(list).toEqual([{ name: 'analyze', description: 'PTO analysis', origin: 'PTO' }])
+    expect(list).toEqual([{ name: 'analyze', description: 'PTO analysis', origin: 'PTO', section: 'command:section.commands' }])
   })
 
   it('ranks rows through the shared name ranker: prefixes first, then alignment, then source order', async () => {
@@ -428,18 +428,19 @@ describe('candidates', () => {
         icon: IconGoalOutlineRegular,
         hint: '<objective>',
         section: 'command:section.add',
+        origin: 'DSH',
       })
-      expect(rows[0]).toEqual({ name: 'file', label: 'command:label.file', icon: Glyph, section: 'command:section.add' })
+      expect(rows[0]).toEqual({ name: 'file', label: 'command:label.file', icon: Glyph, section: 'command:section.add', origin: 'DSH' })
       expect(rows[6]).toMatchObject({ name: 'model', label: '模型', description: '选择本会话使用的模型', icon: Glyph })
       // A third-party command keeps its catalog text and gets no glyph.
-      expect(rows[8]).toEqual({ name: 'deploy', description: 'third-party command', section: 'command:section.commands' })
+      expect(rows[8]).toEqual({ name: 'deploy', description: 'third-party command', section: 'command:section.commands', origin: 'DSH' })
     })
 
     it('a same-name override keeps its own presentation even when it copies the first-party description', async () => {
       const commands: CommandDescriptor[] = [{ name: 'goal', description: en['description.goal'], input: { hint: 'x' } }]
       const { source } = await bench({ commands: () => Promise.resolve({ commands }) })
       const [row] = await source.candidates(proj('s1'), req(''))
-      expect(row).toEqual({ name: 'goal', description: en['description.goal'], hint: 'x', section: 'command:section.add' })
+      expect(row).toEqual({ name: 'goal', description: en['description.goal'], hint: 'x', section: 'command:section.add', origin: 'DSH' })
       expect(source.matchSpace!(proj('s1'), '/目标')).toBeUndefined()
       expect(await source.matchEnter!(proj('s1'), '/目标 x', new AbortController().signal, { attachments: 0 })).toBeUndefined()
       expect(source.matchSpace!(proj('s1'), '/goal')).toHaveProperty('claim.name', 'goal')

@@ -16,7 +16,7 @@ async function bench(options: { declareConversation?: boolean } = {}) {
   const runtime = await SlotTestRuntime.create()
   const developerTools = createSnapshotStore(true)
   runtime.ctx.provide('uiWorkspace', {
-      ...runtime.workspaces,
+    list: runtime.workspaces.list,
     openWorkspace: vi.fn(async (_workspaceId: unknown, beforeOpen: (id: SessionId) => void) => {
       beforeOpen(SID)
     }),

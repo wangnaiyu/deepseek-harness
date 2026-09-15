@@ -11,7 +11,7 @@ export type {
   NodeReference, RenderEntry,
 } from './contract/groups.ts'
 export { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
-export type { DraftPermissionSource, IConversation } from './service.ts'
+export type { DraftPermissionSelect, DraftPermissionSource, IConversation } from './service.ts'
 export type {
   ConversationContextReader, ConversationLocation,
   ConversationLocationData, ConversationLocationDataScope, ConversationLocationDataSource,

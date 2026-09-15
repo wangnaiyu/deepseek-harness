@@ -69,10 +69,11 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   Object.assign(new TestRemote(runtime.ctx), namespaces)
   for (const [name, value] of Object.entries(namespaces)) runtime.ctx.provide(`remote.${name}` as never, value as never)
   await runtime.root.declare({
-    conversation: { kind: 'single', scope: 'session-maybe' },
+    'main': { kind: 'keyed', scope: 'root' },
     'shell.overlay': { kind: 'list', scope: 'root' },
     'sidebar.workspaces': { kind: 'single', scope: 'root' },
   } as never, (() => null) as never)
+  runtime.ctx.provide('layout', { selectPanel: vi.fn(), beginNavigation: () => new AbortController().signal })
   await runtime.mount({ inject: [...workspaceInject], apply: workspaceApply })
   await runtime.mount({ inject: [...triggerInject], apply: triggerApply })
   await runtime.mount({ inject: [...conversationInject], apply: conversationApply })

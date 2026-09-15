@@ -218,6 +218,11 @@ export async function runSshHelper(transport: HelperTransport): Promise<void> {
         }, signal)
       return Buffer.from(bytes).toString('base64')
     }
+    if (method === 'fs.reserveDirectory') {
+      const input = z.object({ target: targetSchema, policy: policySchema }).strict().parse(raw)
+      const resolved = await policy(input.policy, signal)
+      return ctx.fs.reserveDirectory(asTarget(input.target), signal, resolved)
+    }
     if (method === 'fs.write' || method === 'fs.edit') {
       const input = z.object({
         target: targetSchema, content: z.string().optional(), edit: editSchema.optional(),

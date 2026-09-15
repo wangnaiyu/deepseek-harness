@@ -25,6 +25,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import { FeedbackDialog } from './FeedbackDialog.tsx'
 import { MessageFeedbackActions } from './MessageFeedbackActions.tsx'
 import type { FeedbackDialogInjected, MessageFeedbackInjected } from './slots.ts'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { FeedbackSurface } from './surface.ts'
 import { en, zh } from './locales.ts'
 
@@ -112,12 +113,18 @@ export function apply(ctx: ClientContext): void {
     },
   }, MessageFeedbackActions))
 
+  const absentDialog = createSnapshotStore(undefined)
   ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
     name: 'conversation.input.overlay',
     id: 'feedback-dialog',
     order: 2,
     locale: NS,
     inject: (sessionId): FeedbackDialogInjected => {
+      if (sessionId === undefined) return {
+        hooks: { dialog: absentDialog },
+        edit: () => {}, submit: async () => {}, dismiss: () => {},
+        dismissFailure: () => {}, dismissToast: () => {},
+      }
       const { dialog } = surfaceFor(sessionId)
       return {
         hooks: { dialog: dialog.state },

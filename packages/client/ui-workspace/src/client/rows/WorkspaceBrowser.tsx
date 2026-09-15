@@ -1493,7 +1493,7 @@ export function WorkspaceBrowser({
               <FlatList
                 usePanelInfo={usePanelInfo}
                 list={list}
-                sessionIds={orderedFlatSessionIds}
+                sessionIds={orderedFlatSessionIds.filter(id => !list.byId[id]?.blank)}
                 rowState={rowState}
                 workspaceReady={workspaceReady}
                 animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}

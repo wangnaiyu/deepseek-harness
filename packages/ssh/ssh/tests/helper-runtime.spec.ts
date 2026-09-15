@@ -43,6 +43,24 @@ describe.skipIf(process.platform === 'win32')('SSH helper runtime', () => {
     } finally { await test.close() }
   })
 
+  it('reserves directories atomically and enforces the remote write policy', async () => {
+    const test = await helper()
+    try {
+      const target = await test.client.request('fs.resolve', { path: 'reserved' }, targetSchema)
+      const result = z.object({ version: z.string() }).strict()
+      const reservation = await test.client.request('fs.reserveDirectory', { target, policy: policy(test.root) }, result)
+      expect(reservation.version).not.toBe('')
+      expect(await test.client.request('fs.stat', { target }, infoSchema)).toMatchObject({ type: 'directory' })
+      await expect(test.client.request('fs.reserveDirectory', { target, policy: policy(test.root) }, result))
+        .rejects.toMatchObject({ code: 'FS_ALREADY_EXISTS' })
+      const denied = await test.client.request('fs.resolve', { path: 'denied' }, targetSchema)
+      await expect(test.client.request('fs.reserveDirectory', {
+        target: denied, policy: { mode: 'read-only', workspaceRoot: test.root },
+      }, result)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+      expect(await test.client.request('fs.stat', { target: denied }, z.null())).toBeNull()
+    } finally { await test.close() }
+  })
+
   it('returns metadata, byte ranges and canonical symlink observations', async () => {
     const test = await helper()
     try {

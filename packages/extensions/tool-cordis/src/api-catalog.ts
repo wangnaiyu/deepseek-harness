@@ -1786,6 +1786,105 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'ptoArtifactInspection',
+    summary: 'User-gesture registration, profile refresh, and exact viewer route owner.',
+    description: 'User-gesture registration, profile refresh, and exact viewer route owner.',
+    methods: [
+      {
+        signature: '@Remote(\'inspect\') async inspect(request: PtoArtifactInspectRequest): Promise<PtoArtifactRecordView>',
+        description: 'Register one explicit directory and return a fresh fact-only profile.',
+        parameters: [{ name: 'request', description: 'user-selected Host path.' }],
+        returns: 'registered record and current action readiness.',
+      },
+      {
+        signature: '@Remote(\'refresh\') async refresh(recordId: string): Promise<PtoArtifactRecordView>',
+        description: 'Refresh a previously registered record without accepting a new path.',
+        parameters: [{ name: 'recordId', description: 'Host-issued record identity.' }],
+        returns: 'refreshed profile and action readiness.',
+      },
+      {
+        signature: '@Remote(\'open\') async open(request: PtoArtifactOpenRequest): Promise<PtoArtifactViewerHandle>',
+        description: 'Open one currently available self-contained HTML action.',
+        parameters: [{ name: 'request', description: 'fixed record revision and viewer action.' }],
+        returns: 'revocable exact-route viewer handle.',
+      },
+      {
+        signature: '@Remote(\'close\') close(request: PtoArtifactCloseRequest): PtoArtifactCloseResult',
+        description: 'Revoke one viewer URL; closing never changes the original artifact.',
+        parameters: [{ name: 'request', description: 'Host-issued viewer handle identity.' }],
+        returns: 'whether a live route was closed.',
+      },
+      {
+        signature: '@Remote(\'admitAnalysis\') async admitAnalysis(request: PtoArtifactAnalysisAdmitRequest): Promise<PtoArtifactAnalysisReceipt>',
+        description: 'Fail-closed first-send admission for one structured dependency analysis draft.',
+        parameters: [{ name: 'request', description: 'idempotent Session/record/action/Skill tuple.' }],
+        returns: 'immutable invocation receipt used by the first model step.',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperimentDashboard',
+    summary: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    description: 'Session-authorized Remote edge over the durable PTO experiment registry.',
+    methods: [
+      {
+        signature: '@Remote(\'listSession\') async listSession(request: PtoExperimentDashboardRequest): Promise<PtoExperimentDashboardSnapshot>',
+        description: 'List one existing Session\'s newest durable experiments. The caller supplies no path: Host-owned Session metadata selects the Workspace, and the read never creates or resumes an Agent, Session, or turn.',
+        parameters: [{ name: 'request', description: 'existing Session identity and optional bounded limit.' }],
+        returns: 'minimal dashboard projection without storage identity keys.',
+      },
+      {
+        signature: '@Remote(\'executeSession\') async executeSession(request: PtoExperimentDashboardExecuteRequest): Promise<PtoExperimentDashboardEntry>',
+        description: 'Execute one planned experiment through the trusted registry admission loop. The long Remote survives view unmount. A private plugin follow-up opens a normal Agent turn; this gateway consumes it at pre-step, so the existing approval surface can append its audit pair inside a durable turn without sending any synthetic prompt to the model. Optimistic revision is preserved exactly.',
+        parameters: [{ name: 'request', description: 'initiating Session and planned experiment identity.' }],
+        returns: 'terminal dashboard projection after approval and execution settle.',
+      },
+      {
+        signature: '@Remote(\'cancelSession\') async cancelSession(request: PtoExperimentDashboardCancelRequest): Promise<PtoExperimentDashboardCancelResult>',
+        description: 'Cancel an active execution owned by the same initiating Session. The call returns only after the long execution Remote has settled its Host state.',
+        parameters: [{ name: 'request', description: 'initiating Session and active experiment identity.' }],
+        returns: 'cancellation confirmation after executor settlement.',
+      },
+    ],
+  },
+  {
+    key: 'ptoExperiments',
+    summary: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    description: 'Durable owner of PTO experiment lifecycle, metric observations, and comparison views.',
+    methods: [
+      {
+        signature: 'plan(scope: PtoExperimentScope, input: PtoExperimentPlanInput): Promise<PtoExperimentView>',
+        description: 'Persist one proposal after resolving all paths through the active filesystem. The operation serializes candidate ownership checks with the durable put. It records only an absence observation; no output directory is created or reserved.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'Proposed experiment identities, change, and controls.' }],
+        returns: 'a detached public view of the durable planned record.',
+      },
+      {
+        signature: 'async get(scope: PtoExperimentScope, id: string): Promise<PtoExperimentView>',
+        description: 'Read one record only when it belongs to the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'id', description: 'Host-generated experiment id.' }],
+        returns: 'a detached public record view.',
+      },
+      {
+        signature: 'async list(scope: PtoExperimentScope, limit: number = 20): Promise<PtoExperimentList>',
+        description: 'List the newest bounded records owned by the supplied Workspace.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'limit', description: 'Inclusive result cap from 1 to 100.' }],
+        returns: 'detached records plus total and truncation facts.',
+      },
+      {
+        signature: 'async compare( scope: PtoExperimentScope, input: PtoExperimentCompareInput, ): Promise<PtoExperimentComparison>',
+        description: 'Compare one completed candidate only with an app-owned registered baseline. Every admitted identity comes from stored adapter output or a fixed Git probe. Any missing or unequal dimension returns `incomparable` without a combined delta; an admitted delta remains `inconclusive` without a user-owned threshold and repetition rule.',
+        parameters: [{ name: 'scope', description: 'Session Workspace and cancellation context.' }, { name: 'input', description: 'completed experiment id and optimistic record revision.' }],
+        returns: 'identity checks, side-by-side metrics, and an optional derived delta.',
+      },
+      {
+        signature: 'async execute( scope: PtoExperimentExecutionScope, input: PtoExperimentExecuteInput, ): Promise<PtoExperimentView>',
+        description: 'Execute one planned proposal through the complete trusted admission loop. This Host API is intentionally not registered as a model-facing tool.',
+        parameters: [{ name: 'scope', description: 'live Agent, Workspace, call identity, and cancellation.' }, { name: 'input', description: 'experiment id and optimistic planned revision.' }],
+        returns: 'the terminal durable record view, or throws before workload start.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -4573,10 +4672,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CommandDefinitionId = Branded<\'CommandDefinitionId\'>;',
   },
   {
-    name: 'CommandDescriptor',
-    declaration: 'export interface CommandDescriptor {\n    readonly definitionId?: CommandDefinitionId;\n    readonly name: string;\n    readonly description: string;\n    readonly input?: CommandInputDescriptor;\n}',
-  },
-  {
     name: 'CommandDiscoveryEntry',
     declaration: 'export interface CommandDiscoveryEntry {\n    readonly descriptor: CommandDescriptor;\n    readonly layer: \'global\' | \'scoped\';\n    readonly provider?: string;\n}',
   },
@@ -5899,6 +5994,130 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PtcRunSpec',
     declaration: 'export interface PtcRunSpec extends PtcRunRequest {\n    cwd: string;\n    timeoutMs: number | null;\n}',
+  },
+  {
+    name: 'PtoActionReadinessView',
+    declaration: 'export interface PtoActionReadinessView {\n    readonly actionId: string;\n    readonly kind: \'viewer\' | \'analysis\';\n    readonly status: \'available\' | \'needs-preparation\' | \'unavailable\' | \'unknown\';\n    readonly artifactRefs: readonly string[];\n    readonly adapter?: {\n        readonly id: string;\n        readonly version: string;\n    };\n    readonly skill?: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n    readonly reasons: readonly PtoEvidenceIssueView[];\n}',
+  },
+  {
+    name: 'PtoArtifactAnalysisAdmitRequest',
+    declaration: 'export interface PtoArtifactAnalysisAdmitRequest {\n    readonly requestId: string;\n    readonly sessionId: string;\n    readonly recordId: string;\n    readonly revision: string;\n    readonly actionId: string;\n    readonly requestedSkill: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n}',
+  },
+  {
+    name: 'PtoArtifactAnalysisReceipt',
+    declaration: 'export interface PtoArtifactAnalysisReceipt {\n    readonly requestId: string;\n    readonly sessionId: string;\n    readonly recordId: string;\n    readonly recordRevision: string;\n    readonly actionId: string;\n    readonly artifactRefs: readonly string[];\n    readonly skill: {\n        readonly name: string;\n        readonly provider: string;\n        readonly revision: string;\n    };\n    readonly tool: {\n        readonly name: string;\n        readonly revision: string;\n    };\n}',
+  },
+  {
+    name: 'PtoArtifactCloseRequest',
+    declaration: 'export interface PtoArtifactCloseRequest {\n    readonly handleId: string;\n}',
+  },
+  {
+    name: 'PtoArtifactCloseResult',
+    declaration: 'export interface PtoArtifactCloseResult {\n    readonly closed: boolean;\n}',
+  },
+  {
+    name: 'PtoArtifactInspectRequest',
+    declaration: 'export interface PtoArtifactInspectRequest {\n    readonly path: string;\n}',
+  },
+  {
+    name: 'PtoArtifactOpenRequest',
+    declaration: 'export interface PtoArtifactOpenRequest {\n    readonly recordId: string;\n    readonly revision: string;\n    readonly actionId: string;\n}',
+  },
+  {
+    name: 'PtoArtifactRecordView',
+    declaration: 'export interface PtoArtifactRecordView {\n    readonly recordId: string;\n    readonly profile: PtoRecordProfileView;\n    readonly actions: readonly PtoActionReadinessView[];\n}',
+  },
+  {
+    name: 'PtoArtifactView',
+    declaration: 'export interface PtoArtifactView {\n    readonly relativePath: string;\n    readonly type: string;\n    readonly version?: string;\n    readonly size?: number;\n}',
+  },
+  {
+    name: 'PtoArtifactViewerHandle',
+    declaration: 'export interface PtoArtifactViewerHandle {\n    readonly handleId: string;\n    readonly actionId: string;\n    readonly title: string;\n    readonly artifactRef: string;\n    readonly kind: \'static-html\';\n    readonly urlPath: string;\n    readonly features: {\n        readonly selection: false;\n        readonly deeplink: false;\n    };\n}',
+  },
+  {
+    name: 'PtoEvidenceIssueView',
+    declaration: 'export interface PtoEvidenceIssueView {\n    readonly code: string;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'PtoEvidenceView',
+    declaration: 'export interface PtoEvidenceView {\n    readonly type: string;\n    readonly status: \'observed\' | \'unchecked\' | \'available\' | \'missing\' | \'invalid\' | \'unreadable\' | \'incompatible\';\n    readonly artifactRefs: readonly string[];\n    readonly issues: readonly PtoEvidenceIssueView[];\n}',
+  },
+  {
+    name: 'PtoExperimentCompareInput',
+    declaration: 'export interface PtoExperimentCompareInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentComparison',
+    declaration: 'export interface PtoExperimentComparison {\n    experimentId: string;\n    baselineExperimentId: string | null;\n    result: \'incomparable\' | \'inconclusive\';\n    reasons: string[];\n    identity: {\n        metric: PtoExperimentComparisonDimension;\n        task: PtoExperimentComparisonDimension;\n        hardware: PtoExperimentComparisonDimension;\n        environment: PtoExperimentComparisonDimension;\n        executionCommand: PtoExperimentComparisonDimension;\n        sourceLineage: PtoExperimentComparisonDimension;\n        changeSet: PtoExperimentComparisonDimension;\n    };\n    baseline: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    candidate: {\n        runPath: string;\n        metric: PtoExperimentMetric | null;\n    };\n    delta: {\n        absolute: number;\n        relativePct: number | null;\n        direction: \'improved\' | \'regressed\' | \'unchanged\';\n        significance: \'needs-user-confirmation\';\n    } | null;\n}',
+  },
+  {
+    name: 'PtoExperimentComparisonDimension',
+    declaration: 'export interface PtoExperimentComparisonDimension {\n    status: \'matched\' | \'unmatched\' | \'unavailable\';\n    baseline: string | null;\n    candidate: string | null;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelRequest',
+    declaration: 'export interface PtoExperimentDashboardCancelRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardCancelResult',
+    declaration: 'export interface PtoExperimentDashboardCancelResult {\n    readonly cancelled: true;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardEntry',
+    declaration: 'export interface PtoExperimentDashboardEntry {\n    readonly id: string;\n    readonly status: \'planned\' | \'authorized\' | \'running\' | \'completed\' | \'failed\' | \'cancelled\';\n    readonly revision: number;\n    readonly declaredChange: string;\n    readonly baselinePath: string;\n    readonly candidateOutputPath: string;\n    readonly actualRunPath: string | null;\n    readonly metric: PtoExperimentDashboardMetric | null;\n    readonly failureReason: string | null;\n    readonly executionActivity: PtoExperimentDashboardExecutionActivity;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecuteRequest',
+    declaration: 'export interface PtoExperimentDashboardExecuteRequest {\n    readonly sessionId: string;\n    readonly experimentId: string;\n    readonly expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardExecutionActivity',
+    declaration: 'export interface PtoExperimentDashboardExecutionActivity {\n    readonly active: boolean;\n    readonly cancellable: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardMetric',
+    declaration: 'export type PtoExperimentDashboardMetric = {\n    readonly status: \'collected\';\n    readonly value: number;\n    readonly unit: \'us\';\n    readonly definition: \'device-dispatch-makespan\';\n} | {\n    readonly status: \'not-observed\' | \'invalid\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'PtoExperimentDashboardRequest',
+    declaration: 'export interface PtoExperimentDashboardRequest {\n    readonly sessionId: string;\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentDashboardSnapshot',
+    declaration: 'export interface PtoExperimentDashboardSnapshot {\n    readonly experiments: readonly PtoExperimentDashboardEntry[];\n    readonly total: number;\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentExecuteInput',
+    declaration: 'export interface PtoExperimentExecuteInput {\n    experimentId: string;\n    expectedRevision: number;\n}',
+  },
+  {
+    name: 'PtoExperimentExecutionScope',
+    declaration: 'export interface PtoExperimentExecutionScope extends PtoExperimentScope {\n    agent: Agent;\n    callId?: ToolCallId;\n}',
+  },
+  {
+    name: 'PtoExperimentList',
+    declaration: 'export interface PtoExperimentList {\n    experiments: PtoExperimentView[];\n    total: number;\n    truncated: boolean;\n}',
+  },
+  {
+    name: 'PtoExperimentMetric',
+    declaration: 'export type PtoExperimentMetric = z.infer<typeof ptoExperimentMetricSchema>;',
+  },
+  {
+    name: 'PtoExperimentPlanInput',
+    declaration: 'export interface PtoExperimentPlanInput {\n    sourceWorkspacePath: string;\n    baselineRunPath: string;\n    candidateOutputPath: string;\n    declaredChange: string;\n    evidenceRefs: readonly string[];\n    stopConditions: string;\n    rollbackPlan: string;\n    executionCommand: string;\n    executionTimeoutMs?: number;\n}',
+  },
+  {
+    name: 'PtoExperimentRecord',
+    declaration: 'export type PtoExperimentRecord = z.infer<typeof ptoExperimentRecordSchema>;',
+  },
+  {
+    name: 'PtoExperimentScope',
+    declaration: 'export interface PtoExperimentScope {\n    cwd: string;\n    signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'PtoExperimentView',
+    declaration: 'export type PtoExperimentView = Omit<PtoExperimentRecord, \'workspaceKey\' | \'baseline\' | \'source\' | \'candidateOutput\' | \'actualRun\'> & {\n    baseline: Omit<PtoExperimentRecord[\'baseline\'], \'targetKey\'>;\n    source: Omit<PtoExperimentRecord[\'source\'], \'targetKey\'>;\n    candidateOutput: Omit<PtoExperimentRecord[\'candidateOutput\'], \'targetKey\'>;\n    actualRun: null | Omit<NonNullable<PtoExperimentRecord[\'actualRun\']>, \'targetKey\'>;\n};',
   },
   {
     name: 'PtoRecordProfileView',

@@ -30,6 +30,7 @@ async function bench() {
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('layout', { selectPanel: vi.fn() })
   runtime.releaseWorkspaceSource()
+  runtime.ctx.provide('remote.ptoArtifactInspection', {} as never)
   const directoryPicker = {}
   const { remote } = runtime
   remote.provideNamespaces({ directoryPicker })

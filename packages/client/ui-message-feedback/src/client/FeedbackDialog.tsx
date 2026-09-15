@@ -12,6 +12,7 @@ import {
   Button, IconWarningOutlineRegular, Modal, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FeedbackCategory } from '@deepseek-ai/dsh-command-feedback/types'
+import type { FeedbackDialogState } from './dialog.ts'
 import type { FeedbackDialogProps } from './slots.ts'
 import css from './FeedbackDialog.module.css'
 
@@ -42,10 +43,14 @@ const FAILURE_COPY: Partial<Record<string, 'error.conflict' | 'error.noteTooLarg
  * @param props - the dialog hook, the draft verbs, and the locale seat.
  * @returns the modal while a target is open and either toast while it is showing.
  */
-export function FeedbackDialog({
-  useDialog, edit, submit, dismiss, dismissFailure, dismissToast, t,
-}: FeedbackDialogProps) {
-  const state = useDialog(s => s)
+export function FeedbackDialog(props: FeedbackDialogProps) {
+  const state = props.useDialog(s => s)
+  return state === undefined ? null : <ActiveFeedbackDialog {...props} state={state} />
+}
+
+function ActiveFeedbackDialog({
+  state, edit, submit, dismiss, dismissFailure, dismissToast, t,
+}: FeedbackDialogProps & { state: FeedbackDialogState }) {
   // The toast centers over the composer card this entry renders inside of.
   const probeRef = useRef<HTMLSpanElement>(null)
   const [card, setCard] = useState<HTMLElement | null>(null)

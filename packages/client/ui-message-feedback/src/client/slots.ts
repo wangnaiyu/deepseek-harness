@@ -58,7 +58,7 @@ export type MessageFeedbackActionProps =
 export interface FeedbackDialogInjected {
   hooks: {
     /** The Session's dialog and toast state. */
-    dialog: HostObservable<FeedbackDialogState>
+    dialog: HostObservable<FeedbackDialogState | undefined>
   }
   /**
    * Replace part of the draft: the category (null clears it) or the text.

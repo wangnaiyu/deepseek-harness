@@ -57,7 +57,7 @@ describe('CI workflow', () => {
     const coverage = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'windows-coverage')
     const wine = workflowJob(loadWorkflow('.github/workflows/ci-master.yml'), 'windows')
     expect(coverage.steps).toContainEqual(expect.objectContaining({
-      name: 'Save coverage duration history', if: '${{ !cancelled() }}',
+      name: 'Save coverage duration history', if: "github.repository == 'deepseek-ai/deepseek-harness' && (!cancelled())",
     }))
     expect(wine.steps).toContainEqual(expect.objectContaining({ name: 'Shut down wineserver', if: 'always()' }))
   })
@@ -396,7 +396,7 @@ describe('CI workflow', () => {
       return evaluateRunsOn(expression, {
         vars,
         fromJSON: JSON.parse,
-        github: { event: { pull_request: { user: { login } } } },
+        github: { repository: 'deepseek-ai/deepseek-harness', event: { pull_request: { user: { login } } } },
       })
     }
     for (const [name, selector, variable, pool, hosted] of [
@@ -1085,8 +1085,6 @@ describe('Issue lifecycle workflow', () => {
     const canonical = "${{ github.repository == 'deepseek-harness/deepseek-harness' }}"
     const fork = "${{ github.repository != 'deepseek-harness/deepseek-harness' }}"
     const lifecycleGate = "${{ github.repository == 'deepseek-harness/deepseek-harness' && (github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested') }}"
-    const canonicalHumanPullRequest =
-      "${{ github.repository == 'deepseek-harness/deepseek-harness' && github.event.pull_request.user.type != 'Bot' && github.event.pull_request.user.type != 'App' }}"
     const steps = lifecycleJob.steps.filter(isRecord)
     const skipLifecycleStep = steps.find(s => s.name === 'Skip canonical Issue lifecycle in forks')
     const lifecycleCheckoutStep = steps.find(s => s.name === 'Check out trusted policy')
@@ -1107,7 +1105,7 @@ describe('Issue lifecycle workflow', () => {
     expect(policySteps.find(s => s.name === 'Skip canonical Issue policy in forks')).toMatchObject({ if: fork })
     expect(policySteps.find(s => s.name === 'Check out trusted policy')).toMatchObject({ if: canonical })
     expect(policySteps.find(s => s.name === 'Create Project read token')).toMatchObject({ if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.needs-project == 'true' }}" })
-    expect(policySteps.find(s => s.name === 'Validate pull request')).toMatchObject({ if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.needs-project == 'true' }}" })
+    expect(policySteps.find(s => s.name === 'Validate pull request')).toMatchObject({ if: "${{ github.repository == 'deepseek-harness/deepseek-harness' && steps.preflight.outputs.legacy-automated != 'true' }}" })
   })
 
   it('mints Project credentials only after preflight and always revalidates current metadata', () => {

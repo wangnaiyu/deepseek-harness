@@ -153,13 +153,13 @@ describe('ui-message-feedback browser plugin', () => {
     const message = b.entry()!.inject!(sid('s1'))
     const dialog = b.dialogEntry()!.inject!(sid('s1'))
     message.openDialog(MSG, 'positive')
-    expect(dialog.hooks.dialog.getSnapshot().target).toEqual({ kind: 'message', messageId: MSG, rating: 'positive' })
+    expect(dialog.hooks.dialog.getSnapshot()?.target).toEqual({ kind: 'message', messageId: MSG, rating: 'positive' })
 
     const decoration = b.decorations.get('feedback')
     expect(decoration?.available({ sessionId: sid('s1') })).toBe(true)
     if (decoration?.ui.kind !== 'action') throw new Error('the /feedback decoration is not an action')
     decoration.ui.run({ sessionId: sid('s1') })
-    expect(dialog.hooks.dialog.getSnapshot().target).toEqual({ kind: 'session' })
+    expect(dialog.hooks.dialog.getSnapshot()?.target).toEqual({ kind: 'session' })
 
     expect(b.dialogEntry()!.inject!(sid('s2')).hooks.dialog.getSnapshot()).toMatchObject({ target: null, toast: 0 })
   })
@@ -199,9 +199,9 @@ describe('ui-message-feedback browser plugin', () => {
     expect(b.calls.filter(call => call.method === 'put')[0]?.request).toMatchObject({
       sessionId: 's1', messageId: MSG, rating: 'positive', category: 'task-result', ifVersion: 'v1',
     })
-    expect(dialog.hooks.dialog.getSnapshot().toast).toBe(2)
+    expect(dialog.hooks.dialog.getSnapshot()?.toast).toBe(2)
     dialog.dismissToast(2)
-    expect(dialog.hooks.dialog.getSnapshot().toast).toBe(0)
+    expect(dialog.hooks.dialog.getSnapshot()?.toast).toBe(0)
   })
 
   it('keeps the dialog open with the carrier code when the record call itself fails', async () => {
@@ -233,7 +233,7 @@ describe('ui-message-feedback browser plugin', () => {
 
     expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: { kind: 'session' }, failure: 'session-not-found' })
     dialog.dismiss()
-    expect(dialog.hooks.dialog.getSnapshot().target).toBeNull()
+    expect(dialog.hooks.dialog.getSnapshot()?.target).toBeNull()
   })
 
   it('shares one controller across every message in the same Session', async () => {
@@ -311,7 +311,7 @@ describe('ui-message-feedback browser plugin', () => {
     expect(b.ctx.slots.entries('conversation.chat.assistant-actions')).toHaveLength(0)
     expect(b.ctx.slots.entries('conversation.input.overlay')).toHaveLength(0)
     expect(b.decorations.size).toBe(0)
-    expect(dialog.hooks.dialog.getSnapshot().target).toBeNull()
+    expect(dialog.hooks.dialog.getSnapshot()?.target).toBeNull()
     // A disposed controller refuses further mutations, so no request outlives the fiber.
     const before = b.calls.length
     expect(await face.retract(MSG, 'negative')).toMatchObject({ ok: false, error: { code: 'disposed' } })

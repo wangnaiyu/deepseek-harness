@@ -363,15 +363,14 @@ function groupByWorkspace(
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
       s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter))
-  if (stray.length > 0) {
-    groups.push(buildGroup(
-      UNGROUPED_KEY,
-      undefined,
-      undefined,
-      undefined,
-      '',
-      orderedUngrouped(stray, ungroupedOrder, list.byId),
-    ))
+  groups.push(buildGroup(
+    UNGROUPED_KEY,
+    undefined,
+    undefined,
+    undefined,
+    '',
+    orderedUngrouped(stray, ungroupedOrder, list.byId),
+  ))
   return groups
 }
 

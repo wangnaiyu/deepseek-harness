@@ -2758,7 +2758,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/skill/src/index.ts:278`](../packages/skill/skill/src/index.ts)
+Source: [`packages/skill/skill/src/index.ts:317`](../packages/skill/skill/src/index.ts)
 
 <a id="deepseek-aidsh-skill-filesystem"></a>
 
@@ -3532,6 +3532,30 @@ export interface Config {
 ```
 
 Source: [`packages/deliverables/tool-present/src/index.ts:15`](../packages/deliverables/tool-present/src/index.ts)
+
+<a id="deepseek-aidsh-tool-pto-run"></a>
+
+## `@deepseek-ai/dsh-tool-pto-run`
+
+Requires: `tools` · `fs` · `systemPrompt`
+
+```ts config-catalog
+/** Deployment-owned discovery and inspection bounds. */
+export interface Config {
+  /** Maximum directory depth below the Session workspace root. Defaults to 8. */
+  maxDepth?: number
+  /** Maximum directories visited by one discovery call. Defaults to 5000. */
+  maxDirectories?: number
+  /** Maximum recognized runs returned by one discovery call. Defaults to 200. */
+  maxRuns?: number
+  /** Maximum file entries inventoried by one inspection call. Defaults to 2000. */
+  maxArtifactEntries?: number
+  /** Maximum bytes read while validating one small structured artifact. Defaults to 8 MiB. */
+  maxProbeBytes?: number
+}
+```
+
+Source: [`packages/pto/tool-pto-run/src/index.ts:34`](../packages/pto/tool-pto-run/src/index.ts)
 
 <a id="deepseek-aidsh-tool-pwsh"></a>
 

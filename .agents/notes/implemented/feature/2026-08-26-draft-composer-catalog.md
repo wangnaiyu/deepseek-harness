@@ -16,7 +16,7 @@ The projection must also distinguish ungrouped drafts from Workspace drafts. An 
 
 The gateway returns separate `commands` and `skills` arrays, a deterministic content revision, and contained area errors. Wire entries contain only callable name, bounded description, command input metadata or Skill model-invocation policy, optional controlled `iconId`, and product origin. They omit handlers, scope keys, provider ids, absolute paths, resource bases, Skill locators, frontmatter, and bodies.
 
-### Command provenance
+### Command origin
 
 `CommandDefinition.provider` is an optional opaque technical identity. `CommandRuntime.listDiscoveryForScope()` merges registrations while retaining the winning `global` or `scoped` layer and the winner's provider identity. The ordinary `CommandDescriptor` remains unchanged. This makes identical global and scoped descriptors distinguishable without descriptor comparison and does not affect dispatch, precedence, or model input.
 
@@ -36,14 +36,14 @@ Skill provider rejection remains contained by `SkillRegistry`: successful winner
 
 - **Create a temporary Session and use session-scoped Remotes** — rejected because discovery is read-only and must not allocate, resume, persist, or publish a session.
 - **Merge command and Skill catalogs in the browser** — rejected because the browser lacks trusted Workspace paths, preset standing scopes, provider ownership, and final winner facts.
-- **Infer command override provenance from descriptor differences** — rejected because a scoped command may intentionally publish the same name, description, and input metadata as its global fallback.
+- **Infer command override origin from descriptor differences** — rejected because a scoped command may intentionally publish the same name, description, and input metadata as its global fallback.
 - **Treat every bundled Skill as PTO** — rejected because bundled is a technical source shared by DSH, PTO, and third-party distributions.
 - **Put product origin kinds in the command registry** — rejected because the general registry owns technical registration facts; deployment-specific product labels belong in the Host projection.
 
 ## Consequences
 
 - New-session catalog reads preserve the first-send persistence boundary and can address preset composition without an Agent.
-- Command provenance gains one optional registration field and one read projection; existing descriptors and execution remain stable.
+- Command origin gains one optional registration field and one read projection; existing descriptors and execution remain stable.
 - Product labels stay trusted Host configuration and never depend on names, paths, or client hardcoding.
 - The Skill registry currently exposes incomplete state but not per-provider failure identity, so partial Skill errors are area-level until that registry has a consumer-backed diagnostic need.
 - The response revision supports pull-based freshness; a merged push invalidation event and trusted icon registry remain separate client-phase work.
