@@ -277,14 +277,14 @@ function groupByWorkspace(
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
       s !== undefined && !accounted.has(s.id) && sessionVisible(s, archived))
-    groups.push(buildGroup(
-      UNGROUPED_KEY,
-      undefined,
-      undefined,
-      undefined,
-      '',
-      orderedUngrouped(stray, ungroupedOrder, list.byId),
-    ))
+  groups.push(buildGroup(
+    UNGROUPED_KEY,
+    undefined,
+    undefined,
+    undefined,
+    '',
+    orderedUngrouped(stray, ungroupedOrder, list.byId),
+  ))
   return groups
 }
 
@@ -380,7 +380,7 @@ export function visibleSessionIds(
   const archived = new Set(archivedSessionIds)
   return list.ids.filter((id) => {
     const s = list.byId[id]
-    return s !== undefined && sessionVisible(s, list.current, archived)
+    return s !== undefined && sessionVisible(s, archived)
   })
 }
 

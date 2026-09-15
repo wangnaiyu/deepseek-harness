@@ -245,21 +245,17 @@ describe('UiWorkspaceService', () => {
     expect(b.selectPanel).not.toHaveBeenCalled()
   })
 
-  it('leaves a later panel selection in place when New Session finishes', async () => {
+  it('starts a local draft without allocating a Session before a later panel selection', () => {
     const b = bench({
       sessions: sessionState([summary('current')], sid('current')),
       workspaces: workspaceState([workspace('alpha')]),
     })
-    const created = Promise.withResolvers<SessionId>()
-    b.sessions.create.mockReturnValue(created.promise)
-    const opening = vi.spyOn(b.uiWorkspace, 'openWorkspace')
     b.uiWorkspace.startSession(wid('alpha'))
     b.layout.selectPanel('panel-a' as MainPanelId)
-    created.resolve(sid('late'))
-    await opening.mock.results[0]!.value
+    expect(b.sessions.create).not.toHaveBeenCalled()
     expect(b.sessions.open).not.toHaveBeenCalled()
-    expect(b.selectPanel).toHaveBeenCalledExactlyOnceWith('panel-a')
-    expect(b.sessions.list.getSnapshot().current).toBe(sid('current'))
+    expect(b.selectPanel).toHaveBeenLastCalledWith('panel-a')
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft?.workspaceId).toBe(wid('alpha'))
   })
 
   it('opens only the latest Workspace request when creation completes out of order', async () => {

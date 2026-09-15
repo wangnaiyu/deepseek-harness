@@ -1609,7 +1609,7 @@ describe('command launcher chrome and control seats', () => {
     const toggleCommandMenu = vi.fn(() => 3)
     const { view, shell } = bench({ draft: 'draft', toggleCommandMenu })
     act(() => { shell.editor.update(() => { $selectDetectSpan({ start: 2, end: 2 }) }, { discrete: true }) })
-    fireEvent.click(view.getByLabelText('指令'))
+    fireEvent.click(view.getByLabelText(zh['input.commands']))
     await new Promise(resolve => requestAnimationFrame(resolve))
     expect(shell.caretSpan()).toEqual({ start: 3, end: 3 })
   })

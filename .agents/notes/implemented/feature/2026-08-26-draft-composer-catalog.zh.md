@@ -16,7 +16,7 @@ Web 新会话草稿没有 Session 或 Agent，但 composer 必须发现最终会
 
 gateway 分别返回 `commands` 与 `skills` 数组、确定性的内容 revision，以及已隔离的区域错误。wire entry（协议条目）只包含可调用名称、有界描述、命令输入元数据或 Skill 模型调用策略、可选受控 `iconId` 与产品来源。它会移除处理器、scope key、provider id、绝对路径、resource base、Skill locator、frontmatter 与正文。
 
-### 命令 provenance
+### 命令 来源
 
 `CommandDefinition.provider` 是可选的不透明技术身份。`CommandRuntime.listDiscoveryForScope()` 在合并注册项时保留最终胜出的 `global` 或 `scoped` layer，以及 winner 的 provider identity。普通 `CommandDescriptor` 保持不变。由此可以在不比较描述符的情况下区分完全相同的全局与 scoped 描述符，同时不影响分发、优先级或模型输入。
 
@@ -36,14 +36,14 @@ Skill provider rejection 仍由 `SkillRegistry` 隔离：成功 winner 会连同
 
 - **创建临时 Session 并使用会话作用域 Remote** —— 未采用，因为发现操作只读，不能分配、恢复、持久化或发布 Session。
 - **在浏览器合并命令与 Skill 目录** —— 未采用，因为浏览器没有可信 Workspace 路径、preset standing scope、provider 归属与最终 winner 事实。
-- **根据描述符差异推断命令覆盖 provenance** —— 未采用，因为 scoped command 可以有意发布与全局 fallback 完全相同的名称、描述和输入元数据。
+- **根据描述符差异推断命令覆盖 来源** —— 未采用，因为 scoped command 可以有意发布与全局 fallback 完全相同的名称、描述和输入元数据。
 - **把所有 bundled Skill 都视为 PTO** —— 未采用，因为 bundled 是 DSH、PTO 与第三方发行共同使用的技术来源。
 - **把产品 origin kind 放进命令 registry** —— 未采用，因为通用 registry 负责技术注册事实；部署相关产品标签属于 Host 投影。
 
 ## 后果
 
 - 新会话目录读取会保持首次发送的持久化边界，并可在没有 Agent 的前提下寻址 preset composition。
-- 命令 provenance 增加一个可选注册字段与一个读取投影；现有描述符与执行保持稳定。
+- 命令 来源 增加一个可选注册字段与一个读取投影；现有描述符与执行保持稳定。
 - 产品标签保留在可信 Host 配置中，绝不依赖名称、路径或客户端硬编码。
 - Skill registry 当前暴露不完整状态，但不暴露逐 provider 失败 identity；在出现有消费方依据的 registry 诊断需求前，Skill 局部错误只到区域级。
 - 响应 revision 支持拉取式 freshness（新鲜度）；合并后的推送失效事件与可信图标 registry 留给独立的客户端阶段工作。

@@ -85,7 +85,7 @@ async function bench(nodes: ToolResultNode[]) {
       runtime.sessions.open(SID)
     }),
     openSession: (id: SessionId) => { runtime.sessions.open(id) },
-    ...runtime.workspaces,
+    list: runtime.workspaces.list,
     connectWorkspace: vi.fn(async () => SID),
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)

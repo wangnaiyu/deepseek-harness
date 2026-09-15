@@ -125,7 +125,7 @@ describe('MenuView', () => {
     expect(options.map(o => o.textContent)).toEqual(['计划plan进入或退出计划模式', 'File'])
     expect(options[0]?.querySelector('[data-glyph="plan"]')?.getAttribute('width')).toBe('16')
     // A label that is the name in another letter case renders no alias.
-    expect(options[1]?.querySelectorAll('span')).toHaveLength(1)
+    expect(options[1]?.textContent).toBe('File')
     expect(screen.getAllByText('添加')).toHaveLength(1)
   })
 

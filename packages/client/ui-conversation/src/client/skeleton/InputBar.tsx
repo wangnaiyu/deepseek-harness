@@ -32,10 +32,9 @@ import type { ComposerBarProps } from '../contract/slots.ts'
 import { DraftEditor } from '../input/editor/DraftEditor.tsx'
 import {
   focusDraftEditor, installDraftFilePicker, installDraftKeymap, installDraftWheel,
-  keepDraftFocus, revealDraftSelection,
+  keepDraftFocus, revealDraftSelection, restoreDraftCaret,
 } from '../input/editor/view-binding.ts'
 import { resolveSubmitMode } from '../input/submission-policy.ts'
-import { $selectDetectSpan } from '../input/editor/span-map.ts'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
 import { ContextMeter } from './ContextMeter.tsx'
 import css from './InputBar.module.css'
@@ -262,9 +261,7 @@ export const InputBar = memo(function InputBar({
     if (keyboard === undefined) return
     const caret = toggleCommandMenu?.(keyboard.caretSpan())
     if (caret === undefined) return
-    keyboard.editor.update(() => {
-      $selectDetectSpan({ start: caret, end: caret })
-    }, { discrete: true })
+    restoreDraftCaret(keyboard.editor, caret)
   }
 
   // The no-session Workspace trigger: the resident editable div acts as the

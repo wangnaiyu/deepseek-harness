@@ -11,7 +11,7 @@ import type {
 import type { PresetOption } from '@deepseek-ai/dsh-permission-presets/client'
 // Type-only: pulls the conversation-owned permission slot declaration and
 // the standard session projection hook into this package's Client face.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { DraftPermissionSelect } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PermissionCatalogState } from './catalog.ts'
 import { PERMISSION_ACCESS_NS } from './locales.ts'
 import {
@@ -82,6 +82,8 @@ export interface PermissionSelectInjected {
   hooks: {
     /** One process catalog shared with the slash popup. */
     permissionCatalog: HostObservable<PermissionCatalogState>
+    /** Browser-only selection before first-send materialization. */
+    draftPermission: HostObservable<DraftPermissionSelect | undefined>
   }
   /** Submit one current-session preset through the existing command writer. */
   select: (preset: string) => Promise<boolean>
@@ -94,9 +96,11 @@ export type PermissionSelectProps =
   & PropsLocale<typeof PERMISSION_ACCESS_NS>
 
 export function PermissionSelect({
-  locked, select, usePermissionCatalog, useProjection, t,
+  locked, select, usePermissionCatalog, useDraftPermission, useProjection, sessionId, t,
 }: PermissionSelectProps) {
-  const selection = useProjection('permissions')
+  const sessionSelection = useProjection('permissions')
+  const draftSelection = useDraftPermission(value => value)
+  const selection = sessionId === undefined ? draftSelection : sessionSelection
   const catalog = usePermissionCatalog(state => state.value)
   const [pick, setPick] = useState<string | null>(null)
   const [open, setOpen] = useState(false)

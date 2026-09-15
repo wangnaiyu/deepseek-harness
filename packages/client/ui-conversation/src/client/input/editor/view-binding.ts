@@ -5,6 +5,7 @@ import type { ComposerKeyboard } from '../../contract/draft-editor.ts'
 import type { ComposerBarProps } from '../../contract/slots.ts'
 import type { BusyEnterBehavior } from '../../contract/composer-submission.ts'
 import { resolveSubmitMode } from '../submission-policy.ts'
+import { $selectDetectSpan } from './span-map.ts'
 import { registerComposerKeymap } from './keymap.ts'
 
 interface DraftViewGate {
@@ -152,4 +153,13 @@ export function installDraftKeymap(
 export function keepDraftFocus(event: MouseEvent<HTMLButtonElement>, editor: LexicalEditor | null): void {
   event.preventDefault()
   editor?.getRootElement()?.focus({ preventScroll: true })
+}
+
+/**
+ * Restore the caret returned by a draft command launcher.
+ * @param editor - composer-owned Lexical editor.
+ * @param caret - collapsed detect-coordinate offset after inserting the trigger.
+ */
+export function restoreDraftCaret(editor: LexicalEditor, caret: number): void {
+  editor.update(() => { $selectDetectSpan({ start: caret, end: caret }) }, { discrete: true })
 }

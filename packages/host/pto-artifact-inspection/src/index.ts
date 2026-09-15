@@ -451,6 +451,7 @@ export class PtoArtifactInspectionGateway extends TypertRemoteService {
       return candidate.kind === 'pto-artifact-analysis' && candidate.receipt?.requestId === requestId
     }
     return proposed.some(message => matches(message.source))
+      // oxlint-disable-next-line typescript/no-deprecated -- Pre-existing PTO receipt history read; projection migration deferred.
       || agent.session.snapshotEvents().some(event => event.type === 'user/message' && matches(event.data.source))
   }
 

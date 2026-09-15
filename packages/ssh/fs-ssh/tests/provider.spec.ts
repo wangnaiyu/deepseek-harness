@@ -110,6 +110,20 @@ describe('SSH filesystem provider', () => {
     expect(dispatch).toHaveBeenLastCalledWith('fs.edit', { target, edit, expected: { version: 'v2' }, policy }, signal)
   })
 
+  it('reserves an absent directory with the caller policy and preserves collisions', async () => {
+    const { fs, dispatch } = await setup()
+    const signal = new AbortController().signal
+    const policy: SandboxExecutionPolicy = { mode: 'workspace-write', workspaceRoot: '/remote/work' }
+    dispatch.mockResolvedValueOnce({ version: 'directory-v1' })
+    expect(await fs.reserveDirectory(target, signal, policy)).toEqual({ version: 'directory-v1' })
+    expect(dispatch).toHaveBeenLastCalledWith('fs.reserveDirectory', { target, policy }, signal)
+    dispatch.mockRejectedValueOnce(new RemoteOperationError('already exists', 'FS_ALREADY_EXISTS'))
+    await expect(fs.reserveDirectory(target)).rejects.toMatchObject({ code: 'FS_ALREADY_EXISTS' })
+    expect(dispatch).toHaveBeenLastCalledWith('fs.reserveDirectory', {
+      target, policy: { mode: 'read-only', workspaceRoot: '/remote/work' },
+    }, undefined)
+  })
+
   it('resolves deployment policy for mutations without an explicit policy', async () => {
     const { fs, dispatch } = await setup()
     dispatch.mockResolvedValueOnce({ operation: 'create', version: 'v1', before: null, after: 'new' })

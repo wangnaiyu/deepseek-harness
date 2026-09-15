@@ -23,6 +23,7 @@ describe('dsh-tool-pto-run real-load-path guard', () => {
     expect(ctx.tools.schemas().map(schema => schema.name)).toEqual([
       'pto_run_discover',
       'pto_run_inspect',
+      'pto_record_inspect',
     ])
     await fiber.dispose()
     await ctx.fiber.dispose()

@@ -32,6 +32,10 @@ class ProbeSubprocess extends SubprocessRuntime {
   metricValue = 100
   taskSignature = 'd'.repeat(64)
 
+  override terminalEnvironment(): Promise<{ platform: 'posix' }> {
+    return Promise.resolve({ platform: 'posix' })
+  }
+
   override resolveExecutable(command: string): Promise<string> {
     return Promise.resolve(command)
   }
@@ -75,6 +79,7 @@ class ProbeSubprocess extends SubprocessRuntime {
       readFrom: (_offset: number) => ({ text, nextOffset: Buffer.byteLength(text), lossy: false }),
     })
     return {
+      control: undefined,
       stdin: undefined,
       stdout: undefined,
       stderr: undefined,
@@ -147,7 +152,7 @@ class ExperimentShell extends ShellExecutor {
     }
   }
 
-  override start(_spec: ShellExecSpec): ShellProcess {
+  override async start(_spec: ShellExecSpec): Promise<ShellProcess> {
     throw new Error('background execution is not used')
   }
 }
@@ -285,7 +290,7 @@ describe('trusted PTO experiment executor', () => {
     })
     expect(value.shell.lastSpec?.sandboxPolicy).toEqual({
       mode: 'danger-full-access',
-      workspaceRoot: (await value.ctx.fs.resolve(value.workspace)).targetKey,
+      workspaceRoot: value.workspace,
       sessionId: 'pto-executor-session',
     })
     expect(result.events.map(event => event.type)).toEqual([

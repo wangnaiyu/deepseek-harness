@@ -25,7 +25,7 @@ import type { ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ComposerAttachment, ComposerFileAttachment, ComposerImageAttachment, DraftFileUpload,
+  ComposerAttachment, ComposerFileAttachment, ComposerImageAttachment, DraftFileUpload, DraftPermissionSelect,
 } from './contract/slots.ts'
 import type { QueueAction, QueueItemId } from './contract/queue.ts'
 import type { ComposerBlocks } from './contract/composer-blocks.ts'
@@ -34,23 +34,7 @@ import type {
 } from './contract/input.ts'
 import type { InputSubmitMode } from './contract/composer-submission.ts'
 
-/** Structurally projected permission option for the optional draft plugin. */
-export interface DraftPermissionOption {
-  /** Stable preset value. */
-  value: string
-  /** User-facing preset name. */
-  name: string
-  /** Optional user-facing explanation. */
-  description?: string
-}
-
-/** Structurally projected permission selector for the optional draft plugin. */
-export interface DraftPermissionSelect {
-  /** Switchable presets in display order. */
-  options: DraftPermissionOption[]
-  /** Currently staged preset value. */
-  currentValue: string
-}
+export type { DraftPermissionOption, DraftPermissionSelect } from './contract/slots.ts'
 
 /** Permission plugin source staged for a Session-id-free browser draft. */
 export interface DraftPermissionSource {

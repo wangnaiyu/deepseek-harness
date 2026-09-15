@@ -80,7 +80,21 @@ async function bench() {
       return Promise.resolve({ ok: true as const, value: catalog })
     },
   }
-  const remote = new TestRemote(ctx, { settings: mock.remote.settings, permissionPresets })
+  const remote = new TestRemote(ctx, {
+    settings: {
+      mutate: async () => ({ ok: true as const, value: {
+        ns: 'permission', schema: SETTINGS_SCHEMA, value: { defaultPreset: 'read-only' },
+        base: { defaultPreset: 'workspace-write' }, applies: 'live' as const, secrets: [], revision: 1,
+      } }),
+      describe: async () => ({ ok: true as const, value: {
+        writable: true, hasDocument: false, namespaces: [{
+          ns: 'permission', schema: SETTINGS_SCHEMA, value: { defaultPreset: 'workspace-write' },
+          base: { defaultPreset: 'workspace-write' }, applies: 'live' as const, secrets: [], revision: 0,
+        }],
+      } }),
+    },
+    permissionPresets,
+  })
   ctx.provide('connection', {
     generation: {
       getSnapshot: () => ({ id: 1, host: { home: '/host', isLoopback: true } }),
@@ -91,7 +105,7 @@ async function bench() {
     name: 'root',
     children: {
       'settings.general.item': { kind: 'list', scope: 'root' },
-      'conversation.input.permission': { kind: 'single', scope: 'session' },
+      'conversation.input.permission': { kind: 'single', scope: 'session-maybe' },
     },
   } as never, () => null)
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
@@ -236,7 +250,7 @@ describe('ui-permission browser plugin', () => {
     expect(face.store.getSnapshot()?.currentValue).toBe('read-only')
     expect(b.commands).toEqual([])
 
-    b.values.set(sid('materialized'), SELECT)
+    b.values.set(sid('materialized'), { currentValue: 'workspace-write' })
     await b.prepareDraft(sid('materialized'))
     expect(b.commands).toEqual(['/permission read-only'])
   })

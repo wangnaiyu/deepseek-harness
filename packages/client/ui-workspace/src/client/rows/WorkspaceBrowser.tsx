@@ -833,8 +833,14 @@ export function WorkspaceBrowser({
     return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
   }, [list, workspaces])
   const flatMemberIds = useMemo(
-    () => visibleSessionIds(list, archivedSessionIds),
-    [archivedSessionIds, list],
+    () => {
+      const visible = visibleSessionIds(list, archivedSessionIds)
+      // Keep the provisional identity in the order account until its first
+      // prompt; rendering still excludes it below.
+      return currentBlank === undefined || archivedSessionIds.includes(currentBlank)
+        ? visible : [currentBlank, ...visible]
+    },
+    [archivedSessionIds, currentBlank, list],
   )
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
     const memberIds = workspace.sessionIds
@@ -1389,7 +1395,7 @@ export function WorkspaceBrowser({
               <FlatList
                 usePanelInfo={usePanelInfo}
                 list={list}
-                sessionIds={orderedFlatSessionIds}
+                sessionIds={orderedFlatSessionIds.filter(id => !list.byId[id]?.blank)}
                 useSessionPendingInteraction={useSessionPendingInteraction}
                 open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}

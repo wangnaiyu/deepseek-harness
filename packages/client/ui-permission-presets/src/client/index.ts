@@ -201,10 +201,13 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('conversation.input.permission', () => ctx.slots.register({
     name: 'conversation.input.permission',
     locale: PERMISSION_ACCESS_NS,
-    inject: (sessionId: SessionId): PermissionSelectInjected => ({
-      hooks: { permissionCatalog: catalog.store },
-      select: preset => submit(sessionId, preset),
-    }),
+    inject: (sessionId: SessionId | undefined): PermissionSelectInjected => {
+      if (sessionId === undefined) draftController.load()
+      return {
+        hooks: { permissionCatalog: catalog.store, draftPermission: draftController.store },
+        select: preset => sessionId === undefined ? draftController.select(preset) : submit(sessionId, preset),
+      }
+    },
   }, PermissionSelect))
 
   ctx.effect(() => command.decorate({

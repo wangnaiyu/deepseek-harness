@@ -21,9 +21,8 @@ import type { ConversationSnapshot } from '../src/client/contract/snapshot.ts'
 import { createConversationStore } from '../src/client/stores.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { en, zh } from '../src/client/locales.ts'
-import {
-  ConversationRoot, draftLocationLabel, sessionLocationLabel,
-} from '../src/client/skeleton/ConversationRoot.tsx'
+import { ConversationRoot } from '../src/client/skeleton/ConversationRoot.tsx'
+import { draftLocationLabel, sessionLocationLabel } from '../src/client/skeleton/ConversationContent.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
 import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'

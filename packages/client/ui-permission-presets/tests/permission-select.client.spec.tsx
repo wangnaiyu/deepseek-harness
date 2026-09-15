@@ -48,6 +48,8 @@ function setup(options: {
     locked: options.locked ?? false,
     useProjection,
     usePermissionCatalog: bindSnapshotSelector(catalog),
+    useDraftPermission: () => undefined,
+    sessionId: 'session',
     select,
     t,
   } as unknown as PermissionSelectProps

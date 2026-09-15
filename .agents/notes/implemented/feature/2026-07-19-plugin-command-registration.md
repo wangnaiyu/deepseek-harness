@@ -18,7 +18,7 @@ A shared mechanism must remain a UI concern rather than a model tool or agent-lo
 
 A `CommandDefinition` contains a lowercase name without `/`, a non-empty description, an optional unstructured-input hint, an optional opaque provider identity for trusted Host ownership projection, and an abortable handler. Provider identity does not affect precedence or execution and never enters the ordinary UI descriptor. Registration validates and detaches the metadata, freezes the effective definition, and returns the exact Cordis effect disposer. Duplicate names fail within one layer. Every consumer sees every effective definition; a command plugin that cannot operate in a deployment omits its registration there instead of encoding consumer identities in the shared domain.
 
-`list(agent)` returns immutable name-sorted descriptors after scoped shadowing. Host discovery consumers that have no Agent use `listGlobalDescriptors()` for the global layer, `listForScope(scope)` for an effective standing-scope view, or `listDiscoveryForScope(scope)` when the effective winner's registration layer and provider identity are required. The discovery projection records provenance during merging instead of comparing public descriptors, because a scoped override and global fallback may be identical. Every read is read-only and requires no Session. `find(agent, name)` resolves the effective definition. `execute(agent, line, signal)` parses and runs a known definition, returning a detached `success` or `error` result; invalid syntax and unknown names return `undefined` so the adapter owns its direct error text.
+`list(agent)` returns immutable name-sorted descriptors after scoped shadowing. Host discovery consumers that have no Agent use `listGlobalDescriptors()` for the global layer, `listForScope(scope)` for an effective standing-scope view, or `listDiscoveryForScope(scope)` when the effective winner's registration layer and provider identity are required. The discovery projection records origin during merging instead of comparing public descriptors, because a scoped override and global fallback may be identical. Every read is read-only and requires no Session. `find(agent, name)` resolves the effective definition. `execute(agent, line, signal)` parses and runs a known definition, returning a detached `success` or `error` result; invalid syntax and unknown names return `undefined` so the adapter owns its direct error text.
 
 `parseCommand(line)` requires `/` at byte zero, a lowercase ASCII name containing letters, digits, `_`, or `-`, then whitespace or end-of-input. It preserves the complete adapter-delivered suffix as `rawInput`, including separator whitespace. Command-specific plugins own every further grammar decision.
 
@@ -61,7 +61,7 @@ TUI tests exercise all migrated built-ins, live plugin discovery, help/autocompl
 
 - Command producers are ordinary removable plugins, and TUI consumes their validated catalog and dispatch contract.
 - Agent-specific definitions retain existing flat scope and shadow semantics without a core-to-UI dependency.
-- Host discovery can resolve global and standing-scope command winners and their registration provenance without activating an Agent or Session.
+- Host discovery can resolve global and standing-scope command winners and their registration origin without activating an Agent or Session.
 - Unknown slash input and command output are deterministic UI behavior with zero direct model tokens.
 - Direct command cancellation is isolated from model-turn cancellation.
 

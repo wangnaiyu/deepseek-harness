@@ -43,6 +43,7 @@
 .capability {
   border: 1px solid var(--ds-color-border-subtle, #ddd);
   border-radius: 999px;
+  corner-shape: round;
   padding: 3px 7px;
   color: var(--ds-color-text-secondary, #666);
   font-size: 11px;
