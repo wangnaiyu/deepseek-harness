@@ -25,6 +25,8 @@ Migration 实际有状态，但 API 把它们表现为一次性函数。v0-to-v1
 
 ## 决策
 
+基于上游 0.1.6 的 PTO fork 写入 V4，因为分析来源字段扩展改变了持久化用户消息、收件箱和标题请求的联合类型。V3→V4 边保留事件正文、序号引用、紧凑事件和继承边界，复用冻结的 V3 编解码器并校验 V4 头部。写入仅发布最终后继代并保留历史字节。此 fork 版本分配不是上游发布：未来整合上游 V4 前必须明确审查格式身份。
+
 Session format 包采用有状态同步 Stage API。静态 migration declaration 描述一条相邻版本边，并为每次 artifact restore 创建新的 stage。Stage 拥有该 artifact 的可变状态；不同 Session 之间绝不共享 stage instance。
 
 ### Stage 与 Context 协议

@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy":
-    - button "/skill user-invoke-demo @\"meeting notes.md\" an" [disabled]
+    - button "/skill user-invoke-demo @\"meeting notes." [disabled]
   - img
   - text: Standard mode
   - button "More actions":
@@ -14,7 +14,8 @@
   - img
   - img
   - text: System prompt
-- button "/skill user-invoke-demo"
+- button "/skill"
+- text: user-invoke-demo
 - button "meeting notes.md":
   - img
   - text: meeting notes.md

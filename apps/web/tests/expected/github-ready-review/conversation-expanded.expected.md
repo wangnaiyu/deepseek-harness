@@ -6,6 +6,9 @@
     - text: Review deepseek-ai/deepseek-harness#314
     - button "Session actions for Review deepseek-ai/deepseek-harness#314":
       - img
+  - treeitem "Ungrouped":
+    - img
+    - text: Ungrouped
 
 ---
 

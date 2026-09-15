@@ -154,7 +154,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
     }
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
-    if (!official) await selectModel('Feedback mock')
+    if (!official) await scaffold.ctx.agentDefaultModel.saveSelection({ provider: 'feedback-mock', model: 'feedback-mock' })
     const settled = scaffold.whenTurnSettled()
     await input.fill(PROMPT)
     await input.press('Enter')

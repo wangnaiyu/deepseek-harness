@@ -1,3 +1,4 @@
+import { acknowledgeReloadConnectionLoss } from './scaffold.ts'
 // Keyless assembled-browser coverage for the shipped right Sidebar: the official
 // roster row, the real plugin graph, and one Chromium. No overlay is applied —
 // this scenario proves the surface is in the product's own composition.
@@ -263,8 +264,11 @@ describe('web e2e: shipped right Sidebar', () => {
       await connectFreshWorkspace(page, scaffold.workspaceCwd)
       // A settled session is what keys the surface; seed one turn through the
       // real append path so the Chat surface is live before the Sidebar is driven.
-      const agent = scaffold.ctx.agents.list()[0]
-      if (agent === undefined) throw new Error('connected workspace did not create an Agent')
+      // PTO workspace selection stages a draft; explicitly create this fixture's Session.
+      const created = await scaffold.ctx.sessionController.create({ cwd: join(scaffold.workspaceCwd, 'workspace') })
+      const resolved = await scaffold.ctx.sessionController.resolveAgent(created.sessionId)
+      if ('error' in resolved) throw resolved.error
+      const agent = resolved.agent
       // The wire parameter is `agentId`; the client passes a session id. If the
       // scaffold's Agent and Session carry different ids, that mismatch is the
       // silent lookup failure.
@@ -315,6 +319,16 @@ describe('web e2e: shipped right Sidebar', () => {
       agent.session.append('step/end', { turn: 1, step: 1 })
       agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
       await scaffold.ctx.sessions.flush(agent.session)
+      agent.session.append('session/title', { title: 'Show the right sidebar.', messageSeqs: [], source: { kind: 'fallback' } })
+      await scaffold.ctx.sessions.flush(agent.session)
+      const workspace = await scaffold.ctx.workspaceRegistry.resolveByPath(join(scaffold.workspaceCwd, 'workspace'))
+      await workspace!.attachSession(agent.session.id)
+      const group = page.getByRole('treeitem', { name: /^workspace/ }).first()
+      if (await group.getAttribute('aria-expanded') === 'false') await group.click()
+      await page.evaluate((sessionId) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId })) }, agent.session.id)
+      const beforeReload = tripwire.warnings.length
+      await page.reload({ waitUntil: 'load' })
+      acknowledgeReloadConnectionLoss(tripwire, beforeReload)
       await page.getByText('Ready.').waitFor({ timeout: 10_000 })
     }, 120_000)
 
@@ -821,6 +835,13 @@ describe('web e2e: shipped right Sidebar', () => {
       const fxTripwire = watchConsole(fx)
       onTestFailed(() => saveFailureShot(fx, 'web-e2e-sidebar-right-sessions'))
       try {
+        await fx.addInitScript((values) => {
+          for (const [key, value] of Object.entries(values)) {
+            if (value !== null) localStorage.setItem(key, value)
+          }
+        }, await page.evaluate(() => Object.fromEntries(
+          ['dsh.sessions.current', 'dsh.workspace.view.v6'].map(key => [key, localStorage.getItem(key)]),
+        )))
         await fx.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
         const settled = fx.getByRole('treeitem', { name: /Show the right sidebar\./u }).first()
         await settled.click()
@@ -1084,6 +1105,13 @@ describe('web e2e: shipped right Sidebar', () => {
       const zhTripwire = watchConsole(zhPage)
       onTestFailed(() => saveFailureShot(zhPage, 'web-e2e-sidebar-right-zh'))
       try {
+        await zhPage.addInitScript((values) => {
+          for (const [key, value] of Object.entries(values)) {
+            if (value !== null) localStorage.setItem(key, value)
+          }
+        }, await page.evaluate(() => Object.fromEntries(
+          ['dsh.sessions.current', 'dsh.workspace.view.v6'].map(key => [key, localStorage.getItem(key)]),
+        )))
         await zhPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
         await zhPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
         // A fresh page opens the workspace on a blank session's hero, which has

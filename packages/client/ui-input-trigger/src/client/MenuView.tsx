@@ -177,7 +177,7 @@ export function MenuView({
                           type="button"
                           role="option"
                           aria-selected={active}
-                          aria-label={[item.name, item.description, item.origin].filter(Boolean).join(', ')}
+                          aria-label={[item.label ?? item.name, item.description, item.origin].filter(Boolean).join(', ')}
                           className={clsx(css.item, active && css.active)}
                           // mousedown, not click: the textarea keeps focus (combobox
                           // pattern) — preventing default stops the focus steal, and the

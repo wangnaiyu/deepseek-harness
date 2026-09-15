@@ -167,7 +167,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
       ? this.skillRegistry(target)
       : this.ctx.agentPresets.serviceFor(live, 'skills') ?? this.ctx.skills
     const commands = this.commands(scope)
-    const skills = await this.skills(target, errors, registry, scope)
+    const skills = await this.skills(target, errors, registry, scope, true)
     return catalogResult(commands, skills, errors)
   }
 
@@ -216,6 +216,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
     errors: DraftCatalogError[],
     registry = this.skillRegistry(target),
     scope: ScopeKey | undefined = target.standingKey,
+    includeSourcePath = false,
   ): Promise<DraftSkillDescriptor[]> {
     let snapshot
     try {
@@ -238,6 +239,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
         name: skill.name,
         description: boundedDescription(skill.description),
         modelInvocable: skill.invocation.modelInvocable,
+        ...!includeSourcePath || skill.path === undefined ? {} : { path: skill.path },
         origin: this.skillOrigin(skill, target.workspaceOrigin),
       }))
       .sort(compareSkills)

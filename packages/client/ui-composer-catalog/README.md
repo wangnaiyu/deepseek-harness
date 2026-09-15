@@ -23,7 +23,9 @@ Unified capability source for the browser-only New Session composer. It calls th
 <a id="package-behavior"></a>
 ## Package behavior
 
-The leading `+` launcher and typed `/` both use the same draft controller and source. Commands occupy the first untitled section; Skills follow under a `Skills` heading. Each row reserves a leading icon position and shows name, a bounded single-line description, and the trusted product origin at the trailing edge. Search matches name, description, and origin. Full descriptions and origins remain available through title and accessible-label text.
+The leading `+` launcher and typed `/` both use the same draft controller and source. Commands occupy the first untitled section; Skills follow under a `Skills` heading. Each row reserves a leading icon position and shows name, a bounded single-line description, and the trusted product origin at the trailing edge. Search accepts ordered-subsequence name matches and substring matches in descriptions and origins. Full descriptions and origins remain available through title and accessible-label text.
+
+Command rows use `commandUi.presentDescriptor()` to resolve stable definition identities into localized labels, descriptions, and icons. Selection still inserts the canonical command name.
 
 One Host request is single-flighted per draft target revision. Workspace and staged Agent-preset changes both update that target without clearing the editor; the conversation wiring dismisses the old menu, so its aborted request cannot publish into the new target. Transport failure leaves a retryable source row, while Host-contained area errors render beside successful rows and can invalidate only this source before retry without hiding successful sibling sources. Picks only splice text into the draft: `/<command> ` for Commands and canonical `/skill <name> ` for Skills. The settled catalog publishes both canonical and legacy-compatible lexemes for derived input decoration. Host parsing and deterministic Skill injection remain owned by `dsh-tool-skill` at `agent/pre-step`.
 

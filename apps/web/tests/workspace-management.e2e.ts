@@ -80,11 +80,10 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
       () => scaffold.ctx.workspaceRegistry.resolveByPath(join(parent, name)),
       { timeout: 10_000 },
     ).not.toBeUndefined()
-    // Adoption also opens a blank Session. Its selected row must reach the
-    // browser before a later workspace action can depend on the row positions.
-    const row = page.getByRole('treeitem').filter({ hasText: name }).first()
-    const section = row.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
-    await section.locator('[role="treeitem"][aria-selected="true"]').waitFor({ timeout: 10_000 })
+    // PTO adoption stages a draft without materializing a Session.
+    await page.getByRole('treeitem').filter({ hasText: name }).first().waitFor()
+    await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
+    expect(await page.locator('[role="treeitem"][aria-selected="true"]').count()).toBe(0)
   }
 
   /**
@@ -252,7 +251,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     const groupSection = groupRow.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
     if (await groupRow.getAttribute('aria-expanded') !== 'true') await groupRow.click()
     const blankRow = groupSection.getByRole('treeitem', { name: 'New Session', exact: true })
-    await expect.poll(() => blankRow.getAttribute('aria-selected'), { timeout: 10_000 }).toBe('true')
+    expect(await blankRow.count()).toBe(0)
     // The seed is this account's only non-blank Session; its title changes on resume.
     const seededRow = groupSection.locator('[role="treeitem"][aria-selected]')
       .filter({ hasNot: page.getByText('New Session', { exact: true }) })
@@ -612,7 +611,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
     // Initial Workspace reconnection can focus the composer after the tree renders.
     // Finish that navigation before the next test opens a path editor.
-    await page.locator('[role="treeitem"][aria-selected="true"]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-composer-input][contenteditable="true"]').waitFor({ timeout: 15_000 })
     await expect.poll(
       () => page.locator('[data-composer-input][contenteditable="true"]')
         .evaluate(element => element === document.activeElement),

@@ -16,7 +16,7 @@ import {
   compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/steering', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.v3.jsonl')
@@ -103,8 +103,9 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     await input.waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled(MODE === 'record' ? 180_000 : 30_000)
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(PROMPT)
+    await writeComposerDraft(page, input, PROMPT)
     await input.press('Enter')
+    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 10_000 })
     await expect.poll(
       () => sessionEvents.some(event => event.type === 'request/context'),
       { timeout: 10_000 },
@@ -221,8 +222,9 @@ describe('web e2e: composer shortcut steers directly', () => {
     await input.waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled(30_000)
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(PROMPT)
+    await writeComposerDraft(page, input, PROMPT)
     await input.press('Enter')
+    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
 
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
@@ -285,8 +287,9 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
     const input = page.locator('[data-composer-input]').first()
     const settled = scaffold.whenTurnSettled(30_000)
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(PROMPT)
+    await writeComposerDraft(page, input, PROMPT)
     await input.press('Enter')
+    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
 
     const queuedText = 'Queued by the complementary Cmd+Enter shortcut.'
@@ -359,13 +362,14 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     // Hold the question-tool stream until both rows have been steered, so
     // question-composer takeover cannot race queue publication or the shortcut.
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(PROMPT)
+    await writeComposerDraft(page, input, PROMPT)
+    await input.press('Enter')
+    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 10_000 })
+    await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
+    await writeComposerDraft(page, input, STEER_ONE)
     await input.press('Enter')
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(STEER_ONE)
-    await input.press('Enter')
-    await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
-    await input.fill(STEER_TWO)
+    await writeComposerDraft(page, input, STEER_TWO)
     await input.press('Enter')
     const dock = page.locator('[data-queue-dock]')
     // Both messages queued: the two-row dock shows a collapsed count header,

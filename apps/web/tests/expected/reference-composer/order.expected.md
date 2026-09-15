@@ -14,7 +14,8 @@
 - button "Session recall Research notes":
   - img
   - text: Session recall Research notes
-- textbox "Message or run a task, / commands, @ files or sessions"
+- textbox "Message or run a task, / commands, @ files or sessions":
+  - paragraph
 - button "Add files or run commands":
   - img
 - 'button "Access mode, current: Workspace Write"': Workspace Write
