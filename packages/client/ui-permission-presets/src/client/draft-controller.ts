@@ -1,9 +1,9 @@
 /** Browser-only permission staging for a New Session draft. */
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
+import type { DraftPermissionSelect } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PermissionPresetSettingsController } from './settings-store.ts'
 
-function equalSelect(left: PermissionSelect | undefined, right: PermissionSelect | undefined): boolean {
+function equalSelect(left: DraftPermissionSelect | undefined, right: DraftPermissionSelect | undefined): boolean {
   if (left === right) return true
   if (left === undefined || right === undefined || left.currentValue !== right.currentValue) return false
   return left.options.length === right.options.length && left.options.every((option, index) => {
@@ -18,7 +18,7 @@ function equalSelect(left: PermissionSelect | undefined, right: PermissionSelect
 /** Draft permission catalog/current-value controller backed by the Host settings descriptor. */
 export class DraftPermissionController {
   /** Select-compatible snapshot rendered by the draft permission chip. */
-  readonly store: SnapshotStore<PermissionSelect | undefined> = createSnapshotStore(undefined)
+  readonly store: SnapshotStore<DraftPermissionSelect | undefined> = createSnapshotStore(undefined)
 
   private staged: string | undefined
   private readonly stopSettings: () => void
@@ -78,7 +78,7 @@ export class DraftPermissionController {
       if (this.store.getSnapshot() !== undefined) this.store.set(undefined)
       return
     }
-    const next: PermissionSelect = {
+    const next: DraftPermissionSelect = {
       currentValue: this.staged ?? state.currentValue,
       options: state.options.map(option => ({ value: option.id, name: option.label })),
     }

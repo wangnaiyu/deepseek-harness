@@ -1,4 +1,4 @@
-import type { Occurrence } from './input.ts'
+import type { Occurrence } from './draft-editor.ts'
 
 /** Stable editor projection; contains no Lexical node keys or Host receipt. */
 export interface DraftContent {

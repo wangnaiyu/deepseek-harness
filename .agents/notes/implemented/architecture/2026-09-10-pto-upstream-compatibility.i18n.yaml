@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-10-pto-upstream-compatibility.md
-2026-09-10-pto-upstream-compatibility.md: 14e5fd7f52e1e1bde222f5418d18b51107bcefeb
-2026-09-10-pto-upstream-compatibility.zh.md: 94fbf3e258f4f1ebb516ec43099b65fb3ec66397
+2026-09-10-pto-upstream-compatibility.md: 9e56c874e43d5162313cf807c2816a9181d38d35
+2026-09-10-pto-upstream-compatibility.zh.md: 06a6e321eb33887217e51c2f0ab49dc5d0c2ee71

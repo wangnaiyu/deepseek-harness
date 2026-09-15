@@ -12,7 +12,7 @@ PTO users need to inspect existing artifact directories without creating a Sessi
 
 The [Host inspection package](../../../../packages/host/pto-artifact-inspection/README.md) profiles explicit user-selected directories, returns action readiness, and serves supported static HTML through revocable exact-file routes. The workspace overlay consumes those routes. The run recognizer owns artifact facts; the Host owns registration, revision checks, routes, and analysis admission.
 
-Qualified Skill lookup binds provider and revision. The dependency tool requires an admission receipt and uses a configured pinned upstream tool. The outer workbench supplies the official Skill resource closure, tool bytes, provenance, and deployment patch; those resources are independently versioned.
+Qualified Skill lookup binds provider and revision. The dependency tool requires an admission receipt and uses a configured pinned upstream tool. The outer workbench supplies the official Skill resource closure, tool bytes, source identity, and deployment patch; those resources are independently versioned.
 
 ## Alternatives considered
 

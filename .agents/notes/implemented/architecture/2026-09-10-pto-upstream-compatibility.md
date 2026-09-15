@@ -16,6 +16,8 @@ Project aliases select the directory for new Sessions. Discovered conventional o
 
 The keyed PTO comparison transcript row owns a native disclosure containing the complete frozen evidence body. This replaces only the details-slot mechanism in the earlier decision. Evidence validation, the seven identity dimensions, inconclusive labels, and the prohibition on inferring business success remain unchanged. Resource sidebar slots remain owned by upstream packages.
 
+The 0.1.6 adaptation keeps the upstream main-panel shell, permission selector, draft editor runtime and recency/manual-order engine. PTO draft state feeds their current contracts. Hidden blank Sessions retain their manual-order identity until the first prompt. SSH directory reservation forwards the per-call policy and preserves existing-target rejection. The pre-existing PTO receipt history read remains a deferred projection migration under the upstream deprecation policy.
+
 ## Testing
 
 Session persistence tests cover conventional and aliased routing plus immutable generation migration. Composer tests cover accepted attachment removal and rejected removal. Comparison presentation tests require the disclosure to contain all seven identity rows and significance evidence. Built workbench verification covers the composed package and resource closure.

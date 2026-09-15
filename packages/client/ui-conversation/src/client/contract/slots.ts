@@ -12,7 +12,6 @@ import type {
   WorkspaceStandardSnapshot,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionPendingInteraction } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
 import type {
   WorkspaceId, WorkspaceSnapshot,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -247,11 +246,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
   }
 
-  interface GlobalStandardProps {
-    /** Workspace selector supplied by the independently loaded Workspace UI. */
-    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>
-  }
-
   interface SessionStandardProps {
     /** Selector hook over target-neutral Conversation assembly. */
     useConversation: UseConversation
@@ -401,7 +395,7 @@ export interface ComposerBarInjected {
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
     /** Optional permission-plugin value for the Session-id-free browser draft. */
-    draftPermissions: ObservableSnapshot<PermissionSelect | undefined>
+    draftPermissions: ObservableSnapshot<DraftPermissionSelect | undefined>
   }
 }
 
@@ -509,4 +503,22 @@ export interface EmptyWorkspaceOwnerProps {
   selectedId?: WorkspaceId | undefined
   onPick: (workspaceId: WorkspaceId) => void
   onClose: () => void
+}
+
+/** Structurally projected permission option for the optional draft plugin. */
+export interface DraftPermissionOption {
+  /** Stable preset value. */
+  value: string
+  /** User-facing preset name. */
+  name: string
+  /** Optional user-facing explanation. */
+  description?: string
+}
+
+/** Structurally projected permission selector for the optional draft plugin. */
+export interface DraftPermissionSelect {
+  /** Switchable presets in display order. */
+  options: DraftPermissionOption[]
+  /** Currently staged preset value. */
+  currentValue: string
 }

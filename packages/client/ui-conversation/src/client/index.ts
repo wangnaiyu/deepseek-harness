@@ -4,7 +4,7 @@ export type { Config as ConversationConfig } from './apply.ts'
 export { UiConversation } from './conversation/assembly.ts'
 export type { ConversationBinding } from './conversation/assembly.ts'
 export { ConversationController, UnsupportedImageMediaTypeError } from './service.ts'
-export type { DraftPermissionSource, IConversation } from './service.ts'
+export type { DraftPermissionSelect, DraftPermissionSource, IConversation } from './service.ts'
 export type {
   ConversationContextReader, ConversationLocation,
   ConversationLocationData, ConversationLocationDataScope, ConversationLocationDataSource,

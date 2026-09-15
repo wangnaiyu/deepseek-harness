@@ -12,9 +12,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { UiConversation } from './conversation/assembly.ts'
+import type { EditSelection, TokenSpan } from './contract/draft-editor.ts'
 import type { ViewTab } from './contract/views.ts'
 import type {
-  EditSelection, InputTriggerController, InputTriggerHit, PickOutcome, TokenSpan,
+  InputTriggerController, InputTriggerHit, PickOutcome,
 } from './contract/input.ts'
 import type {
   ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
@@ -70,11 +71,6 @@ const ABSENT_BLOCK = {
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
-  subscribe: () => () => {},
-}
-const EMPTY_FILE_UPLOADS: DraftFileUploads = {}
-const ABSENT_FILE_UPLOADS = {
-  getSnapshot: () => EMPTY_FILE_UPLOADS,
   subscribe: () => () => {},
 }
 
@@ -491,7 +487,6 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             },
           ),
           stop: undefined,
-          command: line => conversation.commandDraftPermission(line),
           hooks: {
             busyEnter: submissionPolicy.busyEnter,
             fileUploads: conversation.fileUploads,

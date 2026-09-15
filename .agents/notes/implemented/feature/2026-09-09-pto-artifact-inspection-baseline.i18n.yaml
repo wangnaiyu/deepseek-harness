@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-09-pto-artifact-inspection-baseline.md
-2026-09-09-pto-artifact-inspection-baseline.md: cd5c7937db5cd7484168253ef3b9369977b5ae60
+2026-09-09-pto-artifact-inspection-baseline.md: 3476eb2aee1b77ec3df0ae3bcdf83aeff119c53b
 2026-09-09-pto-artifact-inspection-baseline.zh.md: ab7b08476cf528a15bdf981a037ea37f812bbf74

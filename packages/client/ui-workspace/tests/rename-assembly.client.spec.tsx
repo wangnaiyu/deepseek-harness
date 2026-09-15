@@ -37,6 +37,7 @@ async function createRuntime(): Promise<SlotTestRuntime> {
   runtime.releaseWorkspaceSource()
   // The rename flow never picks a directory; the namespace only has to be there
   // for ui-workspace's inject to settle.
+  runtime.ctx.provide('remote.ptoArtifactInspection', {} as never)
   const directoryPicker = {}
   runtime.remote.provideNamespaces({ directoryPicker })
   const locale = new LocaleRuntime(runtime.ctx)

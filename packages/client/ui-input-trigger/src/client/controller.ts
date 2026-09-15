@@ -441,6 +441,7 @@ export class InputTriggerController {
   openReference(source: string | undefined, reference: Pick<ReferenceInsert, 'ref' | 'appearance'>): boolean {
     if (this.disposed) return false
     const session = this.project()
+    if (!('sessionId' in session)) return false
     for (const owner of this.deps.roster.all()) {
       const matches = source === undefined
         ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1))

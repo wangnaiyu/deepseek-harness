@@ -92,7 +92,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -152,7 +152,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -202,7 +202,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -253,7 +253,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -329,7 +329,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -380,7 +380,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -423,7 +423,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -477,7 +477,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -516,7 +516,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -553,7 +553,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -584,7 +584,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -615,7 +615,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -651,7 +651,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -710,7 +710,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -768,7 +768,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -796,8 +796,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'conversation.input.model',
     kind: 'single',
     scope: 'session-maybe',
-    summary: 'The named model-select seat at the right end of the composer tool row, left of the send button — one occupant, so taking it means rendering the whole model affordance yourself.',
-    doc: 'The named model-select seat at the right end of the composer tool row,\nleft of the send button — one occupant, so taking it means rendering the\nwhole model affordance yourself. Same `locked`-only owner share and same\nrenders-nothing-while-empty contract as the plan seat. Note the composer\ndeliberately keeps this seat LIVE while it refuses text for a\nmodel-related block: every such block is one the user clears by picking\na model here.',
+    summary: 'Model selector inside the composer tool row.',
+    doc: 'Model selector inside the composer tool row.',
     registerOptions: [],
     ownerProps: [
       '/** Owner share of the named plan, permission, and model controls. */\nexport interface InputControlOwnerProps {\n  /** Whether the composer currently refuses interaction. */\n  locked: boolean\n}',
@@ -805,7 +805,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -860,7 +860,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -890,7 +890,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
   {
     key: 'conversation.input.permission',
     kind: 'single',
-    scope: 'session',
+    scope: 'session-maybe',
     summary: 'Current-session permission control inside the composer tool row.',
     doc: 'Current-session permission control inside the composer tool row.',
     registerOptions: [],
@@ -900,7 +900,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -913,7 +913,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'useSession: SessionSnapshotSelector',
       'sessionId: SessionId',
       'useProjection: UseProjection',
-      'useTrajectory: UseTrajectory',
     ],
     keyDomain: '',
     hookContext: '',
@@ -939,7 +938,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -995,7 +994,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1036,7 +1035,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1131,7 +1130,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1168,7 +1167,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1226,7 +1225,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1269,7 +1268,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1349,7 +1348,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1407,7 +1406,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1451,7 +1450,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1511,7 +1510,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1557,7 +1556,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1587,7 +1586,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1749,7 +1748,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1780,7 +1779,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1819,7 +1818,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1869,7 +1868,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1900,7 +1899,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1950,7 +1949,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -1986,7 +1985,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2036,7 +2035,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2074,7 +2073,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2122,7 +2121,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2173,7 +2172,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2223,7 +2222,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2258,7 +2257,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2306,7 +2305,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2338,7 +2337,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2369,7 +2368,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2401,7 +2400,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2489,7 +2488,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2539,7 +2538,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2575,7 +2574,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2626,7 +2625,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2679,7 +2678,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2777,7 +2776,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2821,7 +2820,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2881,7 +2880,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2918,7 +2917,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -2978,7 +2977,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -3009,7 +3008,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerPropsReferences: [],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -3044,7 +3043,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -3094,7 +3093,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
@@ -3109,12 +3108,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'useProjection: UseProjection',
       'useTrajectory: UseTrajectory',
     ],
-    keyDomain: 'open: any string the owner dispatches (no compile-time key set), already taken: ask_user_question, bash, cordis_define, cordis_run, cordis_stop, cordis_undefine, edit, glob, grep, present, read, read_image, skill, todo_write, web_fetch, web_search, write',
+    keyDomain: 'open: any string the owner dispatches (no compile-time key set), already taken: ask_user_question, bash, cordis_define, cordis_run, cordis_stop, cordis_undefine, edit, glob, grep, present, pto_experiment_compare, read, read_image, skill, todo_write, web_fetch, web_search, write',
     hookContext: '',
     slotInject: '',
     declaredBy: 'an entry in \'conversation.chat.node\' (client-ui-tool), so it exists while that entry is mounted',
     occupants: [
       'client-ui-deliverables PresentRow key \'present\'',
+      'client-ui-pto-experiments ComparisonRow key \'pto_experiment_compare\'',
       'client-ui-skill SkillRow key \'skill\'',
       'client-ui-tool AskQuestionRow key \'ask_user_question\'',
       'client-ui-tool BashRow key \'bash\'',
@@ -3160,7 +3160,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     standardProps: [
       'useResource: UseResource',
-      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
+      'useWorkspaces: SnapshotSelectorHook<WorkspaceStandardSnapshot<WorkspaceSnapshot, WorkspaceId>>',
       'usePanelInfo: UsePanelInfo',
       'useSessions: UseSessions',
       'useSessionStatus: UseSessionStatus',
