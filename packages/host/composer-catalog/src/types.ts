@@ -1,4 +1,5 @@
 /** Client-safe wire vocabulary for the draft composer capability catalog. */
+import type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
 
 /** Product ownership shown at the right edge of one catalog row. */
 export interface DraftCatalogOrigin {
@@ -9,11 +10,13 @@ export interface DraftCatalogOrigin {
 /** Composer-relevant input metadata copied from the authoritative command descriptor. */
 export interface DraftCommandInputDescriptor {
   readonly hint: string
-  readonly images?: boolean
+  readonly attachments?: boolean
 }
 
 /** One command available to a new-session draft. */
 export interface DraftCommandDescriptor {
+  /** Stable owner identity used by the browser to localize first-party commands. */
+  readonly definitionId?: NonNullable<CommandDescriptor['definitionId']>
   readonly name: string
   readonly description: string
   readonly input?: DraftCommandInputDescriptor
@@ -23,6 +26,8 @@ export interface DraftCommandDescriptor {
 
 /** One user-invocable Skill available to a new-session draft. */
 export interface DraftSkillDescriptor {
+  /** Current source path for formal Session reference preview; omitted from draft discovery. */
+  readonly path?: string
   readonly name: string
   readonly description: string
   readonly modelInvocable: boolean

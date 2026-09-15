@@ -34,6 +34,8 @@ interface DecorationRange {
   readonly kind: 'session' | 'plain'
   /** Pre-resolved display text (wire folds); derived from label when absent. */
   readonly display?: string
+  /** Loaded target of a canonical /skill introducer. */
+  readonly skillName?: string
 }
 
 /** Optional navigation supplied by consumers that can preview references. */
@@ -63,6 +65,14 @@ export function projectUserText(
   references?: UserTextReferences,
 ): ReactNode {
   const ranges: DecorationRange[] = []
+  // Canonical invocation keeps its authored text while the introducer opens
+  // the loaded skill, rather than a skill literally named `skill`.
+  const canonical = /^\s*\/skill[ \t]+([^\s]+)(?=\s|$)/u.exec(text)
+  const canonicalName = canonical?.[1]
+  if (slashKind === 'skill' && canonicalName !== undefined && slashNames.includes(canonicalName)) {
+    const start = text.indexOf('/skill')
+    ranges.push({ start, end: start + 6, label: text.slice(start, start + 6), kind: 'plain', skillName: canonicalName })
+  }
   SESSION_WIRE_RE.lastIndex = 0
   let wire: RegExpExecArray | null
   while ((wire = SESSION_WIRE_RE.exec(text)) !== null) {
@@ -128,7 +138,7 @@ export function projectUserText(
       : referenceKind === 'file'
         ? () => { references.openFile(label.slice(1).replace(/^"|"$/gu, '')) }
         : referenceKind === undefined && slashKind === 'skill'
-          ? () => { references.openSkill(label.slice(1)) }
+          ? () => { references.openSkill(range.skillName ?? label.slice(1)) }
           : undefined
     const className = clsx(css.refChip, referenceKind === undefined && css.slashChip)
     parts.push(open === undefined

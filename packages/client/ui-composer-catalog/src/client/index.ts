@@ -8,6 +8,9 @@ import type {
   InputTriggerServiceContract, InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 
+import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
+import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
+
 interface CacheEntry {
   readonly promise: Promise<DraftComposerCatalog>
   readonly abort: AbortController
@@ -15,7 +18,7 @@ interface CacheEntry {
 }
 
 /** Required services: generated Remote namespace plus the generic trigger registry. */
-export const inject = ['remote', 'remote.composerCatalog', 'inputTriggers']
+export const inject = ['remote', 'remote.composerCatalog', 'inputTriggers', 'commandUi']
 
 function requestOf(target: ClientDraftContext): DraftComposerCatalogRequest {
   return {
@@ -27,7 +30,7 @@ function requestOf(target: ClientDraftContext): DraftComposerCatalogRequest {
 function matches(candidate: { name: string; description: string; origin: { label: string } }, raw: string): boolean {
   const query = raw.trim().toLocaleLowerCase()
   if (query === '') return true
-  return candidate.name.toLocaleLowerCase().includes(query)
+  return rankByName([candidate], query).length > 0
     || candidate.description.toLocaleLowerCase().includes(query)
     || candidate.origin.label.toLocaleLowerCase().includes(query)
 }
@@ -96,7 +99,7 @@ export function apply(ctx: ClientContext): void {
       .filter(command => matches(command, req.query))
       .map(command => ({
         name: command.name,
-        description: command.description,
+        ...(ctx.commandUi.presentDescriptor(command) ?? { description: command.description }),
         origin: command.origin.label,
         value: `command:${command.name}`,
       }))

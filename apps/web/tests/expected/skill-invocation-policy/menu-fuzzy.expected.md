@@ -1,3 +1,3 @@
 - listbox "Trigger suggestions":
   - text: Skills
-  - option "policy-user-only user-only · Available only to user invocation" [selected]
+  - option "policy-user-only, Available only to user invocation, workspace" [selected]: policy-user-only Available only to user invocation workspace

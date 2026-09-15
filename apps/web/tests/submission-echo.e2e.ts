@@ -6,19 +6,23 @@
 // durable user/message replaces the echo without a duplicate. The fixture host
 // echoes the prompt requestId as the durable source's rpcId, so the retirement
 // path here is the production correlation, not a test hook.
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
 
-it('paints the submission echo on the send keystroke and swaps it for the durable node', async () => {
+it('paints the existing Session submission echo on the send keystroke and swaps it for the durable node', async () => {
   mountAssembledApp()
 
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
-  const start = tree.querySelector<HTMLButtonElement>('button[aria-label="New session in fixture"]')
-  if (start === null) throw new Error('fixture Workspace new-session action missing')
-  fireEvent.click(start)
+  // The immediate echo belongs to an existing Session; new PTO drafts first materialize.
+  const group = (await within(tree).findAllByText('fixture'))
+    .map(node => node.closest<HTMLElement>('[role="treeitem"]'))
+    .find(node => node?.getAttribute('aria-expanded') !== null)
+  if (group?.getAttribute('aria-expanded') === 'false') fireEvent.click(group)
+  fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
+  await screen.findByRole('tab', { name: 'Chat' })
 
   const composer = await waitFor(() => {
     const surface = document.querySelector<HTMLElement>('[data-composer-input]')

@@ -3,7 +3,6 @@
     - text: {{workspace}}
     - button "Workspace actions for {{workspace}}"
     - button "New session in {{workspace}}"
-  - treeitem "New Session" [selected]
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"

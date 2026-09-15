@@ -64,7 +64,7 @@ describe('WebWorker preview VFS example', () => {
       ? `${path.slice(0, -currentName.length)}session.v3.jsonl`
       : path
     const predecessors = Object.values(VFS_EXAMPLE_SESSION_IDS)
-      .map(id => `home/sessions/--dsh-workspace--/${id}/session.v2.jsonl`)
+      .flatMap(id => [2, 3].map(version => `home/sessions/--dsh-workspace--/${id}/session.v${version}.jsonl`))
     expect(filesUnder(VFS_EXAMPLE_ROOT)).toEqual([...expected.keys()].map(committedPath).concat(predecessors).sort())
     for (const [path, content] of expected) {
       if (path === 'home/storages/session_projcache.json') continue

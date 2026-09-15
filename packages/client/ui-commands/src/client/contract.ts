@@ -3,6 +3,8 @@
  * CommandUiRuntime (`ctx.commandUi`) implements this face; business packages
  * consume its registration and dismissal operations.
  */
+import type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
+import type { InputTriggerCandidate } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { ComponentType } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
@@ -106,6 +108,13 @@ export interface CommandDecoration {
 
 /** The `ctx.commandUi` service face visible to business packages. */
 export interface CommandUiContract {
+  /**
+   * Present one effective Host command without creating or executing a Session.
+   * @param descriptor - authoritative command descriptor.
+   * @returns localized first-party label, description and icon, or undefined.
+   */
+  presentDescriptor(descriptor: CommandDescriptor): Pick<InputTriggerCandidate, 'label' | 'description' | 'icon'> | undefined
+
   /**
    * Register one client command contribution; effect disposer. Duplicate
    * names throw at registration.

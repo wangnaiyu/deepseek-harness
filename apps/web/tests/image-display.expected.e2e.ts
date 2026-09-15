@@ -171,7 +171,7 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
     items: [{ kind: 'file', getAsFile: () => image, webkitGetAsEntry: () => ({ isDirectory: false }) }],
   }
   fireEvent.dragEnter(document.body, { dataTransfer })
-  const overlay = await screen.findByRole('status')
+  const overlay = await screen.findByText('Drag files or images here to add them').then(node => node.closest('[role="status"]')!)
   expect(overlay.textContent).toContain('Drag files or images here to add them')
   await waitFor(() => {
     expect(overlay.textContent).toContain('Image limit: up to 20 images, 5MB each')

@@ -16,6 +16,19 @@ const project = (
   render(<div data-host>{projectUserText(text, labels, slashNames, slashKind)}</div>).container.querySelector('[data-host]')!
 
 describe('projectUserText', () => {
+  it('opens the loaded canonical skill without rewriting its logged gesture', () => {
+    const openSkill = vi.fn()
+    const text = '/skill analyze inspect this'
+    const view = render(<div>{projectUserText(text, [], ['analyze'], 'skill', { openFile: vi.fn(), openSkill })}</div>)
+    const chip = view.container.querySelector<HTMLButtonElement>('[data-ref-chip="skill"]')!
+    expect(chip.textContent).toBe('/skill')
+    expect(view.container.textContent).toBe(text)
+    fireEvent.click(chip)
+    expect(openSkill).toHaveBeenCalledWith('analyze')
+    expect(project(text, [], []).querySelector('[data-ref-chip]')).toBeNull()
+    expect(project(text, [], ['analyze'], 'command').querySelector('[data-ref-chip]')).toBeNull()
+  })
+
   it('keeps decorated text inline and preserves whitespace between references', () => {
     const host = project('反反复复 /dsh-acp-test @执行几个命令测试', ['执行几个命令测试'], ['dsh-acp-test'])
     expect(host.querySelectorAll('div').length).toBe(0)

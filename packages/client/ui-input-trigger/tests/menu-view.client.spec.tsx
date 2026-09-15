@@ -209,11 +209,11 @@ describe('MenuView', () => {
   it('reserves the icon cell and exposes bounded description plus trailing origin accessibly', () => {
     const description = 'x'.repeat(120)
     const { view } = mount(openState({
-      groups: [{ source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'evidence', description, origin: 'PTO' }] }],
+      groups: [{ source: 'catalog', showGroupTitle: false, status: 'ready', items: [{ name: 'evidence', label: 'Evidence', description, origin: 'PTO' }] }],
     }))
     const option = screen.getByRole('option')
-    expect(option.textContent).toBe(`evidence${'x'.repeat(77)}...PTO`)
-    expect(option.getAttribute('aria-label')).toBe(`evidence, ${description}, PTO`)
+    expect(option.textContent).toBe(`Evidence${'x'.repeat(77)}...PTO`)
+    expect(option.getAttribute('aria-label')).toBe(`Evidence, ${description}, PTO`)
     expect(option.querySelector('span')?.textContent).toBe('')
     expect(view.container.querySelector('[title="PTO"]')).not.toBeNull()
     expect(view.container.querySelector(`[title="${description}"]`)).not.toBeNull()

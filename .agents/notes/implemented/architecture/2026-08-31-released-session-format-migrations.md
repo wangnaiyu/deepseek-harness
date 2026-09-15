@@ -25,6 +25,8 @@ The migrations are stateful even though the API presented them as one-shot funct
 
 ## Decision
 
+The PTO fork on upstream 0.1.6 writes V4 because analysis-source additions change persisted user-message, inbox, and title-request unions. The V3-to-V4 edge preserves event bodies, sequence references, compact runs, and inherited cuts; it reuses the frozen V3 codec and validates the V4 header. Writes publish only the final successor and retain historical bytes. This fork allocation is not an upstream release: a future upstream V4 requires an explicit format-identity review before integration.
+
 The Session format packages use a stateful synchronous Stage API. Static migration declarations describe one adjacent version edge and create a new stage for each restored artifact. A stage owns that artifact's mutable state; no stage instance is shared across Sessions.
 
 ### Stage and Context protocol

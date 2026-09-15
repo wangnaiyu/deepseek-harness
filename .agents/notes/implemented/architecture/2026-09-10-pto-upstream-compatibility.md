@@ -10,6 +10,8 @@ PTO browser drafts defer Session creation, while generic file uploads require a 
 
 ## Decision
 
+The PTO fork on upstream 0.1.6 writes V4 because analysis-source additions change persisted user-message, inbox, and title-request unions. The V3-to-V4 edge preserves event bodies, sequence references, compact runs, and inherited cuts; it reuses the frozen V3 codec and validates the V4 header. Writes publish only the final successor and retain historical bytes. This fork allocation is not an upstream release: a future upstream V4 requires an explicit format-identity review before integration.
+
 A draft owns browser attachments until materialization. First submit binds pending generic files to the new Session and waits for upload settlement before sending the prompt. Formal capability admission retains its existing rejection behavior. Removing an attachment releases its browser resource only when the input shell accepts removal.
 
 Project aliases select the directory for new Sessions. Discovered conventional or aliased directories retain their identity; writes target the current generation inside that directory. Adjacent migration retains committed predecessors and uses the upstream file lease.

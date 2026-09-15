@@ -3,3 +3,6 @@
   - treeitem "Newest conversation now" [selected]
   - treeitem "Middle conversation 1min"
   - treeitem "Oldest conversation 2min"
+  - treeitem "Ungrouped":
+    - img
+    - text: Ungrouped

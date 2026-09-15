@@ -234,6 +234,15 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
   }
 
   /**
+   * Present an effective Host descriptor for either a draft or an existing Session.
+   * @param descriptor - Host-owned command identity and description.
+   * @returns localized first-party face, or undefined for another definition.
+   */
+  presentDescriptor(descriptor: CommandDescriptor): Pick<InputTriggerCandidate, 'label' | 'description' | 'icon'> | undefined {
+    return builtinRowFace(descriptor, this.t)
+  }
+
+  /**
    * Menu candidates: host catalog + contribution availability, built-in rows
    * localized, then position filtering; sections for an empty query, the
    * shared name-and-label ranking for a typed one.
@@ -247,7 +256,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       const icon = candidateIcon(c.iconId)
       rows.push({
         name: c.name,
-        ...(builtinRowFace(c, this.t) ?? { description: c.description }),
+        ...(this.presentDescriptor(c) ?? { description: c.description }),
         origin: c.origin?.label ?? 'DSH',
         ...icon === undefined ? {} : { icon },
         ...(c.input !== undefined ? { hint: c.input.hint } : {}),

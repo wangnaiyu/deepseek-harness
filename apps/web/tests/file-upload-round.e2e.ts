@@ -1,4 +1,4 @@
-// Web e2e scenario: generic file upload round trip. A real chromium picks a
+// Web e2e scenario: generic file upload within an existing Session. A real chromium picks a
 // file through the composer paperclip input; the upload RPC stores the exact
 // bytes below the scaffold's isolated DSH_HOME, the prompt cites the staged
 // reference, request assembly projects the file block to handle text, and the
@@ -18,7 +18,7 @@ import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/file-upload-round', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/session.v3.jsonl', import.meta.url))
@@ -205,14 +205,16 @@ describe('web e2e: generic file upload through the real assembly', () => {
       // and the live handle line in the request carries the current one.
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, replayOverride: OVERRIDE, paceMs: 15 }),
     })
+    await scaffold.ctx.agentDefaultModel.saveSelection({ provider: 'deepseek-official', model: 'deepseek-v4-flash-vision-exp' })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    const { sessionId } = await scaffold.ctx.sessionController.create({ cwd: scaffold.workspaceCwd })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
+    await page.addInitScript((id) => { localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: id })) }, sessionId)
     await page.setViewportSize({ width: 900, height: 900 })
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
 
   afterAll(async () => {
@@ -228,12 +230,6 @@ describe('web e2e: generic file upload through the real assembly', () => {
     }
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
-    const modelTrigger = page.getByRole('button', { name: /^Select model, current/ })
-    await modelTrigger.click()
-    await page.getByRole('menuitem', { name: /^Model\b/ }).click()
-    await page.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash-Vision-Exp' }).click()
-    await expect.poll(() => modelTrigger.getAttribute('aria-label'), { timeout: 10_000 })
-      .toContain('DeepSeek-V4-Flash-Vision-Exp')
     const imageBytes = await readFile(IMAGE_FIXTURE)
     // Pick through the composer's hidden file input: the upload RPC runs
     // immediately and the pending card appears before any prompt is typed.

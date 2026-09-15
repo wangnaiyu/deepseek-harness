@@ -57,8 +57,7 @@ describe('web e2e: blank New Session folding quota', () => {
     if (await workspaceRow.getAttribute('aria-expanded') !== 'true') await workspaceRow.click()
     await workspaceRow.hover()
     await page.getByRole('button', { name: `New session in ${workspaceTitle}` }).click()
-    await page.getByRole('tree', { name: 'Sessions' })
-      .getByText('New Session', { exact: true }).waitFor({ timeout: 15_000 })
+    await page.locator('[data-composer-input][contenteditable="true"]').waitFor({ timeout: 15_000 })
   }, 120_000)
 
   afterAll(async () => {
@@ -66,11 +65,11 @@ describe('web e2e: blank New Session folding quota', () => {
     await scaffold?.close()
   })
 
-  it('keeps five established sessions beside the provisional row', async () => {
+  it('keeps five established sessions while the new draft stays outside the tree', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-workspace-new-session-folding'))
     const sidebar = page.getByRole('tree', { name: 'Sessions' })
     await expect.poll(() => sidebar.getByRole('treeitem').count(), { timeout: 15_000 }).toBe(7)
-    expect(await sidebar.getByText('New Session', { exact: true }).count()).toBe(1)
+    expect(await sidebar.getByText('New Session', { exact: true }).count()).toBe(0)
     expect(await sidebar.getByText(basename(scaffold.workspaceCwd), { exact: true }).count()).toBe(6)
     const showMore = sidebar.getByRole('button', { name: 'Show 11 more sessions' })
     await showMore.waitFor({ timeout: 15_000 })
