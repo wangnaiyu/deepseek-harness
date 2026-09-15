@@ -29,6 +29,8 @@ The UI is evidence-gated. It parses a closed comparison schema, verifies that an
 
 No runtime invariant companion is published because Host admission owns mutations and component generations already reject stale completions.
 
+The dashboard follows the Conversation content width and participates in the Conversation scroll flow, which reserves the sticky composer seat. Fact columns respond to the card-list container, including narrowing caused by the resource sidebar. Long identifiers and paths retain their full tooltip values; footer controls wrap within each card. Card scroll margins use the measured composer height to keep scroll-targeted content above the input.
+
 <a id="model-experience"></a>
 
 ## Model Experience

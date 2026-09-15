@@ -29,6 +29,8 @@ UI 受证据门控：它只接受闭合的对比 schema，并校验 `inconclusiv
 
 本包不发布运行时 invariant companion，因为 Host 准入拥有变更操作，且组件 generation 已拒绝陈旧的完成结果。
 
+实验面板遵循 Conversation 正文宽度，参与 Conversation 的滚动文档流，由该文档流为吸附输入区留位。事实列随卡片列表容器宽度调整，也覆盖资源侧栏导致的收窄。长标识符和路径保留完整工具提示，卡片底部操作在卡片内换行。卡片 scroll margin 使用实测输入区高度，让滚动定位的内容避开输入区。
+
 <a id="model-experience"></a>
 
 ## 模型体验

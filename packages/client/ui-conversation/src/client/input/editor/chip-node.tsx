@@ -11,7 +11,11 @@ import type { JSX } from 'react'
 import type {
   EditorConfig, LexicalNode, NodeKey, SerializedLexicalNode, Spread,
 } from 'lexical'
-import { DecoratorNode } from 'lexical'
+import { createCommand, DecoratorNode } from 'lexical'
+import type { LexicalEditor } from 'lexical'
+
+/** Routed by the owning shell; never persisted as a callback. */
+export const ACTIVATE_REFERENCE = createCommand<{ source: string; ref: string }>('activate-reference')
 import type { ReferenceInsert } from '../../contract/input.ts'
 import { ReferenceChip } from './ReferenceChip.tsx'
 
@@ -23,6 +27,7 @@ export type SerializedReferenceChipNode = Spread<{
   appearance?: ReferenceInsert['appearance']
   clipboardText: string
   invalid: boolean
+  activatable?: boolean
 }, SerializedLexicalNode>
 
 /** One inline reference occurrence as an atomic decorator node. */
@@ -39,6 +44,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
   __clipboardText: string
   /** Owner-resolution failure flag: chip renders invalid; serialization must fail. */
   __invalid: boolean
+  __activatable: boolean
 
   /** Lexical node registry type tag. */
   static override getType(): string {
@@ -58,6 +64,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
         label: node.__label,
         appearance: node.__appearance,
         clipboardText: node.__clipboardText,
+        activatable: node.__activatable,
       },
       node.__invalid,
       node.__key,
@@ -77,6 +84,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
         label: json.label,
         appearance: json.appearance,
         clipboardText: json.clipboardText,
+        activatable: json.activatable === true,
       },
       json.invalid,
     )
@@ -95,6 +103,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
     this.__appearance = insert.appearance
     this.__clipboardText = insert.clipboardText
     this.__invalid = invalid
+    this.__activatable = insert.activatable === true
   }
 
   /** Serialize to the JSON node form. */
@@ -109,6 +118,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
       ...(this.__appearance === undefined ? {} : { appearance: this.__appearance }),
       clipboardText: this.__clipboardText,
       invalid: this.__invalid,
+      activatable: this.__activatable,
     }
   }
 
@@ -178,18 +188,27 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
     return this.getLatest().__label
   }
 
+  /** Whether the owning source offers activation. */
+  isActivatable(): boolean { return this.getLatest().__activatable }
+
   /** Optional domain glyph. */
   getAppearance(): ReferenceInsert['appearance'] {
     return this.getLatest().__appearance
   }
 
-  /** React face rendered into the host element by the decorator portal. */
-  override decorate(): JSX.Element {
+  /** React face rendered into the host element by the decorator portal.
+   * @param editor - Shell-owned editor routing source activation.
+   * @returns Reference chip face.
+   */
+  override decorate(editor: LexicalEditor): JSX.Element {
     return (
       <ReferenceChip
         label={this.__label}
         appearance={this.__appearance}
         invalid={this.__invalid}
+        {...this.__activatable ? { activate: () => {
+          editor.dispatchCommand(ACTIVATE_REFERENCE, { source: this.__source, ref: this.__ref })
+        } } : {}}
       />
     )
   }

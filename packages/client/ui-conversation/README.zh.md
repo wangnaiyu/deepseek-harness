@@ -63,6 +63,8 @@ Send 和 Stop 按钮禁用时不显示提示气泡，轮次结束后由 Stop 切
 <a id="temporary-composer-entries"></a>
 ## 临时 composer entry
 
+插件通过 `conversation.guardedDrafts` 暂存分析 launch：owner、稳定 launch id、JSON payload 和浏览器草稿文本。注册 owner 在物化前校验捕获的意图，并在默认 prompt 发送前校验 Session 绑定。浏览器交互存储保留 pending/admitted 绑定以支持刷新恢复；存储或 owner 失败时拒绝发送。编辑保留 identity，新建草稿前必须清空未发送分析。物化期间禁止替换草稿，包括输入框已乐观清空的情况。成功校验会记录准入状态，但后续发送仍需 Host 校验。这些记录不包含 Host receipt 或 Session 历史；清除浏览器站点数据会移除恢复状态。
+
 `conversation.composer` 是通用 chain，其完整 owner currency 为：
 
 ```ts type-equiv
@@ -120,6 +122,8 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
 无；Conversation 组装和浏览器输入状态不会改变提供方侧的 prompt cache。
 
 ## 已知限制与暂缓事项
+
+受保护草稿将编辑器文本与 source 拥有的 reference occurrences 一起保存。恢复草稿会重建原子引用，序列化失败时保留引用。提交 owner 接收模型序列化前捕获的编辑器投影。引用可提供 source 拥有的激活动作，不持久化回调，也不扩展 Session 历史。
 
 <a id="known-limitations-and-deferred-work"></a>
 

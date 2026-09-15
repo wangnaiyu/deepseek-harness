@@ -30,6 +30,7 @@ function handle(id = 'handle-1', actionId = 'open.dependency-graph'): PtoArtifac
 
 function remote(overrides: Partial<PtoViewerRemote> = {}): PtoViewerRemote {
   return {
+    refresh: vi.fn(async () => ({ ok: true as const, value: record() })),
     inspect: vi.fn(async () => ({ ok: true as const, value: record() })),
     open: vi.fn(async () => ({ ok: true as const, value: handle() })),
     close: vi.fn(async () => ({ ok: true as const, value: { closed: true } })),
@@ -108,25 +109,91 @@ describe('PtoViewerController', () => {
     await expect(controller.switchViewer('open.program-graph')).rejects.toThrow('is not available')
   })
 
-  it('stages a structured analysis and admits it idempotently for first send', async () => {
+  it('keeps a fixed launch intent for admission retry and rejects missing bindings', async () => {
     const gateway = remote()
     const controller = new PtoViewerController(gateway)
     await controller.open('/data/pack')
-    const begin = vi.fn(() => 'draft-revision')
+    const begin = vi.fn<Parameters<PtoViewerController['stageAnalysis']>[0]>()
     controller.stageAnalysis(begin)
-
-    expect(begin).toHaveBeenCalledWith('分析此数据记录中的冗余依赖。请给出结论、证据、限制和下一步。')
-    await expect(controller.admitAnalysis('other-draft', 'session-1')).resolves.toBeUndefined()
-    const first = await controller.admitAnalysis('draft-revision', 'session-1')
-    const second = await controller.admitAnalysis('draft-revision', 'session-1')
-    expect(first).toEqual(second)
+    const content = begin.mock.calls[0]![0]
+    const intent = begin.mock.calls[0]![1]
+    expect(intent).toMatchObject({ recordId: 'record-1', revision: 'revision-1' })
+    await controller.checkAnalysis(intent, intent.requestId, undefined, content)
+    expect(gateway.admitAnalysis).not.toHaveBeenCalled()
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1', content)
+    await controller.close()
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1', content)
     expect(gateway.admitAnalysis).toHaveBeenCalledTimes(2)
-    expect(gateway.admitAnalysis).toHaveBeenLastCalledWith(expect.objectContaining({
-      sessionId: 'session-1',
-      recordId: 'record-1',
-      revision: 'revision-1',
-      actionId: 'analyze.dependency-redundancy',
-      requestedSkill: { name: 'dependency-redundancy', provider: 'pypto-official-rev', revision: 'rev' },
-    }))
+    const { artifactRefs, composerVersion, ...wireIntent } = intent
+    expect(artifactRefs).toEqual(['deps.json'])
+    expect(composerVersion).toBe(1)
+    expect(gateway.admitAnalysis).toHaveBeenLastCalledWith({ ...wireIntent, sessionId: 'session-1' })
+    await expect(controller.checkAnalysis(undefined, intent.requestId, 'session-1')).rejects.toThrow('Missing analysis binding')
+    await expect(controller.checkAnalysis(intent, 'wrong-id', 'session-1')).rejects.toThrow('Invalid analysis binding')
   })
+
+  it('preserves the Viewer and displays a refused activation without replacing the draft', async () => {
+    const controller = new PtoViewerController(remote())
+    await controller.open('/data/pack')
+    expect(() => { controller.stageAnalysis(() => { throw new Error('Unsent draft') }) }).toThrow('Unsent draft')
+    expect(controller.getSnapshot()).toMatchObject({ kind: 'open', analysisError: 'Unsent draft' })
+  })
+  it('stages real reference identity, closes the overlay, and reopens a fresh complete handle', async () => {
+    const gateway = remote({ open: vi.fn<PtoViewerRemote['open']>()
+      .mockResolvedValueOnce({ ok: true, value: handle('old') })
+      .mockResolvedValueOnce({ ok: true, value: handle('new') }) })
+    const controller = new PtoViewerController(gateway)
+    await controller.open('/outside/session/cwd')
+    const begin = vi.fn<Parameters<PtoViewerController['stageAnalysis']>[0]>()
+    controller.stageAnalysis(begin)
+    expect(controller.getSnapshot()).toEqual({ kind: 'idle' })
+    expect(gateway.close).toHaveBeenCalledWith({ handleId: 'old' })
+    const [content, intent] = begin.mock.calls[0]!
+    expect(content.text).toContain('/skill dependency-redundancy @deps.json ')
+    expect(content.references).toMatchObject([{ source: 'pto-artifact', label: 'deps.json', activatable: true }])
+    const ref = content.references[0]!.ref
+    expect(JSON.parse(ref)).toEqual({ recordId: intent.recordId, revision: intent.revision, artifactRef: 'deps.json' })
+    await controller.openReference(ref)
+    expect(controller.getSnapshot()).toEqual({ kind: 'open', record: record(), handle: handle('new') })
+    await controller.close()
+    expect(gateway.close).toHaveBeenCalledWith({ handleId: 'new' })
+  })
+
+  it('refuses removed or changed visible intent before admission, while preserving admitted question retries', async () => {
+    const gateway = remote()
+    const controller = new PtoViewerController(gateway)
+    await controller.open('/data/pack')
+    const begin = vi.fn<Parameters<PtoViewerController['stageAnalysis']>[0]>()
+    controller.stageAnalysis(begin)
+    const [content, intent] = begin.mock.calls[0]!
+    for (const invalid of [
+      { ...content, references: [] },
+      { ...content, text: content.text.replace('/skill dependency-redundancy', '/skill other') },
+      { ...content, text: content.text.replace('/skill dependency-redundancy', '') },
+      { ...content, references: [{ ...content.references[0]!, ref: 'wrong-record' }] },
+    ]) await expect(controller.checkAnalysis(intent, intent.requestId, 'session-1', invalid)).rejects.toThrow('Reselect')
+    expect(gateway.admitAnalysis).not.toHaveBeenCalled()
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1', content)
+    await controller.checkAnalysis(intent, intent.requestId, 'session-1', { text: 'retry question', references: [] }, true)
+    expect(gateway.admitAnalysis).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not reopen a stale Record or keep a late reference handle after dismissal', async () => {
+    const gateway = remote({ refresh: vi.fn(async () => ({ ok: true as const, value: { ...record(), profile: { ...record().profile, revision: 'new' } } })) })
+    const controller = new PtoViewerController(gateway)
+    const ref = JSON.stringify({ recordId: 'record-1', revision: 'revision-1', artifactRef: 'deps.json' })
+    await expect(controller.openReference(ref)).rejects.toThrow('reassociate')
+    expect(gateway.open).not.toHaveBeenCalled()
+    let resolve!: (value: Awaited<ReturnType<PtoViewerRemote['open']>>) => void
+    const lateGateway = remote({ open: vi.fn<PtoViewerRemote['open']>(() => new Promise((done) => { resolve = done })) })
+    const lateController = new PtoViewerController(lateGateway)
+    const opening = lateController.openReference(ref)
+    await vi.waitFor(() => { expect(lateGateway.open).toHaveBeenCalled() })
+    await lateController.close()
+    resolve({ ok: true, value: handle('late-reference') })
+    await opening
+    expect(lateController.getSnapshot()).toEqual({ kind: 'idle' })
+    expect(lateGateway.close).toHaveBeenCalledWith({ handleId: 'late-reference' })
+  })
+
 })

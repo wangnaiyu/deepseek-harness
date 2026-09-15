@@ -38,9 +38,10 @@ The fixed tool schema is stable for one deployment. Record revision, artifact re
 
 ## Known Limitations and Deferred Work
 
+The admitted qualified Skill owns analysis instructions. The PTO pre-step listener runs around canonical Skill injection, checks matching names against the admitted provider and rendered body, and emits one instructions message. A conflicting provider or changed body rejects the step. Existing analysis context prevents repeat injection on retries. This coordination does not change the admission receipt or tool gate.
+
 <a id="known-limitations-and-deferred-work"></a>
 
-- The composed Viewer first-send path can lose structured analysis identity before Host admission; controller and Host unit tests do not prove end-to-end success. See the [baseline decision](../../../.agents/notes/implemented/feature/2026-09-09-pto-artifact-inspection-baseline.md).
 - Generated or service-backed timeline, critical-path, and program-graph viewers are not installed.
 - Static viewers are view-only and expose no selection or deep-link callback.
 - Dependency analysis requires the configured Python executable, pinned tool path, live Session Agent, and exact qualified Skill provider.

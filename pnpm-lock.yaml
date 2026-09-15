@@ -4576,6 +4576,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: workspace:^
         version: link:../ui-conversation
+      '@deepseek-ai/dsh-client-ui-input-trigger':
+        specifier: workspace:^
+        version: link:../ui-input-trigger
       '@deepseek-ai/dsh-client-ui-layout':
         specifier: workspace:^
         version: link:../ui-layout
@@ -6830,6 +6833,9 @@ importers:
       '@deepseek-ai/dsh-tool-pto-run':
         specifier: workspace:^
         version: link:../../pto/tool-pto-run
+      '@deepseek-ai/dsh-tool-skill':
+        specifier: workspace:^
+        version: link:../../skill/tool-skill
       '@deepseek-ai/dsh-tools':
         specifier: workspace:^
         version: link:../../core/tools

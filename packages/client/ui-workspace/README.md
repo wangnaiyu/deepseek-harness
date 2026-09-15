@@ -60,6 +60,8 @@ The value is intentionally best effort for cold Sessions. An identity-matching u
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
+The PTO Viewer stages each intentional analysis in a new browser draft, materialized on Send. Its stable request id, Record revision, artifact references, action, and qualified Skill survive question edits and target changes through Conversation's guarded drafts. A later Viewer selection does not retarget an existing launch. Admission and model retries use the materialized Session; admission failures preserve its draft and block prompt delivery. Browser reload restores bindings, but a Host restart can invalidate the registered Record and require reopening the Viewer to associate a new launch. Host receipt and Session log formats are unchanged.
+
 <details>
 <summary>Implementation internals — click to expand</summary>
 
@@ -103,6 +105,8 @@ None, as the package is a browser-side UI plugin layer that registers nothing mo
 None; this package neither assembles nor sends a provider request.
 
 ## Known Limitations and Deferred Work
+
+Analysis staging inserts the canonical Skill gesture, an atomic `deps.json` reference, and a short question, then closes the overlay. The reference resolves its exact Record and revision through the Host independently of Session cwd. Click or keyboard activation opens a fresh complete viewer handle. The PTO candidate source allows manual reselection of the same bound reference. Missing or changed required tokens reject first admission; admitted question retries retain the existing launch binding. A stale Record requires reassociation.
 
 <a id="known-limitations-and-deferred-work"></a>
 

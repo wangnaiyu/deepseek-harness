@@ -60,6 +60,8 @@ Session 行渲染运行时的实时 `pendingInteraction` 分类：审批显示**
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
+PTO Viewer 将每次有意分析暂存为新浏览器草稿，在发送时物化。稳定 request id、Record revision、artifact references、action 和 qualified Skill 通过 Conversation 的受保护草稿跨问题编辑及目标变化保留。之后打开其他 Viewer 不会重定向已有 launch。准入与模型重试使用已物化 Session；准入失败时保留草稿并阻止 prompt 发送。浏览器刷新恢复绑定，但 Host 重启可能使已注册 Record 失效，此时需要重新打开 Viewer 关联新 launch。Host receipt 和 Session log 格式保持不变。
+
 <details>
 <summary>实现细节——点击展开</summary>
 
@@ -103,6 +105,8 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
 无；该包既不组装也不发送提供方请求。
 
 ## 已知限制与延期工作
+
+分析暂存会插入规范 Skill 手势、原子 `deps.json` 引用和简短问题，然后关闭 overlay。引用通过 Host 解析准确的 Record 和 revision，不依赖 Session cwd。点击或键盘激活会打开新的完整 Viewer handle。PTO candidate source 支持手动重新选择同一绑定引用。必需 token 缺失或变化会拒绝首次准入；已准入的问题重试保留现有 launch 绑定。过期 Record 需要重新关联。
 
 <a id="known-limitations-and-deferred-work"></a>
 

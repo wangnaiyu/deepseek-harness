@@ -63,6 +63,8 @@ Disabled Send and Stop buttons suppress their tooltips, including a Stop button 
 <a id="temporary-composer-entries"></a>
 ## Temporary composer entries
 
+Plugins stage analysis launches through `conversation.guardedDrafts`: an owner, stable launch id, JSON payload, and browser draft text. The registered owner validates the captured intent before materialization and the Session binding before default prompt delivery. Browser interaction storage retains pending/admitted bindings across reloads; storage or owner failures reject sending. Edits retain identity, while starting another draft requires clearing the unsent analysis. Draft replacement is blocked during materialization, including after optimistic clearing. A successful check records admission state but never replaces Host validation on later sends. These records contain neither Host receipts nor Session history; clearing browser site data removes this recovery state.
+
 `conversation.composer` is a generic chain. Its complete owner currency is:
 
 ```ts type-equiv
@@ -120,6 +122,8 @@ None, as this package renders browser state and sends user-admitted inputs throu
 None; Conversation assembly and browser input state do not alter provider-side prompt caching.
 
 ## Known Limitations and Deferred Work
+
+Guarded drafts retain the editor text and source-owned reference occurrences together. Restoring a draft reconstructs its atomic references; serialization failure preserves them. The submission owner receives the captured editor projection before model serialization. A reference can offer a source-owned activation action without persisting callbacks or extending Session history.
 
 <a id="known-limitations-and-deferred-work"></a>
 
