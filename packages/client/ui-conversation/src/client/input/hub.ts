@@ -88,7 +88,8 @@ export class InputHub implements SessionInputResolver {
       this.submissionBindings.clearBrowser()
     },
     stage: (binding, text, begin) => {
-      const current = this.sessions().list.getSnapshot().current
+      const current = Object.values(this.sessions().list.getSnapshot().byId)
+        .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
       const existing = current === undefined ? this.draftShell() : this.shell(current)
       if (this.materializingGuarded || existing.snapshot.draft.trim() !== '' || existing.snapshot.attachmentIds.length > 0
         || this.draftShell().snapshot.draft.trim() !== '' || this.draftShell().snapshot.attachmentIds.length > 0) {
@@ -216,7 +217,7 @@ export class InputHub implements SessionInputResolver {
         for (const off of offs) off()
         const drafts = shell.dispose()
         this.shells.delete(binding)
-        this.pendingDraftAdmissions.delete(id)
+        this.pendingDraftAdmissions.delete(binding.sessionId)
         const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
         for (const attachmentId of drafts) conversation?.releaseDraftAttachment(attachmentId)
       }

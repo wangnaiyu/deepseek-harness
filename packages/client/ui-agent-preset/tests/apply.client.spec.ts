@@ -182,6 +182,7 @@ function uiWorkspaceDouble() {
   return {
     starts,
     presets,
+    prepare: async (sessionId: SessionId) => { for (const prepare of preparers) await prepare(sessionId as never) },
     list: {
       getSnapshot: () => ({ sessionDraft }),
       subscribe: (fn: () => void) => {
@@ -767,7 +768,7 @@ describe('ui-agent-preset apply', () => {
     conversation()
   })
 
-  it('applies the creator preset to an existing blank main Session', async () => {
+  it('stages the creator preset until first-send preparation', async () => {
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     const conversation = declareConversation(slots)
@@ -789,7 +790,9 @@ describe('ui-agent-preset apply', () => {
     await section.load()
     section.startCreatorDraft?.()
 
-    await vi.waitFor(() => { expect(calls).toContain('select:cordis') })
+    expect(calls).not.toContain('select:cordis')
+    await uiWorkspace.prepare(SessionId('s1'))
+    expect(calls).toContain('select:cordis')
     expect(seat.hooks.agentPresetSeat.getSnapshot().current).toBe('cordis')
     expect(uiWorkspace.starts).toHaveLength(1)
     conversation()
@@ -810,7 +813,8 @@ describe('ui-agent-preset apply', () => {
     } = { byId: {} }
     const sessions = sessionsDouble(ctx, state)
     ctx.provide('sessions', sessions as never)
-    ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
+    const uiWorkspace = uiWorkspaceDouble()
+    ctx.provide('uiWorkspace', uiWorkspace as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
     const injectSeat = slots.entries('conversation.hero.agentPreset')[0]!
@@ -823,7 +827,7 @@ describe('ui-agent-preset apply', () => {
     sessions.notify()
     const boundSeat = injectSeat(SessionId('s1'))
     await boundSeat.load()
-    await vi.waitFor(() => { expect(calls).toContain('select:cordis') })
+    expect(calls).toContain('select:cordis')
 
     // The chip mounts with the flow's session, so its roster load can land
     // AFTER the stage was consumed; the session's own composition is what

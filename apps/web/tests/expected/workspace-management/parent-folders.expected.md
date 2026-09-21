@@ -5,7 +5,11 @@
   - treeitem "project-two" [expanded]:
     - img
     - text: project-two
-  - treeitem "New Session" [selected]
-  - treeitem "project-one" [expanded]:
+  - treeitem "Use the read tool twice Session actions for Use the read tool twice" [selected]:
+    - text: Use the read tool twice
+    - button "Session actions for Use the read tool twice":
+      - img
+  - treeitem "project-one":
     - img
     - text: project-one
+- treeitem "folder-group 1min"

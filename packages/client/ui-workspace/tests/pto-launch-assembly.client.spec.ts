@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Real plugin assembly; the Host boundary is stubbed here, never used as live receipt evidence.
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { SlotTestRuntime, TestRemote, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { WorkspaceBrowserInjected } from '../src/client/index.ts'
 import type { PtoViewerOverlayInjected } from '../src/client/PtoViewerOverlay.tsx'
@@ -41,7 +41,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   runtime.sessions.stubCreate(async () => {
     if (nextSession === 0) await createBarrier
     const id = `session-${++nextSession}` as never
-    await runtime.sessions.add({ id, summary: { cwd: '/fixture', blank: true }, session: { prompt: sent as never } }, { current: false })
+    await runtime.sessions.add({ id, summary: { cwd: '/fixture', blank: true }, session: { prompt: sent as never } })
     return id
   })
   const admitAnalysis = vi.fn(async (request: Parameters<PtoViewerRemote['admitAnalysis']>[0]) => {
@@ -66,8 +66,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
       admitAnalysis,
     },
   }
-  Object.assign(new TestRemote(runtime.ctx), namespaces)
-  for (const [name, value] of Object.entries(namespaces)) runtime.ctx.provide(`remote.${name}` as never, value as never)
+  runtime.remote.provideNamespaces(namespaces)
   await runtime.root.declare({
     'main': { kind: 'keyed', scope: 'root' },
     'shell.overlay': { kind: 'list', scope: 'root' },

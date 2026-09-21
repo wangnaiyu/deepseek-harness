@@ -140,8 +140,10 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     }
     const parent = scaffold.ctx.agents.roots()[0]
     if (parent === undefined) throw new Error('fresh workspace did not publish its parent Agent')
+    await page.waitForFunction(() => document.querySelector('[data-composer-input]')?.textContent === '')
     const parentSettled = scaffold.whenTurnSettled()
     await writeComposerDraft(page, parentInput, PARENT_PROMPT)
+    expect(await parentInput.textContent()).toBe(PARENT_PROMPT)
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)
 

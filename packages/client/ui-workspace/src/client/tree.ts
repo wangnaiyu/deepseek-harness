@@ -262,7 +262,6 @@ function groupByWorkspace(
   archived: ReadonlySet<SessionId>,
   ungroupedOrder: readonly string[] | undefined,
 ): Group[] {
-  const current = mainSessionId(list)
   const groups: Group[] = []
   const accounted = new Set<SessionId>()
   for (const workspace of workspaces) {
@@ -386,7 +385,6 @@ export function visibleSessionIds(
   archivedSessionIds: readonly SessionId[],
 ): SessionId[] {
   const archived = new Set(archivedSessionIds)
-  const current = mainSessionId(list)
   return list.ids.filter((id) => {
     const s = list.byId[id]
     return s !== undefined && sessionVisible(s, archived)
@@ -436,7 +434,6 @@ export function deriveSearchResults(
   if (q === '') return { items: [], hasMore: false }
   const archived = new Set(archivedSessionIds)
   const descendants = indexSubagentDescendants(list.byId)
-  const current = mainSessionId(list)
 
   const workspaceBySession = new Map<SessionId, string>()
   for (const workspace of workspaces) {

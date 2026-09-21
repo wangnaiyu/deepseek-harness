@@ -195,9 +195,11 @@ export function apply(ctx: ClientContext): void {
           load: () => {
             if (available) directory.load().catch(() => { /* surfaced on the store */ })
           },
-          select: (selection: ModelSelection) => available
-            ? directory.select(selection)
-            : Promise.resolve(undefined),
+          select: async (selection: ModelSelection) => {
+            if (!available) return undefined
+            const result = await directory.select(selection)
+            return result ?? undefined
+          },
         }
       },
     }, ModelSelect))

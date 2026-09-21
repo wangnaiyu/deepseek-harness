@@ -45,6 +45,8 @@ describe('web e2e: hovering a clipped session title scrolls it to its far edge',
 
   it('reveals the clipped title under the pointer and restores its start after', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-title-hover-scroll'))
+    const workspace = page.getByRole('tree', { name: 'Sessions' }).getByRole('treeitem').first()
+    if (await workspace.getAttribute('aria-expanded') !== 'true') await workspace.click()
     const row = page.getByRole('treeitem').filter({ has: page.getByText(TITLE, { exact: true }) })
     await row.waitFor({ timeout: 20_000 })
     const title = row.getByText(TITLE, { exact: true })

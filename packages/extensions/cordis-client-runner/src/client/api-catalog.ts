@@ -365,7 +365,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'startSession(workspaceId?: WorkspaceId): void',
-        description: 'Start a New Session flow and navigate to its Session.',
+        description: 'Stage a browser-only New Session draft without creating a Session.',
         parameters: [{ name: 'workspaceId', description: 'explicit target; absent inherits the current or most recent Workspace.' }],
       },
       {

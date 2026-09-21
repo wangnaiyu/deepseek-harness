@@ -74,7 +74,7 @@ async function bench(options: {
   })
   runtime.ctx.provide('uiWorkspace', {
     list: workspaceList,
-    selectDraftWorkspace: (workspaceId: WorkspaceId) => runtime.workspaces.selectDraftWorkspace(workspaceId),
+    selectDraftWorkspace: (workspaceId: WorkspaceId) => { runtime.workspaces.selectDraftWorkspace(workspaceId) },
     materializeSessionDraft: () => runtime.workspaces.materializeSessionDraft(),
     openWorkspace: async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
       const id = await connectWorkspace()
@@ -158,13 +158,11 @@ async function bench(options: {
     const shell = (runtime.ctx.conversation.input as unknown as {
       draftShell: () => {
         state: { getSnapshot: () => { draft: string } }
-        actions: {
-          setDraft: (text: string) => void
-          submit: () => void
-        }
+        setDraft: (text: string) => void
+        submit: () => void
       }
     }).draftShell()
-    return { state: shell.state, actions: shell.actions }
+    return { state: shell.state, actions: shell }
   }
   return {
     runtime, feature, slots: runtime.slots, entryOf, conversationApi, headerApi, residentApi, composerApi,
@@ -461,13 +459,12 @@ describe('Conversation inject API', () => {
     expect(state.getSnapshot().draft).toBe('')
     await resident.selectWorkspace('workspace-3' as never)
     expect(b.runtime.workspaces.calls).toContainEqual({ method: 'selectDraftWorkspace', args: ['workspace-3'] })
-    expect(b.runtime.sessions.calls.filter(c => c.method === 'open')).toHaveLength(0)
+    expect(b.opened).not.toHaveBeenCalled()
     await b.runtime.dispose()
   })
 
   it('materializes the browser draft only when its first prompt is submitted', async () => {
     const b = await bench()
-    b.runtime.sessions.clear()
     b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
     const { state, actions } = b.draftInputApi()
     actions.setDraft('first prompt')
@@ -487,7 +484,6 @@ describe('Conversation inject API', () => {
   it('revalidates the materialized Session catalog before admitting the first prompt', async () => {
     const admitMaterialized = vi.fn(() => Promise.resolve())
     const b = await bench({ admitMaterialized })
-    b.runtime.sessions.clear()
     b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
     const { actions } = b.draftInputApi()
     actions.setDraft('/skill pto-analyze')
@@ -512,7 +508,6 @@ describe('Conversation inject API', () => {
       .mockRejectedValueOnce(new Error('Skill "pto-analyze" is no longer available'))
       .mockResolvedValue(undefined)
     const b = await bench({ admitMaterialized })
-    b.runtime.sessions.clear()
     b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
     const draft = b.draftInputApi()
     draft.actions.setDraft('/skill pto-analyze')
@@ -522,7 +517,7 @@ describe('Conversation inject API', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(b.sessionFake.prompt).not.toHaveBeenCalled()
-    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(0)
+    expect(b.opened).not.toHaveBeenCalled()
     expect(b.inputApi(ROOT).state.getSnapshot().draft).toBe('/skill pto-analyze')
     expect(draft.state.getSnapshot().draft).toBe('/skill pto-analyze')
 
@@ -545,7 +540,6 @@ describe('Conversation inject API', () => {
       .mockResolvedValue(undefined)
     const b = await bench({ admitMaterialized })
     onTestFinished(() => b.runtime.dispose())
-    b.runtime.sessions.clear()
     b.runtime.workspaces.stub('materializeSessionDraft', () => Promise.resolve(ROOT))
     const draft = b.draftInputApi()
     draft.actions.setDraft('/skill pto-analyze')
@@ -565,7 +559,7 @@ describe('Conversation inject API', () => {
 
     expect(b.rootUpload).toHaveBeenCalledOnce()
     expect(b.sessionFake.prompt).not.toHaveBeenCalled()
-    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(0)
+    expect(b.opened).not.toHaveBeenCalled()
     expect(b.inputApi(ROOT).state.getSnapshot().draft).toBe('/skill pto-analyze')
     expect(draft.state.getSnapshot().draft).toBe('/skill pto-analyze')
 

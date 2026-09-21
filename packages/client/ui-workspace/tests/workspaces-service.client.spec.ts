@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type {
   ISessions, SessionListState, SessionReference, SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -345,27 +345,62 @@ describe('UiWorkspaceService', () => {
     }
   })
 
+  it('stops initial draft staging when its Cordis lifetime is disposed', async () => {
+    const b = bench()
+    await b.ctx.fiber.dispose()
+    b.workspaces.list.set(workspaceState([workspace('ignored')]))
+    b.sessions.list.set(sessionState())
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBeUndefined()
+    expect(b.sessions.create).not.toHaveBeenCalled()
+  })
+
+  it('does not run startup selection after a main Session was chosen while catalogs loaded', () => {
+    const b = bench()
+    b.uiWorkspace.openSession(sid('chosen'))
+
+    b.workspaces.list.set(workspaceState([workspace('a')]))
+    b.sessions.list.set(sessionState())
+
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('chosen'), { source: 'mainView' })
+    expect(b.sessions.create).not.toHaveBeenCalled()
+  })
+
+  it('forwards fork policy and rejects a failed fork', async () => {
+    const b = bench()
+    await b.uiWorkspace.forkSession(sid('source'))
+    expect(b.sessions.fork).toHaveBeenCalledWith({ sessionId: sid('source'), increaseTitle: true })
+    expect(b.sessions.retain).toHaveBeenCalledWith(sid('forked'), { source: 'mainView' })
+    b.sessions.fork.mockRejectedValueOnce(new Error('fork failed'))
+    await expect(b.uiWorkspace.forkSession(sid('source'))).rejects.toThrow('fork failed')
+  })
+
+  it('reuses only an unarchived member blank and coalesces concurrent creation', async () => {
+    const b = bench({
+      sessions: sessionState([
+        summary('stray', { blank: true, cwd: '/w/a' }),
+        summary('blank', { blank: true, cwd: '/w/a' }),
+        summary('archived', { blank: true, cwd: '/w/b' }),
+      ]),
+      workspaces: workspaceState([workspace('a', [sid('blank')]), workspace('b', [sid('archived')])], [sid('archived')]),
+    })
+    await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(sid('blank'))
+    expect(b.sessions.create).not.toHaveBeenCalled()
+    b.sessions.retain.mockClear()
+    const created = Promise.withResolvers<SessionId>()
+    b.sessions.create.mockReturnValue(created.promise)
+    const first = b.uiWorkspace.connectWorkspace(wid('b'))
+    const second = b.uiWorkspace.connectWorkspace(wid('b'))
+    expect(b.sessions.create).toHaveBeenCalledOnce()
+    created.resolve(sid('new'))
+    await expect(Promise.all([first, second])).resolves.toEqual([sid('new'), sid('new')])
+    await expect(b.uiWorkspace.connectWorkspace(wid('missing'))).rejects.toThrow('unknown workspace')
+    expect(b.sessions.retain).not.toHaveBeenCalled()
+  })
+
   it('stages an explicit, current-session, then recent Workspace without creating a Session', () => {
     const current = summary('current', { cwd: '/w/current-home', updatedAt: 1 })
     const recent = summary('recent', { cwd: '/w/recent-home', updatedAt: 2 })
     const b = bench({
-      sessions: sessionState([current, recent]),
-      workspaces: workspaceState([
-        workspace('old'),
-        workspace('current-home', [current.id]),
-        workspace('recent-home', [recent.id]),
-      ]),
-    })
-    b.uiWorkspace.startSession(wid('old'))
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-old'), { source: 'mainView' })
-    })
-    b.uiWorkspace.openSession(current.id)
-    b.uiWorkspace.startSession()
-    await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-current-home'), { source: 'mainView' })
-    })
-    const recentOnly = bench({
       sessions: sessionState([current, recent]),
       workspaces: workspaceState([
         workspace('current-home', [current.id]),
@@ -377,24 +412,76 @@ describe('UiWorkspaceService', () => {
       workspaceId: wid('recent-home'), cwd: '/w/recent-home',
     })
 
-    b.sessions.open(current.id)
+    b.uiWorkspace.openSession(current.id)
     b.uiWorkspace.startSession()
     expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toMatchObject({
       workspaceId: wid('current-home'), cwd: '/w/current-home',
     })
 
-    b.sessions.clear()
+    b.uiWorkspace.startUnassignedSession()
     b.uiWorkspace.startSession()
     expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toMatchObject({
       workspaceId: wid('recent-home'), cwd: '/w/recent-home',
     })
     expect(b.sessions.create).not.toHaveBeenCalled()
-    expect(b.sessions.open).toHaveBeenCalledTimes(1)
+    expect(b.sessions.retain).toHaveBeenCalledTimes(1)
 
     const empty = bench()
     empty.uiWorkspace.startSession()
-    expect(empty.sessions.clear).toHaveBeenCalledOnce()
+    expect(empty.sessions.retain).not.toHaveBeenCalled()
     expect(empty.uiWorkspace.list.getSnapshot().sessionDraft).toBeDefined()
+  })
+
+  it('coalesces first sends and waits for a retained binding before preparing the draft', async () => {
+    const b = bench()
+    b.uiWorkspace.startUnassignedSession()
+    const ready = Promise.withResolvers<SessionReference['binding']>()
+    const retain = b.sessions.retain.getMockImplementation()!
+    b.sessions.retain.mockImplementation((...args) => ({ ...retain(...args), ready: ready.promise }))
+    const prepare = vi.fn(async () => {})
+    b.uiWorkspace.prepareSessionDraft(prepare)
+    const first = b.uiWorkspace.materializeSessionDraft()
+    const second = b.uiWorkspace.materializeSessionDraft()
+    expect(second).toBe(first)
+    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledOnce() })
+    expect(prepare).not.toHaveBeenCalled()
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBeDefined()
+    ready.resolve(b.sessions.retained[0]!.reference.binding)
+    await expect(first).resolves.toBe(sid('created-none'))
+    expect(prepare).toHaveBeenCalledExactlyOnceWith(sid('created-none'))
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBeUndefined()
+    expect(b.sessions.create).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a newer draft when earlier first-send preparation finishes', async () => {
+    const b = bench()
+    b.uiWorkspace.startUnassignedSession()
+    const preparation = Promise.withResolvers<undefined>()
+    onTestFinished(() => { preparation.resolve(undefined) })
+    const prepare = vi.fn(() => preparation.promise)
+    b.uiWorkspace.prepareSessionDraft(prepare)
+    const first = b.uiWorkspace.materializeSessionDraft()
+    await vi.waitFor(() => { expect(prepare).toHaveBeenCalledOnce() })
+    b.uiWorkspace.startUnassignedSession()
+    const newer = b.uiWorkspace.list.getSnapshot().sessionDraft
+    preparation.resolve(undefined)
+    await first
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBe(newer)
+    expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
+  })
+
+  it('releases a prepared Workspace target when synchronous preparation supersedes it', async () => {
+    const b = bench({ workspaces: workspaceState([workspace('a')]) })
+
+    await b.uiWorkspace.openWorkspace(wid('a'), () => {
+      b.uiWorkspace.openSession(sid('override'))
+    })
+
+    expect(b.sessions.retained.map(item => item.reference.sessionId)).toEqual([
+      sid('created-a'), sid('override'),
+    ])
+    expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
+    expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
   })
 
   it('stages the recent Workspace after both baselines arrive', () => {
@@ -410,28 +497,10 @@ describe('UiWorkspaceService', () => {
       workspaceId: wid('recent'), cwd: '/w/recent',
     })
     expect(b.sessions.create).not.toHaveBeenCalled()
-    expect(b.sessions.open).not.toHaveBeenCalled()
+    expect(b.sessions.retain).not.toHaveBeenCalled()
     expect(b.workspaces.list.getSnapshot().items.map(item => item.workspaceId)).toEqual([
       wid('stable-first'), wid('recent'),
     ])
-    expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
-    expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-  })
-
-  it('uses Workspace creation time when members are absent and preserves Host tie order', () => {
-    const b = bench()
-
-    b.workspaces.list.set(workspaceState([
-      workspace('newest', [], '2026-03-01T00:00:00.000Z'),
-      workspace('same-time', [], '2026-03-01T00:00:00.000Z'),
-      workspace('older', [], '2026-01-01T00:00:00.000Z'),
-    ]))
-    b.sessions.list.set(sessionState())
-
-    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toMatchObject({
-      workspaceId: wid('newest'), cwd: '/w/newest',
-    })
-    expect(b.sessions.create).not.toHaveBeenCalled()
   })
 
   it('does not overwrite a later manual selection after staging the initial draft', () => {
@@ -439,36 +508,11 @@ describe('UiWorkspaceService', () => {
     b.workspaces.list.set(workspaceState([workspace('recent')]))
     b.sessions.list.set(sessionState())
     expect(b.uiWorkspace.list.getSnapshot().sessionDraft?.workspaceId).toBe(wid('recent'))
-    b.sessions.open(sid('manual'))
+    b.uiWorkspace.openSession(sid('manual'))
     b.workspaces.list.update(state => ({ ...state, items: [...state.items] }))
-    expect(b.sessions.open).toHaveBeenCalledTimes(1)
-    expect(b.sessions.open).toHaveBeenCalledWith(sid('manual'))
+    expect(b.sessions.retain).toHaveBeenCalledTimes(1)
+    expect(b.sessions.retain).toHaveBeenCalledWith(sid('manual'), { source: 'mainView' })
     expect(b.sessions.create).not.toHaveBeenCalled()
-  })
-
-  it('stops initial draft staging when its Cordis lifetime is disposed', async () => {
-    const b = bench()
-    await b.ctx.fiber.dispose()
-    b.workspaces.list.set(workspaceState([workspace('ignored')]))
-    b.sessions.list.set(sessionState())
-    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBeUndefined()
-    expect(b.sessions.create).not.toHaveBeenCalled()
-  })
-
-  it('clears a current Session only after it enters the archive baseline', () => {
-    const current = summary('current')
-    const idle = summary('idle')
-    const b = bench({
-      workspaces: workspaceState([workspace('a')]),
-      sessions: sessionState(),
-      configureSessions: (sessions) => { sessions.create.mockReturnValue(created.promise) },
-    })
-    b.uiWorkspace.openSession(sid('chosen'))
-
-    created.resolve(sid('automatic'))
-    await b.uiWorkspace.connectWorkspace(wid('a'))
-
-    expect(b.sessions.retain.mock.calls.map(([target]) => target)).toEqual([sid('chosen')])
   })
 
   it('restores a persisted subagent address without a parent catalog', () => {
@@ -605,5 +649,32 @@ describe('UiWorkspaceService', () => {
     await expect(b.uiWorkspace.createDirectory('/home/u', 'new')).rejects.toMatchObject({
       rpcError: { code: 'directory-picker/exists' },
     })
+  })
+  it('starts a local draft without allocating a Session before a later panel selection', () => {
+    const b = bench({
+      sessions: sessionState([summary('current')]),
+      workspaces: workspaceState([workspace('alpha')]),
+    })
+    b.uiWorkspace.startSession(wid('alpha'))
+    b.layout.selectPanel('panel-a' as MainPanelId)
+    expect(b.sessions.create).not.toHaveBeenCalled()
+    expect(b.sessions.retain).not.toHaveBeenCalled()
+    expect(b.selectPanel).toHaveBeenLastCalledWith('panel-a')
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft?.workspaceId).toBe(wid('alpha'))
+  })
+  it('uses Workspace creation time when members are absent and preserves Host tie order', () => {
+    const b = bench()
+
+    b.workspaces.list.set(workspaceState([
+      workspace('newest', [sid('missing')], '2026-03-01T00:00:00.000Z'),
+      workspace('same-time', [], '2026-03-01T00:00:00.000Z'),
+      workspace('older', [], '2026-01-01T00:00:00.000Z'),
+    ]))
+    b.sessions.list.set(sessionState())
+
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toMatchObject({
+      workspaceId: wid('newest'), cwd: '/w/newest',
+    })
+    expect(b.sessions.create).not.toHaveBeenCalled()
   })
 })

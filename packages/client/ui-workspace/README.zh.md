@@ -31,15 +31,15 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-用侧边栏浏览 Workspace 及其 Session、重排它们并新建会话；在 Session Intent 主视觉区用选择器为新会话选择 Workspace。打开的 Workspace 默认显示五条非空白 Session，并在首条提示词落地前把当前选中的空白**新会话**作为一条临时额外行。**展开其余**会显示隐藏条目；关闭再打开 Workspace 会恢复该折叠投影。
+用侧边栏浏览 Workspace 及其 Session、重排它们并新建会话；在 Session Intent 主视觉区用选择器为新会话选择 Workspace。打开的 Workspace 默认显示五条非空白 Session，并在首条提示词落地前隐藏所有空白 Session。**展开其余**会显示隐藏条目；关闭再打开 Workspace 会恢复该折叠投影。
 
 ### 重排序与视图选项
 
-**最近更新**在分组和单列表视图中都按普通 Session 的最近一次用户提示词或 steering（中途引导）时间降序排列。**手动排序**会冻结当前显示顺序，并在活动变化时保持已有位置；新发现的普通 Session 追加到末尾，多条同时到达时按最近更新时间降序排列。返回最近更新会丢弃所有手动位置；再次进入手动排序时，则冻结当时的最近更新顺序。浏览器默认采用最近更新，并在重新加载后记住所选模式。拖拽普通 Session 会在浏览器本地应用移动并选中手动排序。当前选中的空白**新会话**始终固定在首位且无法拖拽；首条提示词落地后，它成为可拖拽的普通行，在手动排序中保留首位，在最近更新中按当前时间戳排列。折叠分组的拖拽边界按渲染行确定，并把来源行放在中间隐藏行之前，因此拖拽不会隐藏来源行。真实 Workspace、Ungrouped 与单列表的 Session 显示顺序都保留在浏览器本地；Workspace 分组的拖拽顺序仍由 Host 持久化。
+**最近更新**在分组和单列表视图中都按普通 Session 的最近一次用户提示词或 steering（中途引导）时间降序排列。**手动排序**会冻结当前显示顺序，并在活动变化时保持已有位置；新发现的普通 Session 追加到末尾，多条同时到达时按最近更新时间降序排列。返回最近更新会丢弃所有手动位置；再次进入手动排序时，则冻结当时的最近更新顺序。浏览器默认采用最近更新，并在重新加载后记住所选模式。拖拽普通 Session 会在浏览器本地应用移动并选中手动排序。空白 Session 不渲染行。首次提示词之后，Session 按所选排序模式成为普通可拖拽行。折叠分组的拖拽边界按渲染行确定，并把来源行放在中间隐藏行之前，因此拖拽不会隐藏来源行。真实 Workspace、Ungrouped 与单列表的 Session 显示顺序都保留在浏览器本地；Workspace 分组的拖拽顺序仍由 Host 持久化。
 
 ### 工作区层级
 
-选择**添加工作区**并选取目录，即可注册工作区并打开 Session。**视图选项 → 分组方式**默认为**按工作区**，将工作区作为同级分组显示。选择**按工作区树**后，每个 Workspace 会位于最近的已注册祖先之下，之后添加的 Workspace 也会自动归入。每个 Workspace 保留自己的 Session 和行操作，子 Workspace 显示在父级自己的 Session 之前。祖先默认展开，已有的折叠偏好除外。保存的折叠状态也会隐藏当前 Session；如果后代 Workspace 包含当前 Session，祖先文件夹图标仍保持高亮。各层级的高亮和点击区域保持整行同宽，仅内容缩进。拖拽 Workspace 仅重排同级项目；落在后代行上时，由最近的兼容祖先接收，因此无需先折叠父级就能将其他工作区拖到其后。选择搜索结果会展开全部祖先。分组方式和展开状态保存在当前浏览器中；切换模式会保留各 Workspace 的展开偏好，单列表视图保持平铺。
+选择**添加工作区**并选取目录，即可注册工作区并暂存浏览器草稿。**视图选项 → 分组方式**默认为**按工作区**，将工作区作为同级分组显示。选择**按工作区树**后，每个 Workspace 会位于最近的已注册祖先之下，之后添加的 Workspace 也会自动归入。每个 Workspace 保留自己的 Session 和行操作，子 Workspace 显示在父级自己的 Session 之前。祖先默认展开，已有的折叠偏好除外。保存的折叠状态也会隐藏当前 Session；如果后代 Workspace 包含当前 Session，祖先文件夹图标仍保持高亮。各层级的高亮和点击区域保持整行同宽，仅内容缩进。拖拽 Workspace 仅重排同级项目；落在后代行上时，由最近的兼容祖先接收，因此无需先折叠父级就能将其他工作区拖到其后。选择搜索结果会展开全部祖先。分组方式和展开状态保存在当前浏览器中；切换模式会保留各 Workspace 的展开偏好，单列表视图保持平铺。
 
 层级仅使用已注册的规范路径，不扫描项目，也不解析符号链接别名。嵌套不会改变 Session 的工作目录、日志或 Workspace 归属。删除父 Workspace 后，子 Workspace 仍保持注册，并归入下一个已注册祖先；没有祖先时显示在根层级。
 
@@ -65,7 +65,7 @@ Session 行渲染运行时的实时 `pendingInteraction` 分类：审批显示**
 
 -----
 
-`ctx.uiWorkspace.openSession(target)` 会同步替换其拥有的 `mainView` reference，并让主区域返回 Conversation，而不等待 `reference.ready`，因此历史加载会显示在已经选中的 Session 视图内。目标可以是已知 Session id，也可以是持久的直接父子 subagent 地址；显式地址不要求预先加载 parent catalog。`openWorkspace(id, beforeOpen?)` 和 `forkSession(id)` 仅在请求未被后续导航替代时打开结果；新会话使用 `openWorkspace`。可选的同步准备回调在目标被 retain 后执行，并且仅对仍有效的 Workspace 请求执行，因此过期请求不会搬移 composer 草稿。后续导航或 owner 释放会阻止晚到的 UI 提交，但不取消底层 Session 创建。归档主 Session 会释放其 reference 并清除主选择。选择失败时保留当前全局面板。Session 行读取 `usePanelInfo`，在全局面板活跃时不显示 Session 选中样式；仅把焦点移到搜索框或目录选择器不会离开该面板。
+`ctx.uiWorkspace.openSession(target)` 会同步替换其拥有的 `mainView` reference，并让主区域返回 Conversation，而不等待 `reference.ready`，因此历史加载会显示在已经选中的 Session 视图内。目标可以是已知 Session id，也可以是持久的直接父子 subagent 地址；显式地址不要求预先加载 parent catalog。`openWorkspace(id, beforeOpen?)` 和 `forkSession(id)` 仅在请求未被后续导航替代时打开结果。新会话暂存纯浏览器草稿；首次发送创建并保有 Session，等待 binding 后执行有序准备。可选的同步准备回调在目标被 retain 后执行，并且仅对仍有效的 Workspace 请求执行，因此过期请求不会搬移 composer 草稿。后续导航或 owner 释放会阻止晚到的 UI 提交，但不取消底层 Session 创建。归档主 Session 会释放其 reference 并清除主选择。选择失败时保留当前全局面板。Session 行读取 `usePanelInfo`，在全局面板活跃时不显示 Session 选中样式；仅把焦点移到搜索框或目录选择器不会离开该面板。
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
@@ -123,9 +123,9 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
 
 这些限制定义搜索深度、归档界面与选取载体；它们是当前包约束。
 
-- **没有模糊内容搜索或事件深链接**：内容后端采用字面 token/短语匹配，选择结果会打开 Session，而不是匹配的事件。
 - **运行记录只列出用户手工打开的条目**：本应填充工程分节的按需 recognizer 扫盘属于发现层的工作，尚未构建，因此在有记录被打开进去之前，这些分节都是空的。
 - **运行记录的归属判定按路径精确比较**：未对大小写不敏感的文件系统建模，因此与所属 Workspace 仅大小写不同的路径会落入导入桶，而不是该工程分节。
+- **没有模糊内容搜索或事件深链接**：内容后端采用字面 token/短语匹配，选择结果会打开 Session，而不是匹配的事件。
 - **没有 Session 删除，取消归档位于设置中**：会话可以归档但绝不会被删除；已归档会话的查看与恢复由「已归档会话」设置页（[ui-settings-unarchive-sessions](../ui-settings-unarchive-sessions/README.zh.md)）负责，删除 Workspace 注册记录不会删除 Session。
 - **待处理的用户交互不会聚合到折叠的分组上**：折叠分组内正在等待的行不会点亮分组头指示，只有展开该分组后才可见。
 - **原生文件夹选择依赖本地 Host 载体**：在 `-native` 组合下，进程内部署或远程浏览器部署无法打开本地操作系统对话框；可远程的选取是 `-browse` 组合的应用内流程。

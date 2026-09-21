@@ -59,7 +59,7 @@ export interface UiWorkspace {
    */
   connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId>
   /**
-   * Start a New Session flow and navigate to its Session.
+   * Stage a browser-only New Session draft without creating a Session.
    * @param workspaceId - explicit target; absent inherits the current or most recent Workspace.
    */
   startSession(workspaceId?: WorkspaceId): void
@@ -148,7 +148,6 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private draftCatalogRevision = 0
   private materializingDraft: { revision: number; pending: Promise<SessionId> } | undefined
   private readonly draftPreparers = new Map<(sessionId: SessionId) => Promise<void>, number>()
-  private clearingArchivedCurrent = false
 
   /**
    * @param ctx - Client root Context.
@@ -215,6 +214,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   openSession(target: SessionTarget): void {
     this.replaceMain(target, this.lifetime.signal)
+    this.setSessionDraft(undefined)
   }
 
   async openWorkspace(workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void): Promise<void> {
@@ -300,7 +300,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       draft.workspaceId === undefined ? {} : { workspaceId: draft.workspaceId },
     ).then(async (sessionId) => {
       if (this.list.getSnapshot().sessionDraft?.revision === draft.revision) {
-        this.openSession(sessionId)
+        this.replaceMain(sessionId, this.lifetime.signal)
+        const reference = this.mainReference
+        if (reference === undefined) throw new Error('Draft Session is not retained')
+        await reference.ready
         const preparers = [...this.draftPreparers].sort((left, right) => left[1] - right[1])
         for (const [prepare] of preparers) {
           try {
@@ -309,7 +312,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
             console.warn('new session preparation failed:', error)
           }
         }
-        this.setSessionDraft(undefined)
+        if (this.list.getSnapshot().sessionDraft?.revision === draft.revision) {
+          this.setSessionDraft(undefined)
+        }
       }
       return sessionId
     }).finally(() => {

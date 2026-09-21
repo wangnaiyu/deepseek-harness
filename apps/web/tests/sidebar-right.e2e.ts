@@ -1,4 +1,3 @@
-import { acknowledgeReloadConnectionLoss } from './scaffold.ts'
 // Keyless assembled-browser coverage for the shipped right Sidebar: the official
 // roster row, the real plugin graph, and one Chromium. No overlay is applied —
 // this scenario proves the surface is in the product's own composition.

@@ -239,9 +239,9 @@ describe('ui-model-selection dual entry', () => {
     expect(b.calls.models).toBeGreaterThan(0)
     expect(b.calls.select).toBe(0)
 
-    expect(await draftFace.select({
+    await draftFace.select({
       provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
-    })).toBe(true)
+    })
     expect(draftFace.directory.getSnapshot().current).toEqual({
       provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max',
     })

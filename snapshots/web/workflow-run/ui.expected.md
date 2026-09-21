@@ -1,3 +1,5 @@
+- img
+- text: permission preset workspace-write
 - button "System prompt":
   - img
   - img

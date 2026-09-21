@@ -28,9 +28,10 @@ const PATTERNS = [
   'packages/**/*.ts',
 ]
 
-/** Paths excluded from the scan: built output and vendored upstream source. */
+/** Frozen format source labels are checked as historical schemas by persistence-formats, not as live paths. */
 const isExcluded = (p: string): boolean =>
-  isArchivedAgentNotePath(p) || p.includes('/lib/') || p.endsWith('.d.ts') || p.startsWith('vendor/')
+  isArchivedAgentNotePath(p) || /^docs\/persistence-changes\/historical-formats\/v\d+(?:\.zh)?\.md$/u.test(p)
+  || p.includes('/lib/') || p.endsWith('.d.ts') || p.startsWith('vendor/')
 
 /**
  * Directory names of every real package, `packages/<group>/<pkg>`. A broken

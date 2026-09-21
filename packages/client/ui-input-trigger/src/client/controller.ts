@@ -156,7 +156,7 @@ export class InputTriggerController {
       // draft right away, and that track must not close what the gesture
       // opened. The launcher flag is cleared here, so this holds for that one
       // follow-up track only; typing or picking takes over from there.
-      if (launched) return
+      if (launched && guard.tier === 'plain') return
       this.hit = null
       // A frozen-tier track is the submit gesture's own bookkeeping, not a new
       // intent from the user: a command submitted after a dismissal must not
