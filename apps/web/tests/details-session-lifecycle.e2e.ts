@@ -172,6 +172,13 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     const blankColumn = page.locator('[data-rightbar-col]')
     const workspace = join(scaffold.workspaceCwd, 'workspace')
     await writeFile(join(workspace, 'before-chat.md'), '# Before the first message\n\nWorkspace preview is available.\n')
+    // A Workspace draft has no Session-scoped sidebar. A local command explicitly materializes it.
+    expect(await page.locator('[data-sidebar-right-expand]').count()).toBe(0)
+    const commandInput = page.locator('[data-composer-input]').first()
+    await commandInput.fill('/permission workspace-write')
+    await commandInput.press('Escape')
+    await commandInput.press('Enter')
+    await expect.poll(() => commandInput.textContent()).toBe('')
     await page.locator('[data-sidebar-right-expand]').waitFor({ state: 'visible' })
     await page.screenshot({ path: join(SHOT_DIR, `blank-collapsed-${MODE}-${process.pid}.png`), fullPage: true })
     await page.locator('[data-sidebar-right-expand]').click()
@@ -220,7 +227,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     await compareOrRefreshGolden(BLANK_EXPECTED, [
       '# Blank Session workspace sidebar', '',
       '- No selected Session: expand control absent',
-      '- Selected workspace before first message: expand control visible',
+      '- Selected workspace draft: expand control absent; local command creates the Session and exposes it',
       '- Files: before-chat.md opens as a Markdown preview',
       '- Narrow viewport: reopened preview fills the viewport',
       '- Terminal: writes a file in the selected workspace before any user message or turn', '',

@@ -1404,7 +1404,7 @@ describe('WorkspaceBrowser', () => {
 
   it('keeps the Ungrouped bucket when its current blank session loses selection', () => {
     const blank = { ...summary('loose-blank', 1), blank: true }
-    const sessions = sessionState([blank], { current: blank.id })
+    const sessions = sessionState([blank], { main: blank.id })
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([])),
@@ -1412,7 +1412,7 @@ describe('WorkspaceBrowser', () => {
     expect(screen.queryByText('新会话')).toBeNull()
     expect(screen.getByText('暂无会话')).toBeTruthy()
 
-    rerender(b, { useSessions: hook({ ...sessions, current: undefined }) })
+    rerender(b, { useSessions: hook({ ...sessions, main: undefined }) })
     expect(screen.getByText('未分组')).toBeTruthy()
     expect(screen.queryByText('新会话')).toBeNull()
     expect(screen.getByText('暂无会话')).toBeTruthy()
@@ -1942,7 +1942,7 @@ describe('WorkspaceBrowser', () => {
 
   it('shows the Ungrouped local empty state even when Workspace sessions exist', () => {
     const b = mount({
-      useSessions: hook(sessionState([summary('owned', 1)], { current: sid('owned') })),
+      useSessions: hook(sessionState([summary('owned', 1)], { main: sid('owned') })),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['owned'])])),
     })
     expect(screen.getByText('owned')).toBeTruthy()
@@ -2649,7 +2649,7 @@ describe('Workspace tree grouping', () => {
     expect(b.props.insertWorkspaceBefore).toHaveBeenCalledExactlyOnceWith(root.workspaceId, undefined)
     rerender(b, { useWorkspaces: hook(workspaceState([team, child, other, outside, root])) })
     expect(screen.getAllByRole('treeitem').map(row => row.textContent)).toEqual([
-      'outside', 'Projects', 'Team', 'Child', 'other',
+      'outside', 'Projects', 'Team', 'Child', 'other', '未分组',
     ])
     expect(within(section('Team')).getByText('Child')).toBeTruthy()
   })

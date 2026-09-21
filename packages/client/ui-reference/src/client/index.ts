@@ -87,7 +87,7 @@ export function apply(ctx: ClientContext): void {
       const listed = sessions.list.getSnapshot().byId
       const sessionRows = sessionItems.map((candidate) => {
         const summary = listed[candidate.sessionId]
-        const child = summary?.origin === 'subagent' && summary.parentId === session.sessionId
+        const child = summary?.origin === 'subagent' && summary.parentId === target.sessionId
         return {
           child,
           row: sessionCandidate(

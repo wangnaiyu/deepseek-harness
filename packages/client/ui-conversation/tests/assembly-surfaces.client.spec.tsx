@@ -61,6 +61,7 @@ function provideWorkspaceNavigation(runtime: SlotTestRuntime): (id: SessionId) =
     mainReference = next
   }
   runtime.ctx.provide('uiWorkspace', {
+    list: runtime.workspaces.list,
     openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
       beforeOpen(SID)
       openSession(SID)

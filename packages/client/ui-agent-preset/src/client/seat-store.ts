@@ -201,7 +201,7 @@ export class AgentPresetSeatController {
     // opened. Do not let that targetless pass occupy the coalescing slot:
     // first-send preparation runs immediately after open and must perform the
     // staged selection against the real Session rather than reuse a no-op.
-    if (this.staged === undefined || this.currentSession() === undefined) {
+    if (this.staged.id === undefined || this.currentSession() === undefined) {
       return this.applyOnce()
     }
     if (this.applying !== undefined) return this.applying

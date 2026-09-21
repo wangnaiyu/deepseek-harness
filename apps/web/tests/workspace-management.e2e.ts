@@ -654,14 +654,14 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     const childSessionIds = [...childWorkspace.sessionIds]
     const workspaceCount = scaffold.ctx.workspaceRegistry.list().length
     const agentCount = scaffold.ctx.agents.list().length
-    await adoptDirectory(parentPath, { waitForAgent: true })
+    await adoptDirectory(parentPath)
     expect(await page.getByRole('dialog', { name: 'Add workspace', exact: true }).count()).toBe(0)
     expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(workspaceCount + 1)
-    expect(scaffold.ctx.agents.list()).toHaveLength(agentCount + 1)
+    expect(scaffold.ctx.agents.list()).toHaveLength(agentCount)
     expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
     const parentWorkspace = (await scaffold.ctx.workspaceRegistry.resolveByPath(parentPath))!
-    expect(parentWorkspace.sessionIds).toHaveLength(1)
-    const parent = page.getByRole('treeitem').filter({ has: page.getByText('folder-group', { exact: true }) })
+    expect(parentWorkspace.sessionIds).toHaveLength(0)
+    const parent = page.locator('[role="treeitem"][aria-expanded]').filter({ has: page.getByText('folder-group', { exact: true }) })
     const section = parent.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
     await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('project-one', { exact: true }).waitFor()
     expect(await section.getByText('project-one', { exact: true }).count()).toBe(0)
@@ -672,8 +672,20 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await section.getByText('project-one', { exact: true }).waitFor()
     await addNewFolderWorkspace(parentPath, 'project-two')
     const project = section.getByRole('treeitem', { name: 'project-two', exact: true })
-    const session = section.locator('[aria-selected="true"]')
-    await session.waitFor()
+    const parentSessionId = await seedSession({ ...scaffold, workspaceCwd: parentPath }, await readFile(SEED, 'utf8'), 'workspace-parent-session')
+    await parentWorkspace.attachSession(parentSessionId)
+    const projectPath = join(parentPath, 'project-two')
+    const projectWorkspace = (await scaffold.ctx.workspaceRegistry.resolveByPath(projectPath))!
+    const projectSessionId = await seedSession({ ...scaffold, workspaceCwd: projectPath }, await readFile(SEED, 'utf8'), 'workspace-child-session')
+    await projectWorkspace.attachSession(projectSessionId)
+    const reloadWarnings = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    await project.waitFor()
+    acknowledgeReloadConnectionLoss(tripwire, reloadWarnings)
+    if (await project.getAttribute('aria-expanded') !== 'true') await project.click()
+    await section.locator('[role="treeitem"][class*="sessionRow"]').filter({ hasText: 'project-two' }).click()
+    const session = section.locator('[role="treeitem"][aria-selected="true"]')
+    await expect.poll(() => session.getAttribute('aria-selected')).toBe('true')
     const parentBounds = (await parent.boundingBox())!
     for (const row of [project, session]) {
       const bounds = (await row.boundingBox())!
@@ -710,7 +722,7 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     }, { timeout: 10_000 }).toBe(true)
     await section.getByText('project-two', { exact: true }).waitFor()
     await parent.click()
-    expect(await parent.locator('[class*="folderActive"]').count()).toBe(1)
+    await expect.poll(() => parent.locator('[class*="folderActive"]').count()).toBe(1)
     expect(await section.getByText('project-two', { exact: true }).count()).toBe(0)
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
@@ -727,9 +739,8 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
     await page.getByRole('menuitem', { name: 'Workspace Tree', exact: true }).click()
     await section.getByText('project-two', { exact: true }).waitFor()
     await clickHoverAction(parent, 'New session in folder-group')
-    await expect.poll(() => section.locator('[aria-selected="true"]').evaluate(row =>
-      row.closest('[class*="groupSection"]')?.querySelector('[role="treeitem"]')?.textContent,
-    ), { timeout: 10_000 }).toBe('folder-group')
+    await expect.poll(() => section.locator('[aria-selected="true"]').count()).toBe(0)
+    await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
     expect(parentWorkspace.sessionIds).toHaveLength(1)
     expect([...childWorkspace.sessionIds]).toEqual(childSessionIds)
     expect(tripwire.pageErrors).toEqual([])

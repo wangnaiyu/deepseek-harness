@@ -1,7 +1,7 @@
 # Blank Session workspace sidebar
 
 - No selected Session: expand control absent
-- Selected workspace before first message: expand control visible
+- Selected workspace draft: expand control absent; local command creates the Session and exposes it
 - Files: before-chat.md opens as a Markdown preview
 - Narrow viewport: reopened preview fills the viewport
 - Terminal: writes a file in the selected workspace before any user message or turn

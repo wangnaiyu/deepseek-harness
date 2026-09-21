@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, describe, expect, vi, it, onTestFailed, onTestFinished } from 'vitest'
 import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
@@ -15,7 +15,7 @@ import {
   type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandOwningTurnProcess, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot,
+  connectFreshWorkspace, expandOwningTurnProcess, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot, writeComposerDraft,
 } from './support.ts'
 
 const MODE = webSnapshotMode()
@@ -68,6 +68,14 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
+    expect(scaffold.ctx.sessions.list()).toHaveLength(0)
+    const input = page.locator('[data-composer-input]').first()
+    await writeComposerDraft(page, input, '/permission workspace-write')
+    await input.press('Escape')
+    await input.press('Enter')
+    await vi.waitFor(() => { expect(scaffold.ctx.sessions.list()).toHaveLength(1) })
+    await page.waitForFunction(() => document.querySelector('[data-composer-input]')?.textContent === '')
+    await input.and(page.locator('[contenteditable="true"]')).waitFor()
     const sessions = scaffold.ctx.sessions.list()
     expect(sessions).toHaveLength(1)
     scaffold.ctx.permissionPresets.set(sessions[0]!, 'danger-full-access')
@@ -86,7 +94,9 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
       releaseChild.resolve(undefined)
     })
     const input = page.locator('[data-composer-input]').first()
-    await input.fill(prompt)
+    await input.click()
+    await page.keyboard.insertText(prompt)
+    expect(await input.innerText()).toBe(prompt)
     await input.press('Enter')
 
     const workflow = page.locator('[data-workflow-run][data-run-status="running"]')

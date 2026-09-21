@@ -484,10 +484,9 @@ function SessionTree({
             setGroupExpanded(group.key, !group.expanded)
           }}
           onCreate={() => {
-            if (group.workspaceId !== undefined) {
-              setGroupExpanded(group.key, true)
-              startSession(group.workspaceId)
-            }
+            setGroupExpanded(group.key, true)
+            if (group.workspaceId === undefined) startUnassignedSession()
+            else startSession(group.workspaceId)
           }}
           drag={workspaceDragProps}
           actions={group.workspaceId === undefined
@@ -507,6 +506,9 @@ function SessionTree({
           <div role="group">
             {childRows}
           </div>
+        )}
+        {group.expanded && group.workspaceId === undefined && group.sessionCount === 0 && (
+          <div className={css.empty}>{t('empty.none')}</div>
         )}
         {sessions.map((node) => {
         // Session drag never leaves its browser-local account, and pinned

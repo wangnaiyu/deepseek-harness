@@ -27,8 +27,6 @@
 - button "Settings":
   - img
   - text: Settings
-- banner:
-  - button "Open right sidebar"
 - text: Into the Unknown Preview
 - button "Choose workspace": workspace
 - button "Standard mode"
