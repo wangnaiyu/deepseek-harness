@@ -27,7 +27,7 @@
       "path": "../ui-commands"
     },
     {
-      "path": "../locale"
+      "path": "../locale/tsconfig.client.json"
     },
     {
       "path": "../ui-primitives"

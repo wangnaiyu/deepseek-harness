@@ -17,7 +17,7 @@
 import { type RefObject, type CSSProperties, type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  IconNewChatOutlineRegular, IconPersonalizationOutlineRegular, Button, IconArchiveCheckOutlineRegular, IconArchiveOutlineRegular,
+  IconNewChatOutlineRegular, Button, IconArchiveCheckOutlineRegular, IconArchiveOutlineRegular,
   IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
@@ -223,7 +223,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
-  'useSessionStatus' | 'startSession' | 'startUnassignedSession' | 'open' | 'forkSession'
+  'useSessionStatus' | 'startSession' | 'startUnassignedSession' | 'open'
   | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
 > & PropsRenderSlots<'sidebar.workspaces.session.menu.item' | 'sidebar.workspaces.session.row.action'> & {
   /** Always-mounted Session list snapshot. */
@@ -262,7 +262,7 @@ type SessionTreeProps = Pick<
 
 /** The scrolling session tree; unmounting drops the sessions subscription and local row limits. */
 function SessionTree({
-  list, useSessionStatus, startSession, startUnassignedSession, open, forkSession, workspaces, ungroupedSessionIds,
+  list, useSessionStatus, startSession, startUnassignedSession, open, workspaces, ungroupedSessionIds,
   rowState,
   workspaceReady, animationResetKey, usePanelInfo,
   onRenameRequest, onDeleteRequest, onSessionRenameRequest,

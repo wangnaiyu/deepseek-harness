@@ -1034,7 +1034,7 @@ describe('remaining branches', () => {
     const manager = makeManager(mock, remote)
     const request = operation === 'create' ? manager.create() : manager.fork({ sessionId: S1 })
     manager.handleSessionAdded(summary(S2, { running: true }))
-    response.resolve(ok({ sessionId: S2 }))
+    response.resolve(ok({ sessionId: S2, cwd: '/tmp/workspace' }))
     await request
     expect(manager.getListSnapshot().items.find(item => item.sessionId === S2))
       .toMatchObject({ running: true })
@@ -1054,7 +1054,7 @@ describe('remaining branches', () => {
     const child = manager.get(S2)
     const request = manager.create()
     manager.handleSessionAdded(summary(S1, { agentAvailable: false }))
-    response.resolve(ok({ sessionId: S1 }))
+    response.resolve(ok({ sessionId: S1, cwd: '/tmp/workspace' }))
     await request
     manager.resolveTarget(S2)
     expect(child.getSnapshot().subagent?.parentAvailable).toBe(false)

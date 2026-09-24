@@ -94,7 +94,7 @@ function firstLine(value: string): string {
 }
 
 function experimentIdFromArgs(block: ToolCallBlock): string {
-  const raw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? ''
+  const raw = ('kind' in block ? block.call?.argsRaw : block.phase === 'start' ? block.argsRaw : undefined) ?? ''
   try {
     const args = record(JSON.parse(raw) as unknown)
     if (args !== null && nonempty(args.experiment_id)) return firstLine(args.experiment_id)

@@ -126,6 +126,14 @@ flowchart LR
   pkg_storage_domain["storage-domain"]
   svc_storageDomain["ctx.storageDomain<br/>Domain data facility"]
   pkg_workspace["workspace"]
+  pkg_pto_experiments["pto-experiments"]
+  svc_ptoExperiments["ctx.ptoExperiments<br/>PTO experiment proposal registry"]
+  pkg_host_pto_artifact_inspection["host-pto-artifact-inspection"]
+  svc_ptoArtifactInspection["ctx.ptoArtifactInspection<br/>PTO artifact inspection and analysis admission"]
+  pkg_api_remotes["api-remotes"]
+  pkg_client_ui_workspace["client-ui-workspace"]
+  pkg_host_pto_experiment_dashboard["host-pto-experiment-dashboard"]
+  svc_ptoExperimentDashboard["ctx.ptoExperimentDashboard<br/>Session-addressed PTO dashboard projection"]
   svc_messageFeedback["ctx.messageFeedback<br/>Lifecycle-bound message feedback"]
   pkg_command_feedback["command-feedback"]
   svc_sessionFeedback["ctx.sessionFeedback<br/>Session-level feedback recorder"]
@@ -333,6 +341,8 @@ flowchart LR
   pkg_host_directory_picker_browse --> svc_directoryPicker
   pkg_host_directory_picker_native --> svc_directoryPicker
   pkg_host_product_telemetry_otel --> svc_productTelemetry
+  pkg_host_pto_artifact_inspection --> svc_ptoArtifactInspection
+  pkg_host_pto_experiment_dashboard --> svc_ptoExperimentDashboard
   pkg_host_webserver --> svc_webServer
   pkg_inspector --> svc_inspector
   pkg_invariants --> svc_invariants
@@ -354,6 +364,7 @@ flowchart LR
   pkg_plugin_package_inventory_deepseek --> svc_deepseekLlmApiExtensions
   pkg_ptc_runtime --> svc_ptcRuntime
   pkg_ptc_runtime_node --> svc_ptcRuntime
+  pkg_pto_experiments --> svc_ptoExperiments
   pkg_pwsh_local --> svc_shell
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
@@ -477,6 +488,9 @@ flowchart LR
   svc_profileContext --> pkg_plugin_manager
   svc_ptcRuntime --> pkg_tools
   svc_ptcRuntime --> pkg_workflow_ptc
+  svc_ptoArtifactInspection --> pkg_api_remotes
+  svc_ptoArtifactInspection --> pkg_client_ui_workspace
+  svc_ptoExperimentDashboard --> pkg_api_remotes
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -520,6 +534,7 @@ flowchart LR
   svc_ssh --> pkg_sandbox_ssh
   svc_ssh --> pkg_subprocess_ssh
   svc_storage --> pkg_storage_domain
+  svc_storageDomain --> pkg_pto_experiments
   svc_storageDomain --> pkg_workspace
   svc_subagentModelSelection --> pkg_tool_subagent
   svc_subagents --> pkg_tool_ralph
@@ -608,7 +623,10 @@ flowchart LR
 | `ctx.productTelemetry` | `service` | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel) | - | - | - | 通过 OTLP/HTTP 发送显式提交的分析事件；仅挂载插件不会采集信息。 |
 | `ctx.sessionTelemetry` | `seam` | [`session-telemetry`](../packages/session/session-telemetry) | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | - | 该 seam 捕获会话记录、进行脱敏并交给一个后端；没有其他组件消费该服务，其输出会离开当前进程。 |
 | `ctx.storage` | `seam` | [`storage`](../packages/storage/storage) | [`storage-json`](../packages/storage/storage-json), [`storage-sqlite`](../packages/storage/storage-sqlite) | [`storage-domain`](../packages/storage/storage-domain) | - | 各后端以不同名称并列注册；数据形态（领域优先）挂载到枢纽上，并将类型化操作转换为不透明的 KV 单元原语。 |
-| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace) | - | 等待所有已配置后端就绪，然后将领域形态发布为一个受生命周期约束的服务，用于类型化持久状态。 |
+| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace), [`pto-experiments`](../packages/pto/pto-experiments) | - | 等待所有已配置后端就绪，然后将领域形态发布为一个受生命周期约束的服务，用于类型化持久状态。 |
+| `ctx.ptoExperiments` | `core` | [`pto-experiments`](../packages/pto/pto-experiments) | - | - | - | 负责 Workspace 本地提案与查询，以及可信 Host 的执行准入：干净的 Git/PyPTO 身份、绑定修订的用户回执、独占候选预留、命令执行和可识别的终态运行。模型仅保留规划与查询工具。 |
+| `ctx.ptoArtifactInspection` | `core` | [`host-pto-artifact-inspection`](../packages/host/pto-artifact-inspection) | - | [`api-remotes`](../packages/api/remotes), [`client-ui-workspace`](../packages/client/ui-workspace) | - | 负责显式目录注册、修订检查、可撤销的静态查看路由及限定的官方依赖分析准入。 |
+| `ctx.ptoExperimentDashboard` | `seam` | [`host-pto-experiment-dashboard`](../packages/host/pto-experiment-dashboard) | - | [`api-remotes`](../packages/api/remotes) | - | 从现有 Session 解析 Workspace 权限，提供有界只读实验投影，不接受调用方路径或存储身份键。 |
 | `ctx.messageFeedback` | `core` | [`message-feedback`](../packages/feedback/message-feedback) | - | - | - | 拥有权威 Session 日志中的逐 assistant 消息反馈、目标校验、逐条目 compare-and-set 及 Host 一元 Remote 契约。反馈不进入模型历史；日志导出遵循消费方策略。 |
 | `ctx.sessionFeedback` | `core` | [`command-feedback`](../packages/feedback/command-feedback) | - | - | - | 通过 Host 一元 Remote 契约在 live Session 上把一条带分类的 Session 级评价记录为仅写日志的 feedback/record 事件；/feedback 命令共用同一个生产方。 |
 | `ctx.workspaceRegistry` | `core` | [`workspace`](../packages/workspace/workspace) | - | [`api-workspace-controller`](../packages/api/workspace-controller), [`api-session-controller`](../packages/api/session-controller) | - | 通过领域设施拥有带 WorkspaceId 品牌类型的记录；稳定的 sessionIds 账户驱动 Host RPC 与 GUI 投影。 |

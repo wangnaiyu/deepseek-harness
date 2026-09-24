@@ -171,7 +171,7 @@ export function apply(ctx: ClientContext): void {
       const stop = scope.uiWorkspace.prepareSessionDraft(async (sessionId) => {
         const binding = scope.sessions.binding(sessionId)
         if (binding === undefined) throw new Error('Draft Session is not retained')
-        await seatFor(scope, binding).apply()
+        await seatFor(binding).apply(true)
       })
       creatorDraft = () => {
         if (!section.store.getSnapshot().showPicker) return

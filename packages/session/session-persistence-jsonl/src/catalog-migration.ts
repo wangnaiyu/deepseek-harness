@@ -2,7 +2,7 @@
 
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { historicalSessionFormatCatalog, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
+import { historicalPtoV4SessionFormatCatalog, historicalSessionFormatCatalog, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { historicalChildCatalogSource } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
@@ -26,6 +26,7 @@ interface PreparedCatalogFacts {
  * @param sources - header-indexed direct children in the selected source corpus.
  * @param compression - configured source encoding.
  * @param signal - cancellation forwarded through each source read.
+ * @param legacyPtoV4 - explicitly selected legacy PTO V4 corpus.
  * @returns compact facts and child-local failures; complete child event arrays are released after extraction.
  */
 export async function prepareCatalogFacts(
@@ -33,6 +34,7 @@ export async function prepareCatalogFacts(
   sources: readonly { readonly header: SessionHeader; readonly path: string }[],
   compression: JsonlCompression,
   signal: AbortSignal,
+  legacyPtoV4 = false,
 ): Promise<PreparedCatalogFacts> {
   const facts: SessionFormatJsonObject[] = []
   const failures: { path: string; error: unknown }[] = []
@@ -50,9 +52,11 @@ export async function prepareCatalogFacts(
     let restored: Awaited<ReturnType<typeof readDecodedJsonlSource>>
     try {
       restored = await readDecodedJsonlSource(source.path, version, compression, {
-        createRestore: header => (version <= 3 ? historicalSessionFormatCatalog : sessionFormatCatalog).createRestore(header, {
-          recovery: 'recoverable', validation: 'current',
-        }),
+        createRestore: (header) => {
+          const catalog = version <= 3 ? historicalSessionFormatCatalog
+            : legacyPtoV4 && version === 4 ? historicalPtoV4SessionFormatCatalog : sessionFormatCatalog
+          return catalog.createRestore(header, { recovery: 'recoverable', validation: 'current' })
+        },
       }, signal)
     } catch (error: unknown) {
       signal.throwIfAborted()

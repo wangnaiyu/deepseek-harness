@@ -132,11 +132,11 @@ export function apply(ctx: ClientContext): void {
         if (state.openState !== 'open') {
           throw state.openError ?? new Error(`session "${sessionId}" is not open`)
         }
-      if (formal !== undefined) {
-        const result = await formal.listSession({ sessionId })
-        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
-        return result.value.skills
-      }
+        if (formal !== undefined) {
+          const result = await formal.listSession({ sessionId })
+          if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+          return result.value.skills
+        }
         const result = await legacySkills.list({ sessionId }, abort.signal)
         abort.signal.throwIfAborted()
         if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`)

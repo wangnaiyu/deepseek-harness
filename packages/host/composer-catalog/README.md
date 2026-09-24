@@ -21,6 +21,8 @@ Read-only Host projection for draft and formal Session composers. `ComposerCatal
 
 -----
 
+Draft catalog reads hold an `agentPresets.acquireScope` lease through the complete asynchronous query and resolve isolated services through `serviceForScope`. Session reads retain their existing Agent ownership. Disposing or replacing a preset cannot retire an in-flight draft query; completing the query releases its lease without creating a Session.
+
 <a id="package-behavior"></a>
 ## Package behavior
 

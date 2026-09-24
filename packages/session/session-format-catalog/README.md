@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 `dsh-session-format-catalog` gives persistence one deterministic Session format reader without consulting mounted plugins. It assembles codecs and adjacent edges from the earliest supported format through the [current writer format](../../../docs/session-format-status.md), checks the complete gap-free chain at module initialization, and exposes physical dispatch, header-only classification, single-pass row restoration, and current record encoding through `sessionFormatCatalog`.
 
+The current PTO writer is V5. The optional second argument of `createSessionFormatCatalogWithChildren(childFacts, legacyPtoV4)` selects the frozen PTO V4 codec and V3-body conversion only when explicitly true. The default keeps the official upstream V4 path. `historicalPtoV4SessionFormatCatalog` reads child facts without recursive parent migration. See [V4→V5](../session-format-v4-to-v5/README.md).
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

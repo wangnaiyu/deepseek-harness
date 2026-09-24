@@ -96,6 +96,8 @@ export interface Config {
    * readable directory; an absent root is created on first materialization.
    */
   root: string
+  /** Interpret historical V4 files as the pre-upgrade PTO lineage; never mix official V4 in this root. */
+  legacyPtoV4?: boolean
   /**
    * Optional deployment-owned aliases from an absolute session cwd to one
    * literal project-directory name below {@link root}. The session header
@@ -260,6 +262,7 @@ function waitWithAbort<T>(operation: Promise<T>, signal?: AbortSignal): Promise<
 class JsonlSessionPersistence extends SessionPersistence {
   static Config: z<Config> = z.object({
     root: z.string().required(),
+    legacyPtoV4: z.boolean().default(false),
     projectDirectoryAliases: z.array(z.object({
       cwd: z.string().required(),
       directory: z.string().required(),
@@ -667,7 +670,7 @@ class JsonlSessionPersistence extends SessionPersistence {
       const children = async () => (await this.listArtifacts(signal))
         .filter(source => source.header.origin === 'subagent' && source.header.parentSession === id)
       const sources = await children()
-      const related = await prepareCatalogFacts(id, sources, this.compression, signal)
+      const related = await prepareCatalogFacts(id, sources, this.compression, signal, this.config.legacyPtoV4)
       for (const failure of related.failures) {
         this.ctx.logger.warn(`${this.name}: session "${id}" catalog retained a child with unknown descriptor (raw log: ${failure.path}): ${String(failure.error)}`)
       }
@@ -687,7 +690,7 @@ class JsonlSessionPersistence extends SessionPersistence {
         compression: this.compression,
         format: {
           ...this.generationFormat,
-          createRestore: header => createSessionFormatCatalogWithChildren(related.facts).createRestore(header, {
+          createRestore: header => createSessionFormatCatalogWithChildren(related.facts, this.config.legacyPtoV4).createRestore(header, {
             recovery: 'recoverable', validation: 'transformed',
           }),
         },

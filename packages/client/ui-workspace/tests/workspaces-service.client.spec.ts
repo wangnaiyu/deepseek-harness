@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type {
   ISessions, SessionListState, SessionReference, SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'
-import { SessionCreateError } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
@@ -311,7 +310,7 @@ describe('UiWorkspaceService', () => {
     ['zh', '默认工作区', '默认工作区'],
     ['en', 'Default workspace', 'Default workspace'],
     ['fr', 'default-workspace', 'Default workspace'],
-  ])('prepares and selects the default Workspace after both startup baselines (%s)', async (language, directoryName, title) => {
+  ])('prepares a browser draft after both startup baselines (%s)', async (language, directoryName, title) => {
     const b = bench({ language, configureWorkspaces: (workspaces) => {
       workspaces.initializeDefault.mockImplementation(async () => {
         const item = workspace('default')
@@ -324,10 +323,10 @@ describe('UiWorkspaceService', () => {
     expect(b.workspaces.initializeDefault).not.toHaveBeenCalled()
     b.workspaces.list.set(workspaceState())
     await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-default'), { source: 'mainView' })
+      expect(b.uiWorkspace.list.getSnapshot().sessionDraft?.workspaceId).toBe(wid('default'))
     })
     expect(b.workspaces.initializeDefault).toHaveBeenCalledExactlyOnceWith({ directoryName, title }, expect.any(AbortSignal))
-    expect(b.sessions.create).toHaveBeenCalledWith({ workspaceId: wid('default') })
+    expect(b.sessions.create).not.toHaveBeenCalled()
     expect(b.notify).not.toHaveBeenCalled()
   })
 
@@ -391,24 +390,19 @@ describe('UiWorkspaceService', () => {
     expect(b.notify).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('reports Session failure without a directory error and retains the Workspace (superseded: %s)', async (superseded) => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const created = Promise.withResolvers<SessionId>()
+  it('keeps the default Workspace and draft when first-send Session creation fails', async () => {
+    const failure = new Error('session failed')
     const b = bench({ workspaces: workspaceState(), sessions: sessionState(), configureWorkspaces: (workspaces) => {
       workspaces.initializeDefault.mockImplementationOnce(async () => {
         const item = workspace('default')
         workspaces.list.set(workspaceState([item]))
         return item
       })
-    }, configureSessions: (sessions) => { sessions.create.mockReturnValueOnce(created.promise) } })
-    await vi.waitFor(() => { expect(b.sessions.create).toHaveBeenCalledOnce() })
-    if (superseded) b.layout.selectPanel('other-panel' as MainPanelId)
-    const failure = new Error('session failed')
-    created.reject(failure)
-    await vi.waitFor(() => {
-      expect(warning).toHaveBeenCalledExactlyOnceWith('initial Session restoration failed:', failure)
-    })
+    }, configureSessions: (sessions) => { sessions.create.mockRejectedValueOnce(failure) } })
+    await vi.waitFor(() => { expect(b.uiWorkspace.list.getSnapshot().sessionDraft).toBeDefined() })
+    await expect(b.uiWorkspace.materializeSessionDraft()).rejects.toBe(failure)
     expect(b.workspaces.list.getSnapshot().items).toEqual([workspace('default')])
+    expect(b.uiWorkspace.list.getSnapshot().sessionDraft?.workspaceId).toBe(wid('default'))
     expect(b.notify).not.toHaveBeenCalled()
     expect(b.sessions.retain).not.toHaveBeenCalled()
   })
@@ -618,7 +612,8 @@ describe('UiWorkspaceService', () => {
       workspaces: workspaceState([workspace('a', [sid('blank')]), workspace('b', [sid('archived')])], [sid('archived')]),
     })
     await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(sid('blank'))
-    expect(b.sessions.create).not.toHaveBeenCalled()
+    expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a'), sessionId: sid('blank') })
+    b.sessions.create.mockClear()
     b.sessions.retain.mockClear()
     const created = Promise.withResolvers<SessionId>()
     b.sessions.create.mockReturnValue(created.promise)

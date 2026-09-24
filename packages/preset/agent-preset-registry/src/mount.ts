@@ -154,6 +154,19 @@ export function serviceForAgent<K extends string & keyof Context>(
 ): Context[K] | undefined {
   const mount = standingMountFor(agent.ctx)
   if (mount === undefined) return undefined
+  return serviceForMount(ctx, mount, name)
+}
+
+/**
+ * Resolve an isolated service while its preset revision is retained.
+ * @param ctx - Runtime whose service store is inspected.
+ * @param mount - Retained preset revision owned by that runtime.
+ * @param name - Cordis service name.
+ * @returns The revision's service, or undefined when absent.
+ */
+export function serviceForMount<K extends string & keyof Context>(
+  ctx: Context, mount: PresetMount, name: K,
+): Context[K] | undefined {
   const store = ctx.reflect.store
   for (const key of Object.getOwnPropertySymbols(store)) {
     const impl = store[key]

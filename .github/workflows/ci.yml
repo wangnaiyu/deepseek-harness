@@ -609,7 +609,7 @@ jobs:
         run: pnpm run check:ci:windows-observational-ready
       - name: Report Windows observational failures
         continue-on-error: true
-        if: steps.observational.outcome == 'failure'
+        if: github.repository == 'deepseek-ai/deepseek-harness' && steps.observational.outcome == 'failure'
         shell: pwsh
         run: |
           $message = 'Windows observational checks failed; see the observational step for diagnostics.'

@@ -17,7 +17,6 @@ import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -344,7 +343,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       draft.workspaceId === undefined ? {} : { workspaceId: draft.workspaceId },
     ).then(async (sessionId) => {
       if (this.list.getSnapshot().sessionDraft?.revision === draft.revision) {
-        this.replaceMain(sessionId, this.lifetime.signal)
+        this.replaceMain(sessionId, this.lifetime.signal, 'reveal')
         const reference = this.mainReference
         if (reference === undefined) throw new Error('Draft Session is not retained')
         await reference.ready
@@ -424,32 +423,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         initial = 'done'
         return
       }
-      const saved = this.selection.getSnapshot()
-      const savedTarget = saved.subagentAddress
-        ?? (saved.sessionId !== undefined && sessions.byId[saved.sessionId] !== undefined
-          ? saved.sessionId
-          : undefined)
-      if (savedTarget !== undefined) {
-        initial = 'connecting'
-        try {
-          if (saved.subagentAddress !== undefined) {
-            void this.sessions.refreshSubagents(saved.subagentAddress.parentSessionId)
-          }
-          this.openSession(savedTarget)
-          initial = 'done'
-        } catch (reason: unknown) {
-          initial = 'waiting'
-          console.warn('initial Session restoration failed:', reason)
-        }
-        return
-      }
-      const target = recentWorkspace(workspace.items, sessions.byId)
-      if (target === undefined) {
+      initial = 'connecting'
+      void this.restoreSelection(workspace, sessions).then(() => {
         initial = 'done'
-        return
-      }
-      initial = 'done'
-      this.beginSessionDraft(target)
+      }, (reason: unknown) => {
+        initial = 'waiting'
+        if (!this.lifetime.signal.aborted) console.warn('initial Session restoration failed:', reason)
+      })
     }
 
     const disposeWorkspaces = this.workspaces.list.subscribe(reconcile)
@@ -476,21 +456,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
-    let sessionId: SessionId | undefined
-    if (summary !== undefined && workspace !== undefined && summary.cwd === workspace.path
-      && !workspaces.archivedSessionIds.includes(summary.id)) {
-      sessionId = await this.reuseBlank(workspace.workspaceId, summary.id)
-    }
     let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId)
     if (target === undefined && workspaces.items.length === 0 && sessions.ids.length === 0) {
       const prepared = await this.initializeDefaultWorkspace(navigation)
       if (navigation.aborted) return
       target = prepared?.workspaceId
     }
-    if (sessionId === undefined && target !== undefined) sessionId = await this.connectWorkspace(target)
-    if (sessionId !== undefined && !navigation.aborted) {
-      this.replaceMain(sessionId, navigation, 'preserve')
-    }
+    if (target !== undefined && !navigation.aborted) this.beginSessionDraft(target)
   }
 
   private async initializeDefaultWorkspace(signal: AbortSignal): Promise<WorkspaceView | undefined> {

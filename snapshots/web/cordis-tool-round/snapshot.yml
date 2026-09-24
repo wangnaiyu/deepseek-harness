@@ -4,7 +4,7 @@ profile: web
 composition: historical-cordis
 recording: authored
 sessionFormat:
-  version: 4
+  version: 5
   coverage: [retired-tools]
 header:
   class: web-cordis

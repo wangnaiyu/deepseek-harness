@@ -73,6 +73,8 @@ The value is intentionally best effort for cold Sessions. An identity-matching u
 
 `ctx.uiWorkspace.openSession(target)` synchronously replaces the owned `mainView` reference and returns the main area to Conversation without waiting for `reference.ready`, so history loading renders inside the selected Session view. The target may be a known Session id or a durable direct-parent subagent address; an explicit address does not require a preloaded parent catalog. `openWorkspace(id, beforeOpen?)` and `forkSession(id)` open their result only if no later navigation has superseded the request. New Session stages a browser-only draft; first send creates and retains its Session, awaits the binding, and runs ordered preparation. The optional synchronous preparation callback runs after the target is retained and only for a current Workspace request, so superseded requests do not move composer drafts. Navigation or owner disposal suppresses the late UI commit, not the underlying Session creation. Archiving the main Session releases its reference and clears the main selection. Selection failure leaves a global panel visible. Session rows read `usePanelInfo` to suppress their selected appearance while a global panel is active; search and directory-picker focus alone do not leave that panel.
 
+On first use, the Host still initializes the default Workspace and the Client stages a browser draft; first send creates its Session. Existing nonblank Sessions restore the saved selection. Startup language determines the default directory and title; creation failure shows a choose-workspace notice. Later navigation or disposal prevents a late startup result from replacing the current selection.
+
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 

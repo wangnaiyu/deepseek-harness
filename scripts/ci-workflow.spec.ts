@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 function evaluateRunsOn(selector: unknown, context: Record<string, unknown>): unknown {
   if (typeof selector !== 'string') throw new TypeError('Runner selector must be a string')
-  return runInNewContext(selector.trim().slice(3, -2), context, { timeout: 1000 })
+  return runInNewContext(selector.trim().slice(3, -2), { github: { repository: 'deepseek-ai/deepseek-harness', actor: 'human' }, ...context }, { timeout: 1000 })
 }
 
 const root = resolve(import.meta.dirname, '..')
@@ -189,7 +189,7 @@ describe('CI workflow', () => {
       expect(job['runs-on']).toContain('dsh-win-ci')
       expect(job['runs-on']).toContain('dsh-windows-2025-16core')
       const cores = jobName === 'windows-native-tests' ? 2 : 16
-      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } }))
+      expect(evaluateRunsOn(job['runs-on'], { github: { repository: 'deepseek-ai/deepseek-harness', actor: 'human' }, vars: { DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } }))
         .toBe(`blacksmith-${cores}vcpu-windows-2025`)
       expect(job.if).toBe("github.event_name == 'pull_request'")
     }
@@ -272,13 +272,13 @@ describe('CI workflow', () => {
         DSH_PUBLINT_CONCURRENCY: "${{ vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}",
       },
     })
-    expect(observational?.if).toBeUndefined()
+    expect(observational?.if).toBe("github.repository == 'deepseek-ai/deepseek-harness'")
     expect(buildCommands.findIndex(step => step.id === 'observational'))
       .toBeGreaterThan(buildCommands.findIndex(step => step.run === 'pnpm run check:ci:windows-blocking'))
     const report = buildCommands.find(step => step.name === 'Report Windows observational failures')
     expect(report).toMatchObject({
       'continue-on-error': true,
-      if: "steps.observational.outcome == 'failure'",
+      if: "github.repository == 'deepseek-ai/deepseek-harness' && steps.observational.outcome == 'failure'",
       shell: 'pwsh',
     })
     expect(report?.run).toContain('::warning::')
@@ -295,7 +295,6 @@ describe('CI workflow', () => {
       ['windows-build', windowsBuild],
       ['windows-coverage', windowsCoverage],
       ['windows-native-tests', windowsNativeTests],
-      ['windows-observational', windowsObservational],
     ] as const) {
       expect(job.if, `${jobName} must remain visible on fork pull requests`).toBe("github.event_name == 'pull_request'")
       expect(job['runs-on'], `${jobName} must select a public runner for forks`).toContain(`github.repository != '${canonicalRepository}'`)

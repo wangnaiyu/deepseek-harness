@@ -217,6 +217,24 @@ it('allows an isolated service and resolves it through the Agent composition', a
   expect(ctx.agentPresets.serviceFor({ ctx: scope.ctx }, 'loader')).toBeUndefined()
 })
 
+it('retains cold isolated services through definition retirement until its lease is released', async () => {
+  const ctx = await setup()
+  const { plugin } = await import('./harness.ts')
+  const definition = await declare(ctx, { id: 'standard', plugins: [{ name: 'cordis:group', group: true,
+    isolate: { fixtureService: true }, config: [{ name: plugin('global-service'), config: { service: 'fixtureService', label: 'cold' } }] }] })
+  const lease = await ctx.agentPresets.acquireScope('standard')
+  try {
+    expect(ctx.agentPresets.serviceForScope(lease.key, 'fixtureService' as string & keyof Context)).toEqual({ label: 'cold' })
+    expect(ctx.agentPresets.serviceForScope(lease.key, 'loader')).toBeUndefined()
+    await definition.dispose()
+    expect(ctx.agentPresets.serviceForScope(lease.key, 'fixtureService' as string & keyof Context)).toEqual({ label: 'cold' })
+  } finally {
+    await lease[Symbol.asyncDispose]()
+  }
+  expect(() => ctx.agentPresets.serviceForScope(lease.key, 'loader')).toThrow('not retained')
+  expect(livePresetMounts(ctx.fiber)).toHaveLength(0)
+})
+
 it('keeps policy preferences while hiding and restoring the chooser', async () => {
   const ctx = await harness({ live: true })
   contexts.push(ctx)

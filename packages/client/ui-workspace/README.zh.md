@@ -73,6 +73,8 @@ Session 行渲染运行时的实时 `pendingInteraction` 分类：审批显示**
 
 `ctx.uiWorkspace.openSession(target)` 会同步替换其拥有的 `mainView` reference，并让主区域返回 Conversation，而不等待 `reference.ready`，因此历史加载会显示在已经选中的 Session 视图内。目标可以是已知 Session id，也可以是持久的直接父子 subagent 地址；显式地址不要求预先加载 parent catalog。`openWorkspace(id, beforeOpen?)` 和 `forkSession(id)` 仅在请求未被后续导航替代时打开结果。新会话暂存纯浏览器草稿；首次发送创建并保有 Session，等待 binding 后执行有序准备。可选的同步准备回调在目标被 retain 后执行，并且仅对仍有效的 Workspace 请求执行，因此过期请求不会搬移 composer 草稿。后续导航或 owner 释放会阻止晚到的 UI 提交，但不取消底层 Session 创建。归档主 Session 会释放其 reference 并清除主选择。选择失败时保留当前全局面板。Session 行读取 `usePanelInfo`，在全局面板活跃时不显示 Session 选中样式；仅把焦点移到搜索框或目录选择器不会离开该面板。
 
+首次使用时，Host 仍会创建默认 Workspace，客户端随后暂存浏览器草稿；首次发送才创建 Session。已有非空会话按保存的选择恢复。默认目录和标题由启动时的客户端语言决定，创建失败会显示选择工作区的提示。后续导航或销毁会阻止迟到的启动结果覆盖当前选择。
+
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
@@ -208,6 +210,7 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
 
 - **运行记录只列出用户手工打开的条目**：本应填充工程分节的按需 recognizer 扫盘属于发现层的工作，尚未构建，因此在有记录被打开进去之前，这些分节都是空的。
 - **运行记录的归属判定按路径精确比较**：未对大小写不敏感的文件系统建模，因此与所属 Workspace 仅大小写不同的路径会落入导入桶，而不是该工程分节。
+- **没有模糊内容搜索或事件深链接**：内容后端采用字面 token/短语匹配，选择结果会打开 Session，而不是匹配的事件。
 - **没有 Session 删除**：会话可以归档但绝不会被删除；已归档的行通过「已归档会话」视图筛选与搜索结果中的取消归档操作原位恢复，删除 Workspace 注册记录不会删除 Session。
 - **待处理的用户交互不会聚合到折叠的分组上**：折叠分组内正在等待的行不会点亮分组头指示，只有展开该分组后才可见。
 - **原生文件夹选择依赖本地 Host 载体**：在 `-native` 组合下，进程内部署或远程浏览器部署无法打开本地操作系统对话框；可远程的选取是 `-browse` 组合的应用内流程。

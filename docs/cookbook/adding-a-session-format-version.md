@@ -119,10 +119,10 @@ git diff --check
 <a id="v4-corpus-trial"></a>
 ### Developer V4 corpus trial
 
-Use the one-time [migration script](../../scripts/migrate-sessions-to-v4.ts) from an installed contributor checkout whose writer is V4. Stop DSH processes using the target root before starting so writer locks and changing child logs do not prevent migration. Run from the repository root:
+Use the one-time [migration script](../../scripts/migrate-sessions-to-v5.ts) from an installed contributor checkout whose writer is V4. Stop DSH processes using the target root before starting so writer locks and changing child logs do not prevent migration. Run from the repository root:
 
 ```sh
-pnpm run migrate:sessions-to-v4
+pnpm run migrate:sessions-to-v5
 ```
 
 The default root is `~/.dsh/sessions`. Use `--sessions-dir /path/to/sessions-copy` for another corpus, or `--help` for usage. Concurrent jobs default to the available CPU count capped at 16; `--jobs N` accepts any positive safe integer, including larger expert overrides, and `--jobs 1` runs serially. A bounded queue opens only that many Sessions at once, regardless of corpus size. Each historical Session goes through the normal locked, validated publication path to create a V4 successor beside its unchanged source files. Existing V4 Sessions are opened read-only; rerunning does not reconvert them. The script makes no model requests and does not change conversion or refusal rules.

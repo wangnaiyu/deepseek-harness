@@ -15,9 +15,9 @@ import type { RefObject } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  IconBranchOutlineRegular, IconDataOutlineRegular, HoverCard, IconAlarmClockOutlineRegular, IconArchiveOutlineRegular, IconEditOutlineRegular,
+  IconDataOutlineRegular, HoverCard, IconAlarmClockOutlineRegular, IconArchiveOutlineRegular, IconEditOutlineRegular,
   IconEllipsisOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular,
-  IconNewChatOutlineRegular, IconPinFillRegular, IconTrashOutlineRegular,
+  IconNewChatOutlineRegular, IconPlusOutlineRegular, IconPinFillRegular, IconTrashOutlineRegular,
   IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, Menu, relativeTime, StateDot, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -732,10 +732,10 @@ export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
       }}
     >
       <span className={clsx(css.slot, css.folder, group.expanded && css.folderActive)}>
-        {group.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+        {group.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
       </span>
       <span className={clsx(css.slot, css.chevron)}>
-        <IconTriangleRightFill14 className={clsx(css.arrow, group.expanded && css.arrowOpen)} />
+        <IconTriangleRightFillRegular className={clsx(css.arrow, group.expanded && css.arrowOpen)} />
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
@@ -750,7 +750,7 @@ export function RunGroupRowItem({ group, onToggle, onOpen, openRef, home, t }: {
               aria-label={t('runRecords.open')}
               onClick={(e) => { e.stopPropagation(); onOpen() }}
             >
-              <IconPlusOutline16 />
+              <IconPlusOutlineRegular />
             </button>
           </Tooltip>
         </span>
@@ -816,7 +816,7 @@ export function RunRecordRowItem({ record, onOpen, onRemove, home, t }: {
         <Menu
           open={menuOpen}
           onClose={() => { setMenuOpen(false) }}
-          items={[{ id: 'remove', label: t('runRecords.remove'), icon: <IconTrashOutline16 />, danger: true }]}
+          items={[{ id: 'remove', label: t('runRecords.remove'), icon: <IconTrashOutlineRegular />, danger: true }]}
           onSelect={(id) => {
             setMenuOpen(false)
             /* v8 ignore next -- the menu carries exactly this one row today. */
@@ -832,7 +832,7 @@ export function RunRecordRowItem({ record, onOpen, onRemove, home, t }: {
               aria-label={t('runRecords.actions.aria', { name: record.label })}
               onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
             >
-              <IconEllipsisOutline16 />
+              <IconEllipsisOutlineRegular />
             </button>
           )}
         />

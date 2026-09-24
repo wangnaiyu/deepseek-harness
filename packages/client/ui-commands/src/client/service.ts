@@ -115,11 +115,11 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
         if (state.openState !== 'open') {
           throw state.openError ?? new Error(`session "${sessionId}" is not open`)
         }
-      if (formal !== undefined) {
-        const result = await formal.listSession({ sessionId })
-        if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
-        return result.value.commands
-      }
+        if (formal !== undefined) {
+          const result = await formal.listSession({ sessionId })
+          if (!result.ok) throw new Error(`composerCatalog.listSession failed: ${result.error.code}: ${result.error.message}`)
+          return result.value.commands
+        }
         const result = await ctx.remote.commands.list(sessionId)
         if (!result.ok) throw new Error(`command.list failed: ${result.error.code}: ${result.error.message}`)
         return result.value

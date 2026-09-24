@@ -25,7 +25,7 @@ Migration 实际有状态，但 API 把它们表现为一次性函数。v0-to-v1
 
 ## 决策
 
-基于上游 0.1.6 的 PTO fork 写入 V4，因为分析来源字段扩展改变了持久化用户消息、收件箱和标题请求的联合类型。V3→V4 边保留事件正文、序号引用、紧凑事件和继承边界，复用冻结的 V3 编解码器并校验 V4 头部。写入仅发布最终后继代并保留历史字节。此 fork 版本分配不是上游发布：未来整合上游 V4 前必须明确审查格式身份。
+PTO fork 现写入 V5。旧 PTO V4 与上游 V4 的正文格式不同，必须由部署显式选择 lineage；迁移保留原始字节，只发布经过校验的后继代。当前分派与兼容边界见 [V4→V5](../../../../packages/session/session-format-v4-to-v5/README.zh.md)。以下 V4 设计描述属于官方上游格式。
 
 Session format 包采用有状态同步 Stage API。静态 migration declaration 描述一条相邻版本边，并为每次 artifact restore 创建新的 stage。Stage 拥有该 artifact 的可变状态；不同 Session 之间绝不共享 stage instance。
 

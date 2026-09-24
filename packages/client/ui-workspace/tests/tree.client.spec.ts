@@ -81,7 +81,7 @@ describe('owningGroupKey', () => {
 })
 
 describe('Session ordering', () => {
-  it.each(['workspace', 'ungrouped', 'flat'] as const)('keeps the current New Session before pins in %s', (mode) => {
+  it.each(['workspace', 'ungrouped', 'flat'] as const)('hides blank Sessions until the first prompt in %s', (mode) => {
     const sessions = withMain(list(
       summary('pin', 30),
       summary('ordinary', 20),
@@ -98,7 +98,7 @@ describe('Session ordering', () => {
         noAttention,
         view([mode === 'workspace' ? 'alpha' : UNGROUPED_KEY], order),
       )[0]!.sessions
-    expect(rows.map(row => row.id)).toEqual([sid('blank'), sid('pin'), sid('ordinary')])
+    expect(rows.map(row => row.id)).toEqual([sid('pin'), sid('ordinary')])
   })
 
   it('orders known members by recency with a stable identity tie-break', () => {

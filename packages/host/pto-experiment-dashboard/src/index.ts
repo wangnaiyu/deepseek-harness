@@ -216,12 +216,7 @@ export class PtoExperimentDashboardGateway extends TypertRemoteService {
         type: 'text',
         text: `Execute PTO experiment ${request.experimentId}@${request.expectedRevision} from the dashboard.`,
       }],
-      source: {
-        kind: 'plugin',
-        plugin: 'pto-experiment-dashboard',
-        form: 'notice',
-        summary: request.experimentId,
-      },
+      source: { kind: 'user' },
     })
     let complete!: (entry: PtoExperimentDashboardEntry) => void
     let fail!: (error: Error) => void

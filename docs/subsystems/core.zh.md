@@ -553,6 +553,13 @@ composedPreset(ctx: Context): string | undefined
  */
 serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): Context[K] | undefined
 
+/** Resolve a service from a retained preset revision without creating an Agent.
+ * @param key Revision key returned by acquireScope; the caller must hold its lease.
+ * @param name Cordis service name.
+ * @returns The revision service, or undefined when it supplies none.
+ */
+serviceForScope<K extends string & keyof Context>(key: ScopeKey, name: K): Context[K] | undefined
+
 /** Rebind a blank Agent; the caller owns the blank-session check.
  * @param ctx Agent context.
  * @param id Requested preset.

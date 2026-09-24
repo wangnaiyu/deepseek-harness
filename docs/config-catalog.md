@@ -1127,7 +1127,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/fs/fs-local/src/index.ts:45`](../packages/fs/fs-local/src/index.ts)
+Source: [`packages/fs/fs-local/src/index.ts:47`](../packages/fs/fs-local/src/index.ts)
 
 <a id="deepseek-aidsh-fs-sandbox"></a>
 
@@ -1394,6 +1394,38 @@ export interface Config {
 ```
 
 Source: [`packages/host/product-telemetry-otel/src/index.ts:37`](../packages/host/product-telemetry-otel/src/index.ts)
+
+<a id="deepseek-aidsh-host-pto-artifact-inspection"></a>
+
+## `@deepseek-ai/dsh-host-pto-artifact-inspection`
+
+Requires: `fs` · `webServer` · `tools`
+
+```ts config-catalog
+/** Deployment limits and pinned official analysis dependencies. */
+export interface Config {
+  /** Maximum number of artifact entries inspected per record. */
+  maxArtifactEntries?: number
+  /** Maximum bytes read from one metadata probe. */
+  maxProbeBytes?: number
+  /** Absolute URL prefix for revocable exact-file viewer routes. */
+  routePrefix?: string
+  /** Provider identity required for official dependency analysis. */
+  officialDependencySkillProvider?: string
+  /** Exact official Skill revision accepted at admission. */
+  officialDependencySkillRevision?: string
+  /** Pinned tool revision recorded in analysis receipts. */
+  dependencyAnalysisToolRevision?: string
+  /** Absolute path to the pinned upstream dependency tool. */
+  dependencyAnalysisToolPath?: string
+  /** Application-owned directory for dependency tool outputs. */
+  dependencyAnalysisOutputRoot?: string
+  /** Python executable used to launch the pinned tool. */
+  pythonExecutable?: string
+}
+```
+
+Source: [`packages/host/pto-artifact-inspection/src/index.ts:76`](../packages/host/pto-artifact-inspection/src/index.ts)
 
 <a id="deepseek-aidsh-host-webserver"></a>
 
@@ -2276,6 +2308,28 @@ export interface LaunchConfig {
 
 Source: [`packages/ptc-runtime/ptc-runtime-node/src/index.ts:26`](../packages/ptc-runtime/ptc-runtime-node/src/index.ts)
 
+<a id="deepseek-aidsh-pto-experiments"></a>
+
+## `@deepseek-ai/dsh-pto-experiments`
+
+Requires: `fs` · `storageDomain` · `systemPrompt` · `tools`
+
+```ts config-catalog
+/** Deployment-owned executables and execution/metric-collection bounds. */
+export interface Config {
+  /** Trusted Git executable used only with fixed identity-probe arguments. */
+  gitCommand?: string
+  /** Trusted Python executable used only with the fixed PyPTO environment probe. */
+  pythonCommand?: string
+  /** Maximum accepted planned workload timeout in milliseconds. */
+  maxExecutionTimeoutMs?: number
+  /** Maximum chip-swimlane artifact size admitted by metric collection. */
+  maxMetricArtifactBytes?: number
+}
+```
+
+Source: [`packages/pto/pto-experiments/src/index.ts:140`](../packages/pto/pto-experiments/src/index.ts)
+
 <a id="deepseek-aidsh-pwsh-local"></a>
 
 ## `@deepseek-ai/dsh-pwsh-local`
@@ -2518,6 +2572,8 @@ export interface Config {
    * readable directory; an absent root is created on first materialization.
    */
   root: string
+  /** Interpret historical V4 files as the pre-upgrade PTO lineage; never mix official V4 in this root. */
+  legacyPtoV4?: boolean
   /**
    * Optional deployment-owned aliases from an absolute session cwd to one
    * literal project-directory name below {@link root}. The session header
@@ -4211,6 +4267,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-open-in-app` ([`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-permission-presets` ([`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-plan` ([`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-pto-experiments` ([`packages/client/ui-pto-experiments/src/index.ts`](../packages/client/ui-pto-experiments/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-reference` ([`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-renderer` ([`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-schedule` ([`packages/client/ui-schedule/src/index.ts`](../packages/client/ui-schedule/src/index.ts))
@@ -4254,6 +4311,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
+- `@deepseek-ai/dsh-host-pto-experiment-dashboard` — requires `sessions` · `agents` · `ptoExperiments` ([`packages/host/pto-experiment-dashboard/src/index.ts`](../packages/host/pto-experiment-dashboard/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-mcp-resources` — requires `tools` ([`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts))
@@ -4345,6 +4403,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-session-format-v1-to-v2` ([`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts))
 - `@deepseek-ai/dsh-session-format-v2-to-v3` ([`packages/session/session-format-v2-to-v3/src/index.ts`](../packages/session/session-format-v2-to-v3/src/index.ts))
 - `@deepseek-ai/dsh-session-format-v3-to-v4` ([`packages/session/session-format-v3-to-v4/src/index.ts`](../packages/session/session-format-v3-to-v4/src/index.ts))
+- `@deepseek-ai/dsh-session-format-v4-to-v5` ([`packages/session/session-format-v4-to-v5/src/index.ts`](../packages/session/session-format-v4-to-v5/src/index.ts))
 - `@deepseek-ai/dsh-session-snapshot` ([`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts))
 - `@deepseek-ai/dsh-session-telemetry` ([`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts))
 - `@deepseek-ai/dsh-session-title-llm` ([`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts))

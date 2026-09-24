@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Choose an Agent’s tools, prompt sections and skills through declarative presets. One process can run several compositions. Failed definitions remain visible, while existing Agents retain the composition they already use.
 
+Cold composer catalogs retain a revision with `acquireScope`, then resolve its isolated service with `serviceForScope(lease.key, name)`. Keep the lease alive for the entire asynchronous read. Retirement removes the revision only after its last lease is released; unknown or released keys reject. This small registry extension exposes the owning isolated mount without creating an Agent or Session.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

@@ -1,6 +1,5 @@
 - tree "Sessions":
   - treeitem "{{workspace}}" [expanded]
-  - treeitem "New Session" [selected]
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
@@ -16,3 +15,4 @@
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - button "Show 6 more sessions"
+  - treeitem "Ungrouped"

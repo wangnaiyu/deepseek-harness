@@ -16,7 +16,7 @@
     { "path": "../../session/session-projection" },
     { "path": "../../interaction/commands" },
     { "path": "../../core/scope" },
-    { "path": "../../preset/agent-presets" },
+    { "path": "../../preset/agent-preset-registry" },
     { "path": "../../skill/skill" },
     { "path": "../../typert/protocol" },
     { "path": "../../workspace/workspace" }

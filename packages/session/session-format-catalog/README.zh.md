@@ -11,6 +11,8 @@ kind: "package-library"
 
 `dsh-session-format-catalog` 为持久化提供一个确定性的 Session 格式读取器，且无需查询已挂载插件。它装配从最早受支持格式到[当前写入格式](../../../docs/session-format-status.zh.md)的编解码器与相邻迁移边，在模块初始化时校验完整且无缺口的迁移链，并通过 `sessionFormatCatalog` 暴露物理分派、仅 header 分类、单遍行还原和当前格式逐记录编码。
 
+当前 PTO writer 为 V5。`createSessionFormatCatalogWithChildren(childFacts, legacyPtoV4)` 的可选第二参数仅在显式为 true 时选择冻结的 PTO V4 编解码器与 V3 正文转换；默认保留官方上游 V4 路径。`historicalPtoV4SessionFormatCatalog` 读取子会话事实，不递归迁移父目录。见 [V4→V5](../session-format-v4-to-v5/README.zh.md)。
+
 ## 目录
 
 - [使用本包](#use-this-package)

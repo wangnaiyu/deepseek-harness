@@ -1,5 +1,5 @@
 /** Compact, replay-stable row for the PTO experiment comparison tool. */
-import { IconChevronRightOutline14, IconDataOutline16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronRightOutlineMedium, IconDataOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { ReactNode } from 'react'
@@ -17,7 +17,7 @@ function number(value: number): string {
 function stateIcon(state: 'running' | 'error' | 'unavailable' | 'evidence'): ReactNode {
   if (state === 'error') return <StateDot state="error" />
   if (state === 'unavailable') return <StateDot state="warning" />
-  return <IconDataOutline16 size={14} />
+  return <IconDataOutlineRegular size={14} />
 }
 
 /** Render one comparison call without calculating or upgrading its conclusion. */
@@ -50,7 +50,7 @@ export function ComparisonRow({ block, t }: ComparisonRowProps) {
   return (
     <details className={css.disclosure}>
       <summary className={css.row} data-state={model.state} data-tool="pto_experiment_compare">
-        <IconChevronRightOutline14 className={css.chevron} />
+        <IconChevronRightOutlineMedium className={css.chevron} />
         <span className={css.leading}>{stateIcon(model.state)}</span>
         {stateLabel !== null ? <span className={css.visuallyHidden}>{stateLabel}</span> : null}
         <span className={css.title}>{t('row.title')}</span>

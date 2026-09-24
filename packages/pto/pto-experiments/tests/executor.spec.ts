@@ -9,7 +9,7 @@ import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import ShellExecutor from '@deepseek-ai/dsh-shell'
-import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellRunResult } from '@deepseek-ai/dsh-shell'
+import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
@@ -98,6 +98,7 @@ class ExperimentShell extends ShellExecutor {
 
   override resolve(request: ShellExecRequest): ShellExecSpec {
     return {
+      onExpiry: request.onExpiry ?? 'kill',
       command: request.command,
       workdir: request.workdir ?? process.cwd(),
       timeoutMs: request.timeoutMs ?? 60_000,
@@ -108,7 +109,7 @@ class ExperimentShell extends ShellExecutor {
     }
   }
 
-  override async run(spec: ShellExecSpec): Promise<ShellRunResult> {
+  private async run(spec: ShellExecSpec): Promise<ShellRunResult> {
     this.lastSpec = spec
     if (this.behavior === 'wait-for-abort') {
       await new Promise<void>((resolve) => {
@@ -152,8 +153,21 @@ class ExperimentShell extends ShellExecutor {
     }
   }
 
-  override async start(_spec: ShellExecSpec): Promise<ShellProcess> {
-    throw new Error('background execution is not used')
+  override async execute(spec: ShellExecSpec): Promise<ShellExecution> {
+    const result = this.run(spec)
+    const handle: ShellExecution = {
+      status: 'running', exitCode: null, signal: null,
+      done: result.then((value) => {
+        handle.status = value.signal === null ? 'completed' : 'killed'
+        handle.exitCode = value.exitCode
+        handle.signal = value.signal
+      }, () => { handle.status = 'killed' }),
+      result: () => result,
+      readOutput: () => ({ delta: '', lossy: false }),
+      get observed(): never { throw new Error('stream observation is not used') },
+      kill: () => { throw new Error('caller cancellation uses its signal') },
+    }
+    return handle
   }
 }
 

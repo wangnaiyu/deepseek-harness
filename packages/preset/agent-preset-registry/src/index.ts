@@ -13,7 +13,7 @@ import type { AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
 import { agentPresetProjectionDefinition } from './session.ts'
-import { auditRows, mountPreset, standingMountFor, serviceForAgent, type PresetMount } from './mount.ts'
+import { auditRows, mountPreset, standingMountFor, serviceForAgent, serviceForMount, type PresetMount } from './mount.ts'
 import { definitionComposition, mountedCompositionRows, type AgentPresetComposition } from './composition-inventory.ts'
 
 export { agentPresetProjectionDefinition } from './session.ts'
@@ -303,6 +303,17 @@ export class AgentPresetRegistry extends TypertRemoteService {
    */
   serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): Context[K] | undefined {
     return serviceForAgent(this.owner, agent, name)
+  }
+
+  /** Resolve a service from a retained preset revision without creating an Agent.
+   * @param key Revision key returned by acquireScope; the caller must hold its lease.
+   * @param name Cordis service name.
+   * @returns The revision service, or undefined when it supplies none.
+   */
+  serviceForScope<K extends string & keyof Context>(key: ScopeKey, name: K): Context[K] | undefined {
+    const generation = this.generations.get(key)
+    if (generation === undefined) throw new Error('Preset scope is not retained')
+    return serviceForMount(this.owner, generation.mount, name)
   }
 
   /** Rebind a blank Agent; the caller owns the blank-session check.

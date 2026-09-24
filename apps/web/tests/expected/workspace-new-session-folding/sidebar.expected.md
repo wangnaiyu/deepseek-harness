@@ -9,3 +9,4 @@
   - treeitem "{{workspace}} 1min"
   - treeitem "{{workspace}} 1min"
   - button "Show 11 more sessions"
+  - treeitem "Ungrouped"

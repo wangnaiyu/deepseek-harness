@@ -147,7 +147,6 @@ async function bench(opts: BenchOptions = {}) {
     commands: commandsRemote,
     ...composerCatalog === undefined ? {} : { composerCatalog },
   })
-  ctx.provide('remote.commands', commandsRemote)
   const executions: Array<{ sessionId: SessionId; name: string; result: CommandResult }> = []
   ctx.on('command/executed', (sessionId, name, result) => {
     executions.push({ sessionId, name, result })

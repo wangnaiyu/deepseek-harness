@@ -184,8 +184,8 @@ export interface SkillInvocationSource {
   readonly kind: 'skill-invocation'
   /** Invoked skill name, validated user-invocable at the injecting boundary. */
   readonly name: string
-  /** Provider that supplied the exact injected definition. */
-  readonly provider: string
+  /** Provider that supplied the exact injected definition; absent in upstream historical records. */
+  readonly provider?: string
   /** Injected skill bodies are instructions for the model to follow. */
   readonly form: 'instructions'
 }

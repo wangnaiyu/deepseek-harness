@@ -11,6 +11,8 @@ kind: "package-reference"
 
 通过声明式 preset 选择 Agent 的工具、提示词和技能。同一进程可以运行多种组合。配置失败会显示在列表中；现有 Agent 保留已经使用的组合。
 
+冷启动的输入目录通过 `acquireScope` 保留一个预设修订，再用 `serviceForScope(lease.key, name)` 解析其中的隔离服务。整个异步读取期间必须持有 lease。修订退役后直到最后一个 lease 释放才移除；未知或已释放的键会拒绝访问。这一小型注册表扩展暴露所属隔离挂载，无需创建 Agent 或 Session。
+
 ## 目录
 
 - [使用此包](#use-this-package)

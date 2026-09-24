@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { SessionFormatEventCollector, type SessionFormatEvent, type SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
 import { createSessionFormatV3ToV4 } from '../src/index.ts'
 import { remapV3References } from '../src/references.ts'
 
 const header = { type: 'session', version: 3, id: 'restart', createdAt: 1, isSeeded: false, delegationDepth: 0 }
-const nativeHeader: SessionHeader = { version: 4, id: SessionId(header.id), createdAt: 1, isSeeded: false, delegationDepth: 0 }
+const nativeHeader: SessionHeader = { version: SESSION_FORMAT_VERSION,
+  id: SessionId(header.id),
+  createdAt: 1,
+  isSeeded: false,
+  delegationDepth: 0 }
 const user = (id: string) => ({ id, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: id }] })
 const row = (type: string, data: SessionFormatJsonObject) => ({ type, data })
 const splice = () => row('agent/inbox/spliced', { target: 'next-turn', inserted: [user('next')] })
@@ -71,15 +75,43 @@ describe('V3 interrupted-turn migration', () => {
       start(1), { ...row('user/message', user('before')), surfaceOp: 'append' }, splice(), start(2),
       { ...row('user/message', user('after')), surfaceOp: 'append' },
       row('compaction/start', { compactionId: 'c', turn: 2 }),
-      row('compaction/summary', { compactionId: 'c', summary: [{ type: 'text', text: 'summary' }], shadowedRange: { start: 1, end: 4 }, shadowedSeqs: [1, 4], shadowedTokenCount: 1, provider: 'mock', model: 'mock' }),
-      { ...row('user/message', { ...user('checkpoint'), source: { kind: 'plugin', plugin: 'compact', compactionId: 'c' } }), surfaceOp: { op: 'replace', startSeq: 1, endSeq: 4 }, sourceEventSeqs: [1, 4, 5, 6] },
+      row('compaction/summary',
+        { compactionId: 'c',
+          summary: [{ type: 'text',
+            text: 'summary' }],
+          shadowedRange: { start: 1,
+            end: 4 },
+          shadowedSeqs: [1,
+            4],
+          shadowedTokenCount: 1,
+          provider: 'mock',
+          model: 'mock' }),
+      { ...row('user/message',
+        { ...user('checkpoint'),
+          source: { kind: 'plugin',
+            plugin: 'compact',
+            compactionId: 'c' } }),
+      surfaceOp: { op: 'replace',
+        startSeq: 1,
+        endSeq: 4 },
+      sourceEventSeqs: [1,
+        4,
+        5,
+        6] },
       row('compaction/end', { compactionId: 'c', turn: 2 }),
       row('command/run', { commandId: 'cmd', name: 'test', source: { kind: 'user' } }),
       row('command/done', { commandId: 'cmd', kind: 'success', sourceEventSeq: 7 }),
       row('session/title', { title: 'title', source: { kind: 'generated' }, messageSeqs: [1, 4] }),
       row('session/title-llm-request', { messageSeqs: [1, 4], messages: [titleMessage] }),
       row('session-log-deepseek/delivery-accepted', { sessionId: header.id, sessionFormatVersion: 3, throughSeq: 12 }),
-      { ...row('user/message', { ...user('capture'), source: { kind: 'plugin', plugin: 'session-reference', sessionId: 'other', seq: 4, sessionFormatVersion: 3 } }), surfaceOp: 'append' },
+      { ...row('user/message',
+        { ...user('capture'),
+          source: { kind: 'plugin',
+            plugin: 'session-reference',
+            sessionId: 'other',
+            seq: 4,
+            sessionFormatVersion: 3 } }),
+      surfaceOp: 'append' },
       { ...row('external/opaque', { seq: 4 }), ignorable: true, sourceEventSeqs: [4], surfaceOp: { opaque: 4 } },
       end(2),
     ])
@@ -91,7 +123,10 @@ describe('V3 interrupted-turn migration', () => {
     expect(artifact.events[12]).toMatchObject({ data: { messageSeqs: [1, 5] } })
     expect(artifact.events[13]).toMatchObject({ data: { messageSeqs: [1, 5], messages: [titleMessage] } })
     expect(artifact.events[14]?.data).toEqual(source[13]?.data)
-    expect(artifact.events[15]).toMatchObject({ data: { source: { kind: 'session-reference', sessionId: 'other', seq: 4, sessionFormatVersion: 3 } } })
+    expect(artifact.events[15]).toMatchObject({ data: { source: { kind: 'session-reference',
+      sessionId: 'other',
+      seq: 4,
+      sessionFormatVersion: 3 } } })
     expect(artifact.events[16]).toEqual({ ...source[15], type: 'plugin:external/opaque', seq: 16 })
     expect(artifact.header).toEqual(nativeHeader)
     const session = Session.fromRestore(nativeHeader.id, artifact.events as SessionEvent[], nativeHeader, SessionLogOffset(0), 'detached')
@@ -107,8 +142,16 @@ describe('V3 interrupted-turn migration', () => {
     ]))
     expect(artifact.events[7]).toMatchObject({ data: { targets: [{ seq: 6, imageIndexes: [0] }] } })
     expect(artifact.header).toEqual(nativeHeader)
-    const session = Session.fromRestore(nativeHeader.id, artifact.events as SessionEvent[], nativeHeader, SessionLogOffset(0), 'detached', [imageOffloadProjection])
-    expect(session.deriveMessages()).toMatchObject([{ id: 'picture', content: [{ type: 'image', attachment: image.attachment, offloaded: true }] }])
+    const session = Session.fromRestore(nativeHeader.id,
+      artifact.events as SessionEvent[],
+      nativeHeader,
+      SessionLogOffset(0),
+      'detached',
+      [imageOffloadProjection])
+    expect(session.deriveMessages()).toMatchObject([{ id: 'picture',
+      content: [{ type: 'image',
+        attachment: image.attachment,
+        offloaded: true }] }])
   })
 
   it('remaps the final inherited cut and validates delivery ownership in source coordinates', () => {
@@ -120,7 +163,11 @@ describe('V3 interrupted-turn migration', () => {
     expect(restore(events([...prefix(), start(2), marker, foreign, marker]), seeded).inheritedEventCount).toBe(8)
     expect(restore(events([...prefix(), end(1), marker, start(2), splice(), start(3)]), seeded).inheritedEventCount).toBe(5)
     expect(() => restore(events([...prefix(), start(2), marker, foreign]), seeded)).toThrow('wrong Session')
-    const current = createSessionFormatV3ToV4([]).createStage({ sourceHeader: seeded, targetHeader: { ...seeded, version: 4 }, sourceKind: 'decoded', sourceInheritedEventCount: 7 })
+    const current = createSessionFormatV3ToV4([]).createStage({ sourceHeader: seeded,
+      targetHeader: { ...seeded,
+        version: 4 },
+      sourceKind: 'decoded',
+      sourceInheritedEventCount: 7 })
     const output = new SessionFormatEventCollector()
     current.transformRun({ runType: 'restart', eventCount: source.length, firstSeq: 0, *expand() { yield* source } }, output)
     expect(current.finish(output)).toBe(8)
@@ -140,7 +187,16 @@ describe('V3 interrupted-turn migration', () => {
   })
 
   it('remaps prune ranges and optional command references without interpreting unrelated data', () => {
-    expect(remapV3References({ ...row('compaction/prune', { shadowedRange: { start: 0, end: 1 }, shadowedSeqs: [0, 1] }), seq: 2, time: 1 }, 3, [0, 2]).data)
+    expect(remapV3References({ ...row('compaction/prune',
+      { shadowedRange: { start: 0,
+        end: 1 },
+      shadowedSeqs: [0,
+        1] }),
+    seq: 2,
+    time: 1 },
+    3,
+    [0,
+      2]).data)
       .toEqual({ shadowedRange: { start: 0, end: 2 }, shadowedSeqs: [0, 2] })
     expect(remapV3References({ ...row('command/done', { commandId: 'c', kind: 'error' }), seq: 1, time: 1 }, 2, [0]).data)
       .toEqual({ commandId: 'c', kind: 'error' })

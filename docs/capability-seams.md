@@ -124,6 +124,14 @@ flowchart LR
   pkg_storage_domain["storage-domain"]
   svc_storageDomain["ctx.storageDomain<br/>Domain data facility"]
   pkg_workspace["workspace"]
+  pkg_pto_experiments["pto-experiments"]
+  svc_ptoExperiments["ctx.ptoExperiments<br/>PTO experiment proposal registry"]
+  pkg_host_pto_artifact_inspection["host-pto-artifact-inspection"]
+  svc_ptoArtifactInspection["ctx.ptoArtifactInspection<br/>PTO artifact inspection and analysis admission"]
+  pkg_api_remotes["api-remotes"]
+  pkg_client_ui_workspace["client-ui-workspace"]
+  pkg_host_pto_experiment_dashboard["host-pto-experiment-dashboard"]
+  svc_ptoExperimentDashboard["ctx.ptoExperimentDashboard<br/>Session-addressed PTO dashboard projection"]
   svc_messageFeedback["ctx.messageFeedback<br/>Lifecycle-bound message feedback"]
   pkg_command_feedback["command-feedback"]
   svc_sessionFeedback["ctx.sessionFeedback<br/>Session-level feedback recorder"]
@@ -331,6 +339,8 @@ flowchart LR
   pkg_host_directory_picker_browse --> svc_directoryPicker
   pkg_host_directory_picker_native --> svc_directoryPicker
   pkg_host_product_telemetry_otel --> svc_productTelemetry
+  pkg_host_pto_artifact_inspection --> svc_ptoArtifactInspection
+  pkg_host_pto_experiment_dashboard --> svc_ptoExperimentDashboard
   pkg_host_webserver --> svc_webServer
   pkg_inspector --> svc_inspector
   pkg_invariants --> svc_invariants
@@ -352,6 +362,7 @@ flowchart LR
   pkg_plugin_package_inventory_deepseek --> svc_deepseekLlmApiExtensions
   pkg_ptc_runtime --> svc_ptcRuntime
   pkg_ptc_runtime_node --> svc_ptcRuntime
+  pkg_pto_experiments --> svc_ptoExperiments
   pkg_pwsh_local --> svc_shell
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
@@ -475,6 +486,9 @@ flowchart LR
   svc_profileContext --> pkg_plugin_manager
   svc_ptcRuntime --> pkg_tools
   svc_ptcRuntime --> pkg_workflow_ptc
+  svc_ptoArtifactInspection --> pkg_api_remotes
+  svc_ptoArtifactInspection --> pkg_client_ui_workspace
+  svc_ptoExperimentDashboard --> pkg_api_remotes
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -518,6 +532,7 @@ flowchart LR
   svc_ssh --> pkg_sandbox_ssh
   svc_ssh --> pkg_subprocess_ssh
   svc_storage --> pkg_storage_domain
+  svc_storageDomain --> pkg_pto_experiments
   svc_storageDomain --> pkg_workspace
   svc_subagentModelSelection --> pkg_tool_subagent
   svc_subagents --> pkg_tool_ralph
@@ -606,7 +621,10 @@ flowchart LR
 | `ctx.productTelemetry` | `service` | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel) | - | - | - | Exports explicitly submitted analytics events through OTLP/HTTP; mounting alone collects nothing. |
 | `ctx.sessionTelemetry` | `seam` | [`session-telemetry`](../packages/session/session-telemetry) | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | - | The seam captures, redacts, and hands session records to one backend; nothing else consumes the service — its output leaves the process. |
 | `ctx.storage` | `seam` | [`storage`](../packages/storage/storage) | [`storage-json`](../packages/storage/storage-json), [`storage-sqlite`](../packages/storage/storage-sqlite) | [`storage-domain`](../packages/storage/storage-domain) | - | Backends register side by side under names; data forms (domain first) mount on the hub and translate typed operations into opaque KV-unit primitives. |
-| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace) | - | Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state. |
+| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace), [`pto-experiments`](../packages/pto/pto-experiments) | - | Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state. |
+| `ctx.ptoExperiments` | `core` | [`pto-experiments`](../packages/pto/pto-experiments) | - | - | - | Owns Workspace-local proposals and queries plus one trusted Host execution-admission loop: clean Git/PyPTO identities, revision-bound user receipt, exclusive candidate reservation, command execution, and recognized terminal run. Models retain planning/query tools only. |
+| `ctx.ptoArtifactInspection` | `core` | [`host-pto-artifact-inspection`](../packages/host/pto-artifact-inspection) | - | [`api-remotes`](../packages/api/remotes), [`client-ui-workspace`](../packages/client/ui-workspace) | - | Owns explicit directory registrations, revision checks, revocable static viewer routes, and qualified official dependency-analysis admission. |
+| `ctx.ptoExperimentDashboard` | `seam` | [`host-pto-experiment-dashboard`](../packages/host/pto-experiment-dashboard) | - | [`api-remotes`](../packages/api/remotes) | - | Resolves Workspace authority from an existing Session, then exposes a bounded read-only experiment projection without caller paths or storage identity keys. |
 | `ctx.messageFeedback` | `core` | [`message-feedback`](../packages/feedback/message-feedback) | - | - | - | Owns per-assistant-message feedback in the canonical Session log, target validation, per-item compare-and-set, and the Host unary Remote contract. Feedback stays outside model history; log export follows the consumer policy. |
 | `ctx.sessionFeedback` | `core` | [`command-feedback`](../packages/feedback/command-feedback) | - | - | - | Records one Session-level remark with its category as a log-only feedback/record event on a live Session through the Host unary Remote contract; the /feedback command shares the same producer. |
 | `ctx.workspaceRegistry` | `core` | [`workspace`](../packages/workspace/workspace) | - | [`api-workspace-controller`](../packages/api/workspace-controller), [`api-session-controller`](../packages/api/session-controller) | - | Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections. |

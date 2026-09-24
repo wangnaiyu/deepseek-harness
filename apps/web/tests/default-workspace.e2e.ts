@@ -16,7 +16,7 @@ const FAILURE_EXPECTED = fileURLToPath(new URL('./expected/default-workspace/fai
 const MODE = webSnapshotMode()
 
 describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
-  it('prepares a blank Session on startup, reuses it after reload, and sends through the ordinary composer', async () => {
+  it('stages a browser draft on startup and reload, then creates its Session on first send', async () => {
     const fixture = await selectedSessionFixture(FIXTURE)
     const scaffold = await launchWebScaffold({
       firstUse: true,
@@ -35,12 +35,10 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         const input = page.locator('[data-composer-input][contenteditable="true"]').first()
         await input.waitFor()
         expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(1)
-        const initialSession = scaffold.ctx.sessions.list()[0]!
-        expect(scaffold.ctx.sessions.list()).toHaveLength(1)
-        expect(initialSession.snapshotEvents().some(event => event.type === 'user/message')).toBe(false)
+        expect(scaffold.ctx.sessions.list()).toHaveLength(0)
         await page.reload()
         await input.waitFor()
-        expect(scaffold.ctx.sessions.list().map(session => session.id)).toEqual([initialSession.id])
+        expect(scaffold.ctx.sessions.list()).toHaveLength(0)
         const prompt = fixtureUserPrompts(await readFile(fixture, 'utf8'))[0]!
         await input.fill(prompt)
         const settled = scaffold.whenTurnSettled()
@@ -100,7 +98,7 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         await input.waitFor()
         expect(await input.textContent()).toBe('')
         expect(scaffold.ctx.workspaceRegistry.list()[0]?.path).toBe(chosen)
-        expect(scaffold.ctx.sessions.list()).toHaveLength(1)
+        expect(scaffold.ctx.sessions.list()).toHaveLength(0)
         expect(scaffold.ctx.sessions.list().every(session =>
           session.snapshotEvents().every(event => event.type !== 'user/message'))).toBe(true)
         expect(tripwire.pageErrors).toEqual([])

@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import CommandRuntime, { type CommandDefinition } from '@deepseek-ai/dsh-commands'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-presets'
+import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
 import { createScope, type ScopeKey } from '@deepseek-ai/dsh-scope'
 import SkillRegistry, { type SkillCandidate, type SkillLookupOptions, type SkillProvider } from '@deepseek-ai/dsh-skill'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
@@ -65,7 +65,7 @@ async function harness(options: HarnessOptions = {}): Promise<{
   catalog: ComposerCatalogGateway
   standingKey: ScopeKey
   skillLookups: SkillLookupOptions[]
-  standingKeyFor: ReturnType<typeof vi.fn>
+  acquireScope: ReturnType<typeof vi.fn>
 }> {
   const ctx = new Context()
   contexts.push(ctx)
@@ -96,12 +96,12 @@ async function harness(options: HarnessOptions = {}): Promise<{
     get: (id: WorkspaceId) => id === workspaceId ? workspace : undefined,
     list: () => [workspace],
   } as never)
-  const standingKeyFor = vi.fn(() => options.presetFailure === undefined
-    ? Promise.resolve(standingKey)
+  const acquireScope = vi.fn(() => options.presetFailure === undefined
+    ? Promise.resolve({ key: standingKey, [Symbol.asyncDispose]: async () => {} })
     : Promise.reject(options.presetFailure))
   ctx.provide('agentPresets', {
-    standingKeyFor,
-    serviceForStanding: vi.fn((_key: ScopeKey, name: string) =>
+    acquireScope,
+    serviceForScope: vi.fn((_key: ScopeKey, name: string) =>
       name === 'skills' ? options.isolatedSkills : undefined),
     serviceFor: vi.fn(() => undefined),
   } as never)
@@ -111,7 +111,7 @@ async function harness(options: HarnessOptions = {}): Promise<{
     catalog: ctx.get('composerCatalog') as ComposerCatalogGateway,
     standingKey,
     skillLookups,
-    standingKeyFor,
+    acquireScope,
   }
 }
 
@@ -236,7 +236,7 @@ describe('ComposerCatalogGateway', () => {
       candidate('filesystem', 'custom-skill', 'custom'),
       ...lookup.cwd === undefined ? [candidate('filesystem', 'global-skill', 'bundled')] : [],
     ]))
-    const { ctx, catalog, standingKey, skillLookups, standingKeyFor } = await harness({
+    const { ctx, catalog, standingKey, skillLookups, acquireScope } = await harness({
       providers: [provider('filesystem', list)],
     })
     ctx.commands.register(command('global'))
@@ -255,7 +255,7 @@ describe('ComposerCatalogGateway', () => {
     ])
     expect(skillLookups).toHaveLength(1)
     expect(skillLookups[0]?.cwd).toBeUndefined()
-    expect(standingKeyFor).not.toHaveBeenCalled()
+    expect(acquireScope).not.toHaveBeenCalled()
   })
 
   it('uses an isolated standing Skill registry instead of the Host root', async () => {

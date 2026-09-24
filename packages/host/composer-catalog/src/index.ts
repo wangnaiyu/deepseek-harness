@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import type { CommandDiscoveryEntry } from '@deepseek-ai/dsh-commands'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -68,7 +68,7 @@ export class ComposerCatalogSessionNotFound extends Error {
 interface DraftTarget {
   readonly cwd?: string
   readonly workspaceOrigin?: DraftCatalogOrigin
-  readonly standingKey?: ScopeKey
+  readonly lease?: { key: ScopeKey } & AsyncDisposable
   readonly presetError?: Error
 }
 
@@ -110,6 +110,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
   @Remote('listDraft')
   async listDraft(request: DraftComposerCatalogRequest): Promise<DraftComposerCatalog> {
     const target = await this.resolveTarget(request)
+    await using _lease = target.lease
     const errors: DraftCatalogError[] = []
     if (target.presetError !== undefined) {
       const origin = fixedOrigin('agent')
@@ -119,7 +120,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
       )
     }
 
-    const commands = this.commands(target.standingKey)
+    const commands = this.commands(target.lease?.key)
     const skills = await this.skills(target, errors)
     return catalogResult(commands, skills, errors)
   }
@@ -140,12 +141,12 @@ export class ComposerCatalogGateway extends TypertRemoteService {
     const live = this.ctx.get('agents')?.get(sessionId)
     const errors: DraftCatalogError[] = []
     let scope: ScopeKey | undefined = live
-    let standingKey: ScopeKey | undefined
+    let lease: ({ key: ScopeKey } & AsyncDisposable) | undefined
     if (scope === undefined) {
       try {
         const preset = this.ctx.sessionProjections.stateOf(session, 'agentPreset') ?? undefined
-        standingKey = await this.ctx.agentPresets.standingKeyFor(preset)
-        scope = standingKey
+        lease = await this.ctx.agentPresets.acquireScope(preset)
+        scope = lease.key
       } catch (error: unknown) {
         const origin = fixedOrigin('agent')
         errors.push(
@@ -154,6 +155,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
         )
       }
     }
+    await using _retainedScope = lease
     const workspace = this.ctx.workspaceRegistry.list()
       .find(candidate => candidate.sessionIds.includes(sessionId))
     const target: DraftTarget = {
@@ -161,7 +163,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
       ...workspace === undefined ? {} : {
         workspaceOrigin: Object.freeze({ kind: 'workspace' as const, label: workspace.title }),
       },
-      ...standingKey === undefined ? {} : { standingKey },
+      ...lease === undefined ? {} : { lease },
     }
     const registry = live === undefined
       ? this.skillRegistry(target)
@@ -176,17 +178,17 @@ export class ComposerCatalogGateway extends TypertRemoteService {
     if (request.workspaceId === undefined) return {}
     const workspace = this.ctx.workspaceRegistry.get(WorkspaceId(request.workspaceId))
     if (workspace === undefined) throw new DraftComposerWorkspaceNotFound(request.workspaceId)
-    let standingKey: ScopeKey | undefined
+    let lease: ({ key: ScopeKey } & AsyncDisposable) | undefined
     let presetError: Error | undefined
     try {
-      standingKey = await this.ctx.agentPresets.standingKeyFor(request.agentPreset)
+      lease = await this.ctx.agentPresets.acquireScope(request.agentPreset)
     } catch (error: unknown) {
       presetError = toError(error)
     }
     return {
       cwd: workspace.path,
       workspaceOrigin: Object.freeze({ kind: 'workspace', label: workspace.title }),
-      ...standingKey === undefined ? {} : { standingKey },
+      ...lease === undefined ? {} : { lease },
       ...presetError === undefined ? {} : { presetError },
     }
   }
@@ -215,7 +217,7 @@ export class ComposerCatalogGateway extends TypertRemoteService {
     target: DraftTarget,
     errors: DraftCatalogError[],
     registry = this.skillRegistry(target),
-    scope: ScopeKey | undefined = target.standingKey,
+    scope: ScopeKey | undefined = target.lease?.key,
     includeSourcePath = false,
   ): Promise<DraftSkillDescriptor[]> {
     let snapshot
@@ -247,8 +249,8 @@ export class ComposerCatalogGateway extends TypertRemoteService {
 
   /** Match formal preset behavior: use an isolated registry when mounted, otherwise the Host registry. */
   private skillRegistry(target: DraftTarget): SkillRegistry {
-    if (target.standingKey === undefined) return this.ctx.skills
-    return this.ctx.agentPresets.serviceForStanding(target.standingKey, 'skills') ?? this.ctx.skills
+    if (target.lease?.key === undefined) return this.ctx.skills
+    return this.ctx.agentPresets.serviceForScope(target.lease.key, 'skills') ?? this.ctx.skills
   }
 
   /** Resolve Skill source/provider facts to one user-facing product origin. */

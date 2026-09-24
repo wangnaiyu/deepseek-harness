@@ -195,7 +195,7 @@ describe('candidates: sessionId addressing', () => {
     const opened = Promise.withResolvers<undefined>()
     const response = Promise.withResolvers<ListResult>()
     const list = vi.fn(() => response.promise)
-    const b = await bench(list, undefined, { initialOpen: () => opened.promise })
+    const b = await bench(list, undefined, undefined, { initialOpen: () => opened.promise })
     try {
       const pending = b.source.candidates(proj('s1'), req(''))
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().retainedBy.skillCatalog).toBe(1)
@@ -215,7 +215,7 @@ describe('candidates: sessionId addressing', () => {
   it.each([true, false])('refuses an unsuccessful history open (reported error: %s)', async (reported) => {
     const error = new RemoteError('gateway/internal', 'history unavailable', {})
     const list = vi.fn(listOk(CATALOG))
-    const b = await bench(list, undefined, { snapshot: { openState: 'error', openError: reported ? error : null } })
+    const b = await bench(list, undefined, undefined, { snapshot: { openState: 'error', openError: reported ? error : null } })
     await expect(b.source.candidates(proj('s1'), req(''))).rejects.toThrow(reported ? 'history unavailable' : 'is not open')
     expect(list).not.toHaveBeenCalled()
     expect(b.sessions.retainInfo(sid('s1')).getSnapshot().referenceCount).toBe(1)
@@ -233,7 +233,7 @@ describe('candidates: sessionId addressing', () => {
   it('releases the shared read when the plugin unloads before history is ready', async () => {
     const opened = Promise.withResolvers<undefined>()
     const list = vi.fn(listOk(CATALOG))
-    const b = await bench(list, undefined, { initialOpen: () => opened.promise })
+    const b = await bench(list, undefined, undefined, { initialOpen: () => opened.promise })
     try {
       const pending = expect(b.source.candidates(proj('s1'), req(''))).rejects.toThrow()
       await b.fiber.dispose()

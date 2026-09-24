@@ -868,7 +868,7 @@ export class PtoExperimentStore extends Service {
         const execution = running.record.execution
         if (execution === null || execution === undefined) throw new Error('experiment has no execution specification')
         const shell = this.requireShell()
-        result = await shell.run(shell.resolve({
+        const handle = await shell.execute(shell.resolve({
           command: execution.command,
           workdir: running.targets.source.displayPath,
           timeoutMs: execution.timeoutMs,
@@ -879,6 +879,7 @@ export class PtoExperimentStore extends Service {
           },
           sandboxPolicy: this.requireSandboxPolicy().resolve({ session: scope.agent.session, mode: 'danger-full-access' }),
         }))
+        result = await handle.result()
       } catch (error: unknown) {
         return await this.finishExecution(terminalSettlementScope(scope), running.record, running.targets, {
           kind: scope.signal?.aborted ? 'cancelled' : 'failed',

@@ -3,5 +3,8 @@ scenario: bash-same-mode-empty-justification
 profile: headless
 composition: default
 recording: authored
+sessionFormat:
+  version: 4
+  coverage: [adjacent-migration]
 header:
   class: default

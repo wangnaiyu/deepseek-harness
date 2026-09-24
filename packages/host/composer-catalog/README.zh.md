@@ -21,6 +21,8 @@ kind: "package-reference"
 
 -----
 
+草稿目录读取在整个异步查询期间持有 `agentPresets.acquireScope` lease，并通过 `serviceForScope` 解析隔离服务。会话读取保留现有 Agent 所有权。预设的销毁或替换不会提前回收进行中的草稿查询；查询结束释放 lease，不创建 Session。
+
 <a id="package-behavior"></a>
 ## 包行为
 

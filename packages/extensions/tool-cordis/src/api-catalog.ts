@@ -190,6 +190,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'The service, or undefined.',
       },
       {
+        signature: 'serviceForScope<K extends string & keyof Context>(key: ScopeKey, name: K): Context[K] | undefined',
+        description: 'Resolve a service from a retained preset revision without creating an Agent.',
+        parameters: [{ name: 'key', description: 'Revision key returned by acquireScope; the caller must hold its lease.' }, { name: 'name', description: 'Cordis service name.' }],
+        returns: 'The revision service, or undefined when it supplies none.',
+      },
+      {
         signature: 'async recompose(ctx: Context, id: string): Promise<AgentPreset>',
         description: 'Rebind a blank Agent; the caller owns the blank-session check.',
         parameters: [{ name: 'ctx', description: 'Agent context.' }, { name: 'id', description: 'Requested preset.' }],
@@ -212,12 +218,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read plugin rows without creating an Agent.',
         parameters: [],
         returns: 'Current declaration metadata and activation states.',
-      },
-      {
-        signature: 'serviceForStanding<K extends string & keyof Context>( standingKey: ScopeKey, name: K, ): Context[K] | undefined',
-        description: 'Resolve one service from an already ensured standing composition without an Agent. An absent service returns `undefined` rather than falling back to the host root.',
-        parameters: [{ name: 'standingKey', description: 'opaque key returned by {@link standingKeyFor}.' }, { name: 'name', description: 'service name as the preset\'s rows resolve it.' }],
-        returns: 'the standing service instance, or undefined when not mounted by the preset.',
       },
     ],
   },

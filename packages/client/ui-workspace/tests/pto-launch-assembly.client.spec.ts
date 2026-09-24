@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // Real plugin assembly; the Host boundary is stubbed here, never used as live receipt evidence.
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { WorkspaceBrowserInjected } from '../src/client/index.ts'
 import type { PtoViewerOverlayInjected } from '../src/client/PtoViewerOverlay.tsx'
@@ -22,7 +23,7 @@ it('keeps launch identity through preset drift, admission retry, model retry and
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
-  runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
+  runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(false) }, get: () => stubConfigForm().scope } as never)
   let release!: (value: unknown) => void
   const roster = new Promise((resolve) => { release = resolve })
   // Cleanup releases the owned barrier even if an assertion fails.

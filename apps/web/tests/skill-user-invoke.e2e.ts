@@ -23,7 +23,7 @@ import {
   type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot,
+  connectFreshWorkspace, newEnglishPage, saveFailureShot,
   writeComposerDraft,
 } from './support.ts'
 

@@ -1,5 +1,6 @@
 /** Historical restoration for collecting migration prerequisites without recursively opening current Sessions. */
 
+import { assertPtoV4Header, legacyPtoV3ToV4, ptoV4SessionFormatCodec, restorePtoV4Artifact } from '@deepseek-ai/dsh-session-format-v4-to-v5'
 import { RELEASED_V3_EVENT_TYPES } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { createSessionFormatCatalog } from '@deepseek-ai/dsh-session-format'
 import { releasedV0SessionFormatCodec, releasedV1SessionFormatCodec, sessionFormatV0ToV1 } from '@deepseek-ai/dsh-session-format-v0-to-v1'
@@ -18,4 +19,19 @@ export const historicalSessionFormatCatalog = createSessionFormatCatalog({
     assertReleasedV3Header(header)
     return header
   },
+})
+
+/** Explicit legacy PTO V4 reader for child evidence; it never publishes a generation. */
+export const historicalPtoV4SessionFormatCatalog = createSessionFormatCatalog({
+  currentVersion: 4,
+  codecs: [releasedV0SessionFormatCodec,
+    releasedV1SessionFormatCodec,
+    releasedV2SessionFormatCodec,
+    releasedV3SessionFormatCodec,
+    ptoV4SessionFormatCodec],
+  currentEncoder: ptoV4SessionFormatCodec,
+  migrations: [sessionFormatV0ToV1, sessionFormatV1ToV2, sessionFormatV2ToV3, legacyPtoV3ToV4],
+  restoreCurrent: artifact => restorePtoV4Artifact(artifact, RELEASED_V3_EVENT_TYPES),
+  restoreTransformedCurrent: artifact => restorePtoV4Artifact(artifact, RELEASED_V3_EVENT_TYPES),
+  restoreCurrentHeader(header) { assertPtoV4Header(header); return header },
 })

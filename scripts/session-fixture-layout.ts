@@ -19,6 +19,18 @@ import { releasedV3SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v2
 const historicalCodecs: readonly SessionFormatCodec[] = [
   releasedV0SessionFormatCodec, releasedV1SessionFormatCodec, releasedV2SessionFormatCodec,
   releasedV3SessionFormatCodec,
+  // Both historical V4 lineages share V2 physical framing. This layout gate
+  // validates envelopes only; owning replay tests select the semantic lineage.
+  {
+    version: 4,
+    decodeHeader(value) {
+      return { ...releasedV2SessionFormatCodec.decodeHeader({ ...value as object, version: 2 }), version: 4 }
+    },
+    createDecoder(value, recovery) {
+      const decoder = releasedV2SessionFormatCodec.createDecoder({ ...value as object, version: 2 }, recovery)
+      return { ...decoder, header: { ...decoder.header, version: 4 } }
+    },
+  },
 ]
 
 /** Physical persistence artifacts validated by the WebWorker runtime fixture spec. */

@@ -1,6 +1,6 @@
 /** Root overlay for Session-free PTO static viewers. */
 
-import { IconCloseFill14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseFillRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, PropsHooks, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PtoViewerState } from './pto-viewer.ts'
 import type { WorkspaceKey } from './locales.ts'
@@ -74,7 +74,7 @@ export function PtoViewerOverlay({ useViewer, closeViewer, analyzeRecord, switch
           {t('viewer.analyze')}
         </button>
         <button type="button" className={css.close} aria-label={t('viewer.close')} onClick={closeViewer}>
-          <IconCloseFill14 />
+          <IconCloseFillRegular />
         </button>
       </header>
       {state.analysisError !== undefined && <p role="alert">{state.analysisError}</p>}
